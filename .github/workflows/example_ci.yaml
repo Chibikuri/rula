@@ -5,7 +5,10 @@ name: Build and unit testing
 jobs:
   build_and_test:
     name: Unit testing
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [ 'macos-latest', 'ubuntu-latest']
+    runs-on: ${{ matrix.version }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -15,4 +18,4 @@ jobs:
         with:
           command: build
           args: --release --all-features
-      - run: cd example && cargo test
+      - run: cargo test
