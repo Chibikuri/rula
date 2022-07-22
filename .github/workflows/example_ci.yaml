@@ -1,10 +1,6 @@
-on:
-  push:
-    paths:
-      - example/
+on: [push]
 
-
-name: RuLa
+name: example
 
 jobs:
   build_and_test:
