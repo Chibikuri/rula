@@ -1,0 +1,1 @@
+![coverage_graph](https://codecov.io/gh/Chibikuri/RuLa/branch/main/graphs/icicle.svg?token=M4GYZPQEHY)
