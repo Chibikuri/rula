@@ -1,0 +1,8 @@
+
+// rule for purification
+rule local_operation<q1: Qubit>(q2: Qubit) {
+	cond {
+		// awaitable
+	}
+
+}
