@@ -7,7 +7,7 @@ jobs:
     name: Unit testing
     strategy:
       matrix:
-        version: [ 'macos-latest', 'ubuntu-latest']
+        version: ['macos-latest', 'ubuntu-latest']
     runs-on: ${{ matrix.version }}
     steps:
       - uses: actions/checkout@v2
