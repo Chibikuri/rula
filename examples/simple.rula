@@ -1,8 +1,29 @@
+use std::{get_qubit_status, borrow_qubit};
+use std::operation::{cnot, pau_x, pau_z} // remote cnot
 
-// rule for purification
-rule local_operation<q1: Qubit>(q2: Qubit) {
+
+// rule for purification<CONF>
+//...config for measurement timing, swapping order, etc
+// 1. Default qubit (q1)
+// 2. 
+rule <CONF> local_operation<q1: qubit>() -> String {
+	// define future for qubit status
+	let status_q1 = get_qubit_status(q1);
+	let q2_pid: PId = get_free_qubit_pid();
+	
+	let result;
+	await cond {
+		// qubit 1 is ready and locked for this rule process
+		status_q1.ready(); 
+		request(q2_pid).connect();
+	} => act {
+		cnot(q1, q2_pid);
+		result = measure(q2_pid);
+	};
+	
 	cond {
-		// awaitable
-	}
 
+	}
 }
+
+

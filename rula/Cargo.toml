@@ -9,6 +9,7 @@ build = "build.rs"
 [dependencies]
 lalrpop-util = "0.19.8"
 regex="1"
+phf = { version = "0.10.1", features = ["macros"] }
 
 [build-dependencies]
 lalrpop = "0.19.8"

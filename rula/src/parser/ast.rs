@@ -6,6 +6,12 @@ pub enum Expr {
     Error,
 }
 
+pub enum ExprSymbol<'input> {
+    NumSymbol(&'input str),
+    Op(Box<ExprSymbol<'input>>, OpCode, Box<ExprSymbol<'input>>),
+    Error,
+}
+
 #[derive(Copy, Clone)]
 pub enum OpCode {
     Mul,
@@ -25,16 +31,16 @@ impl Debug for Expr {
     }
 }
 
-// impl<'input> Debug for ExprSymbol<'input> {
-//     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-//         use self::ExprSymbol::*;
-//         match *self {
-//             NumSymbol(n) => write!(fmt, "{:?}", n),
-//             Op(ref l, op, ref r) => write!(fmt, "({:?} {:?} {:?})", l, op, r),
-//             Error => write!(fmt, "error"),
-//         }
-//     }
-// }
+impl<'input> Debug for ExprSymbol<'input> {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        use self::ExprSymbol::*;
+        match *self {
+            NumSymbol(n) => write!(fmt, "{:?}", n),
+            Op(ref l, op, ref r) => write!(fmt, "({:?} {:?} {:?})", l, op, r),
+            Error => write!(fmt, "error"),
+        }
+    }
+}
 
 impl Debug for OpCode {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
