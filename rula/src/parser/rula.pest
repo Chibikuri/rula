@@ -1,0 +1,18 @@
+WHITESPACE = _{" "}
+COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}
+
+number = {ASCII_DIGIT+}
+ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
+
+if_expr = {"if" ~ "("
+            ~ expr ~ 
+            ")" ~ "{" 
+            ~ expr 
+            ~ "}"}
+// else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}
+// else_expr = {"else" ~ "{" ~ expr ~ "}"}
+let_expr = {"let" ~ ident ~ "=" ~ number}
+
+expr = {(let_expr | if_expr | ident)}
+
+program = {(expr)}
