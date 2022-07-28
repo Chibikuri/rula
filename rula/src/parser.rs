@@ -6,10 +6,11 @@ use crate::Rule;
 use ast::AstNode;
 
 
-pub fn build_ast_from_rula(pair: pest::iterators::Pair<Rule>) -> AstNode {
+
+pub fn build_ast_from_program(pair: pest::iterators::Pair<Rule>)-> AstNode{
     match pair.as_rule(){
         Rule::stmt => build_ast_from_stmt(pair.into_inner().next().unwrap()),
-        _ => todo!("Should not be here for now")
+        _ => todo!()
     }
 }
 
@@ -24,13 +25,19 @@ fn build_ast_from_stmt(pair: pest::iterators::Pair<Rule>) -> AstNode{
 
 fn build_ast_from_expr(pair: pest::iterators::Pair<Rule>) -> AstNode {
     match pair.as_rule(){
-        Rule::import_expr => build_ast_from_import_expr(pair.into_inner().next().unwrap()),
+        Rule::import_expr => build_ast_from_import_expr(pair),
         Rule::if_expr => build_ast_from_if_expr(pair.into_inner().next().unwrap()),
         _=> todo!()
     }
 }
 
 fn build_ast_from_import_expr(pair: pest::iterators::Pair<Rule>) -> AstNode {
+    // println!("PAIR {:#?}", pair.tokens());
+    // println!("{:#?}", pair.into_inner().next().unwrap());
+    // match pair(){
+    //      => {println!("import")},
+    //     _ => todo!()
+    // }
     AstNode::Test
 }
 

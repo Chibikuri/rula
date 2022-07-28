@@ -2,13 +2,13 @@
 rula = {SOI ~ (WHITESPACE | "\n")* ~ program? ~ (WHITESPACE | "\n")* ~ EOI}
 
 // Program 
-program = _{ stmt ~ ";"?}
+program = { stmt ~ ";"?}
 
-stmt = _{expr}
+stmt = {expr}
 
 expr = {("\n")* ~(import_expr| if_expr | let_expr | ident | term) ~ ("\n")*}
 
-import_expr = {"import" ~ ident ~ ("::" ~ ident)+}
+import_expr = {"import" ~ ident ~ ("::" ~ ident)*}
 
 if_expr = {"if" ~ "(" ~ expr ~ ")" ~"{" ~ expr ~ "}" ~ (else_if_expr)* ~ else_expr?}
 else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}

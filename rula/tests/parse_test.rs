@@ -3,9 +3,9 @@ extern crate rula;
 use rula::parser::ast::{AstNode, OpCode};
 
 #[test]
-fn test_parse_simple_plus_op() {
-    let expr = "1 + 2";
-    let ast_nodes = rula::parse(expr).unwrap();
+fn test_parse_import() {
+    let import_expr = "import hello::world";
+    let ast_nodes = rula::parse(import_expr).unwrap();
     let mut expected_ast_nodes = vec![
         AstNode::Term {
             lhs: Box::new(AstNode::Integer(1)),
