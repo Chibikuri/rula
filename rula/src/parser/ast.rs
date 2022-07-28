@@ -12,7 +12,7 @@ pub enum ExprSymbol<'input> {
     Error,
 }
 
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum OpCode {
     Mul,
     Div,
@@ -20,14 +20,23 @@ pub enum OpCode {
     Sub,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
+    Integer(i32),
+    Float(f64),
+    Term {
+        lhs: Box<AstNode>,
+        op: OpCode,
+        rhs: Box<AstNode>,
+    },
+    If,
+    Else,
     Test,
 }
 impl Debug for Expr {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::Expr::*;
-        match *self {
+        match self {
             Number(n) => write!(fmt, "{:?}", n),
             Op(ref l, op, ref r) => write!(fmt, "({:?} {:?} {:?})", l, op, r),
             Error => write!(fmt, "error"),

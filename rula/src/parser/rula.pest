@@ -1,18 +1,29 @@
-WHITESPACE = _{" "}
-COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}
+// Everything starts here
+rula = {SOI ~ (WHITESPACE | "\n")* ~ program? ~ (WHITESPACE | "\n")* ~ EOI}
+
+// Program 
+program = _{ stmt ~ ";"?}
+
+stmt = _{expr}
+
+expr = {("\n")* ~(import_expr| if_expr | let_expr | ident | term) ~ ("\n")*}
+
+import_expr = {"import" ~ ident ~ ("::" ~ ident)+}
+
+if_expr = {"if" ~ "(" ~ expr ~ ")" ~"{" ~ expr ~ "}" ~ (else_if_expr)* ~ else_expr?}
+else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}
+else_expr = {"else" ~ "{" ~ expr ~ "}"}
+
+let_expr = {"let" ~ ident ~ "=" ~ number}
+
+term = {number ~ (op ~ number)*}
+
+op = {"*" | "/" | "+" | "-"}
 
 number = {ASCII_DIGIT+}
 ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
 
-if_expr = {"if" ~ "("
-            ~ expr ~ 
-            ")" ~ "{" 
-            ~ expr 
-            ~ "}"}
-// else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}
-// else_expr = {"else" ~ "{" ~ expr ~ "}"}
-let_expr = {"let" ~ ident ~ "=" ~ number}
+left_paren = {"(" ~ "\n"?}
 
-expr = {(let_expr | if_expr | ident)}
-
-program = {(expr)}
+WHITESPACE = _{" "}
+COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}
