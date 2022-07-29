@@ -1,10 +1,5 @@
 extern crate rula;
-
-use std::path::PathBuf;
-
-use pest::error::Error;
-use rula::parser::ast::{AstNode, OpCode};
-use rula::parser::error::RuLaSyntaxError;
+use rula::parser::ast::{AstNode};
 
 #[test]
 fn test_parse_import() {

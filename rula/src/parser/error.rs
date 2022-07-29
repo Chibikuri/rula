@@ -1,5 +1,3 @@
-use std::error;
-use std::error::Error as _;
 use std::fmt;
 
 // Custome error interface for rula

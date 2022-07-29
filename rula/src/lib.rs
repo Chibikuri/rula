@@ -25,11 +25,22 @@ pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
         match pair.as_rule() {
             Rule::program => {
                 ast.push(build_ast_from_program(pair.into_inner().next().unwrap())?);
-            }
-            _ => {
-                panic!("Top AST must start program not {:?}", pair)
-            }
+            },
+            // Should have better error type and message here
+            _ => panic!("RuLa program must be start with rula not: {:#?}", pair),
         }
     }
     Ok(ast)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse;
+    #[test]
+    #[should_panic]
+    fn test_non_rula_program(){
+        // unknown input sequence
+        let input = "####";
+        let _ = parse(input);
+    }
 }
