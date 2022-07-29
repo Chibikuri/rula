@@ -20,7 +20,6 @@ fn test_nested_import() {
     assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
 }
 #[test]
-#[should_panic]
 fn test_import_syntax_error_imcomplete_path() {
     // Error test
     // imcompelete path
