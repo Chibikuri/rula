@@ -49,6 +49,14 @@ mod import_tests {
         let error_ast_nodes = rula::parse(import_expr);
         assert!(error_ast_nodes.is_err());
     }
+
+    #[test]
+    fn test_import_syntax_error_imcomplete_path_multiple(){
+        // imcomplete error
+        let import_expr = "import hello::{world, }";
+        let error_ast_nodes = rula::parse(import_expr);
+        assert!(error_ast_nodes.is_err());
+    }
 }
 
 mod comment_tests {

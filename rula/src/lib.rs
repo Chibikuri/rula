@@ -8,7 +8,7 @@ extern crate pest_derive;
 pub struct RuLaParser;
 
 use parser::ast::AstNode;
-use parser::error::RuLaSyntaxError;
+use parser::error::RuLaError;
 use parser::IResult;
 use pest::Parser;
 
@@ -24,7 +24,7 @@ pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
         Ok(parsed) => pairs = parsed,
         Err(e) => {
             println!("Pest Error message {:?}", e);
-            return Err(RuLaSyntaxError);
+            return Err(RuLaError::RuLaSyntaxError);
         }
     }
 
@@ -35,7 +35,7 @@ pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
             }
             _ => {
                 println!("Not Rula proram");
-                return Err(RuLaSyntaxError);
+                return Err(RuLaError::RuLaSyntaxError);
             }
         }
     }

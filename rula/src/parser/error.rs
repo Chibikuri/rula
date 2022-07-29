@@ -1,10 +1,11 @@
 use std::fmt;
 
-// #[derive(Debug)]
-// pub enum RuLaError{
-//     // Should be detailed
-//     RuLaSyntaxError,
-// }
+#[derive(Debug, PartialEq)]
+pub enum RuLaError{
+    // Should be detailed
+    RuLaSyntaxError,
+    RuLaPathConstructionError,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuLaSyntaxError;

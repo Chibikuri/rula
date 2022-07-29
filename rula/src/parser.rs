@@ -4,33 +4,33 @@ pub mod token;
 
 use crate::Rule;
 use ast::AstNode;
-use error::{RuLaPathConstructionError, RuLaSyntaxError};
+use error::RuLaError;
 use std::path::PathBuf;
 
 use pest::iterators::Pair;
 
 // Custome error interface for rula
-pub type IResult<T> = std::result::Result<T, RuLaSyntaxError>;
+pub type IResult<T> = std::result::Result<T, RuLaError>;
 
 pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
         Rule::program => build_ast_from_program(pair.into_inner().next().unwrap()),
         Rule::EOI => Ok(AstNode::Eoi),
-        _ => Err(RuLaSyntaxError),
+        _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
 fn build_ast_from_program(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
         Rule::stmt => build_ast_from_stmt(pair.into_inner().next().unwrap()),
-        _ => Err(RuLaSyntaxError),
+        _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
         Rule::expr => build_ast_from_expr(pair.into_inner().next().unwrap()),
-        _ => Err(RuLaSyntaxError),
+        _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
@@ -38,7 +38,7 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
         Rule::import_expr => build_ast_from_import_expr(pair),
         Rule::if_expr => build_ast_from_if_expr(pair.into_inner().next().unwrap()),
-        _ => Err(RuLaSyntaxError),
+        _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
@@ -58,7 +58,7 @@ fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<AstNode> {
                 }
                 // Path must be completed once this is called.
             }
-            _ => return Err(RuLaSyntaxError),
+            _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     // No end component such as `hello::{a, b}`
