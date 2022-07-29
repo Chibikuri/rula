@@ -1,5 +1,5 @@
-use std::{get_qubit_status, borrow_qubit};
-use std::operation::{cnot, pau_x, pau_z} // remote cnot
+import std::{get_qubit_status, borrow_qubit};
+import std::operation::{cnot, pau_x, pau_z} // remote cnot
 
 // predefined conf
 #def CONF = conf!{

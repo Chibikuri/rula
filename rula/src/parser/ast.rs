@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Error, Formatter};
+use std::path::PathBuf;
 
 pub enum Expr {
     Number(i32),
@@ -28,6 +29,9 @@ pub enum AstNode {
         lhs: Box<AstNode>,
         op: OpCode,
         rhs: Box<AstNode>,
+    },
+    Import {
+        path: PathBuf,
     },
     If,
     Else,
