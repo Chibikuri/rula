@@ -8,7 +8,7 @@ stmt = {expr}
 
 expr = {("\n")* ~(import_expr| if_expr | let_expr | ident | term) ~ ("\n")*}
 
-import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ !"::"}
+import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
 
 if_expr = {"if" ~ "(" ~ expr ~ ")" ~"{" ~ expr ~ "}" ~ (else_if_expr)* ~ else_expr?}
 else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}
@@ -22,7 +22,7 @@ op = {"*" | "/" | "+" | "-"}
 
 number = {ASCII_DIGIT+}
 ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
-
+ident_list = { ident ~ ("," ~ ident)* }
 
 WHITESPACE = _{" "}
 COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}

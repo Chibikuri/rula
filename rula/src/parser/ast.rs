@@ -31,7 +31,7 @@ pub enum AstNode {
         rhs: Box<AstNode>,
     },
     Import {
-        path: PathBuf,
+        paths: Vec<PathBuf>,
     },
     If,
     Else,
