@@ -1,8 +1,5 @@
 use std::fmt;
 
-// Custome error interface for rula
-pub type IResult<T> = std::result::Result<T, RuLaSyntaxError>;
-
 // #[derive(Debug)]
 // pub enum RuLaError{
 //     // Should be detailed

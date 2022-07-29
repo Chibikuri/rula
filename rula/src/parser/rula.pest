@@ -1,8 +1,8 @@
 // Everything starts here
-rula = {SOI ~ (WHITESPACE | "\n")* ~ program? ~ (WHITESPACE | "\n")* ~ EOI}
+rula = {SOI ~ ("\n")* ~ program? ~ ("\n")* ~ EOI}
 
 // Program 
-program = { stmt ~ ";"?}
+program = { stmt }
 
 stmt = {expr}
 
@@ -23,7 +23,6 @@ op = {"*" | "/" | "+" | "-"}
 number = {ASCII_DIGIT+}
 ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
 
-left_paren = {"(" ~ "\n"?}
 
 WHITESPACE = _{" "}
 COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}

@@ -36,6 +36,7 @@ pub enum AstNode {
     If,
     Else,
     Test,
+    Eoi, // End of input
 }
 impl Debug for Expr {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {

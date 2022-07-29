@@ -4,10 +4,21 @@ pub mod token;
 
 use crate::Rule;
 use ast::AstNode;
-use error::{IResult, RuLaSyntaxError};
+use error::RuLaSyntaxError;
 use std::path::PathBuf;
 
-pub fn build_ast_from_program(pair: pest::iterators::Pair<Rule>) -> IResult<AstNode> {
+// Custome error interface for rula
+pub type IResult<T> = std::result::Result<T, RuLaSyntaxError>;
+
+pub fn build_ast_from_rula(pair: pest::iterators::Pair<Rule>) -> IResult<AstNode> {
+    match pair.as_rule() {
+        Rule::program => build_ast_from_program(pair.into_inner().next().unwrap()),
+        Rule::EOI => Ok(AstNode::Eoi),
+        _ => Err(RuLaSyntaxError),
+    }
+}
+
+fn build_ast_from_program(pair: pest::iterators::Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
         Rule::stmt => build_ast_from_stmt(pair.into_inner().next().unwrap()),
         _ => Err(RuLaSyntaxError),
