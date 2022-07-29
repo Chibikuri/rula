@@ -29,6 +29,8 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<AstNode> {
 
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
+        Rule::if_stmt => build_ast_from_if_stmt(pair.into_inner().next().unwrap()),
+        Rule::import_stmt => build_ast_from_import_stmt(pair),
         Rule::expr => build_ast_from_expr(pair.into_inner().next().unwrap()),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
@@ -36,13 +38,18 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
 
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
-        Rule::import_expr => build_ast_from_import_expr(pair),
-        Rule::if_expr => build_ast_from_if_expr(pair.into_inner().next().unwrap()),
+        // Rule::import_expr => build_ast_from_import_expr(pair),
+        Rule::let_expr => build_ast_from_let_expr(pair.into_inner().next().unwrap()),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<AstNode> {
+fn build_ast_from_if_stmt(pair: pest::iterators::Pair<Rule>) -> IResult<AstNode> {
+    println!("{:#?}", pair);
+    Ok(AstNode::Test)
+}
+
+fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
     let mut path_list: Vec<PathBuf> = vec![];
     let mut end_paths: Vec<&str> = vec![];
     // ::{a, b} expression must be single not two of them
@@ -75,11 +82,9 @@ fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<AstNode> {
     Ok(AstNode::Import { paths: path_list })
 }
 
-fn build_ast_from_if_expr(pair: pest::iterators::Pair<Rule>) -> IResult<AstNode> {
-    println!("{:#?}", pair);
+fn build_ast_from_let_expr(pair: Pair<Rule>) -> IResult<AstNode> {
     Ok(AstNode::Test)
 }
-
 // fn build_ast_from_term(pair: pest::iterators::Pair<Rule>) -> AstNode {
 //     match pair.as_rule() {
 //         Rule::expr => build_ast_from_term(pair.into_inner().next().unwrap()),

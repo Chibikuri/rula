@@ -4,13 +4,13 @@ rula = {SOI ~ ("\n")* ~ program? ~ ("\n")* ~ EOI}
 // Program 
 program = { stmt }
 
-stmt = {expr}
+stmt = {("\n")* ~ (if_stmt| import_stmt| expr) ~ ("\n")*}
 
-expr = {("\n")* ~(import_expr| if_expr | let_expr | ident | term) ~ ("\n")*}
+expr = {("\n")* ~(let_expr | ident | term) ~ ("\n")*}
 
-import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
+import_stmt = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
 
-if_expr = {"if" ~ "(" ~ expr ~ ")" ~"{" ~ expr ~ "}" ~ (else_if_expr)* ~ else_expr?}
+if_stmt = {"if" ~ "(" ~ expr ~ ")" ~"{" ~ expr ~ "}" ~ (else_if_expr)* ~ else_expr?}
 else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}
 else_expr = {"else" ~ "{" ~ expr ~ "}"}
 

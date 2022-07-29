@@ -1,7 +1,7 @@
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub enum RuLaError{
+pub enum RuLaError {
     // Should be detailed
     RuLaSyntaxError,
     RuLaPathConstructionError,

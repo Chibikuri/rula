@@ -51,7 +51,7 @@ mod import_tests {
     }
 
     #[test]
-    fn test_import_syntax_error_imcomplete_path_multiple(){
+    fn test_import_syntax_error_imcomplete_path_multiple() {
         // imcomplete error
         let import_expr = "import hello::{world, }";
         let error_ast_nodes = rula::parse(import_expr);
