@@ -1,20 +1,25 @@
 // Everything starts here
-rula = {SOI ~ ("\n")* ~ program? ~ ("\n")* ~ EOI}
+rula = {SOI ~ program? ~ EOI}
 
 // Program 
 program = { stmt }
 
-stmt = {("\n")* ~ (if_stmt| import_stmt| expr) ~ ("\n")*}
+stmt = {(let_stmt| expr)}
 
-expr = {("\n")* ~(let_expr | ident | term) ~ ("\n")*}
+let_stmt = {"let" ~ ident ~ "=" ~ number}
 
-import_stmt = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
+expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | term)}
 
-if_stmt = {"if" ~ "(" ~ expr ~ ")" ~"{" ~ expr ~ "}" ~ (else_if_expr)* ~ else_expr?}
-else_if_expr = {"else" ~ "if" ~ "(" ~ expr ~ ")" ~ "{" ~ expr ~ "}"}
-else_expr = {"else" ~ "{" ~ expr ~ "}"}
+import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
 
-let_expr = {"let" ~ ident ~ "=" ~ number}
+if_expr = {"if" ~ paren_expr ~ brace_stmt ~ (else_if_expr)* ~ else_stmt?}
+else_if_expr = {"else" ~ "if" ~ paren_expr ~ brace_stmt}
+else_stmt = {"else" ~ brace_stmt}
+
+fn_def_expr = {"fn" ~ paren_expr ~ brace_stmt}
+
+paren_expr = {"(" ~ expr ~ ")"}
+brace_stmt = {"{" ~ stmt ~ "}"}
 
 term = {number ~ (op ~ number)*}
 
@@ -24,5 +29,5 @@ number = {ASCII_DIGIT+}
 ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
 ident_list = { ident ~ ("," ~ ident)* }
 
-WHITESPACE = _{" "}
 COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}
+WHITESPACE = _{(" " | "\n")}

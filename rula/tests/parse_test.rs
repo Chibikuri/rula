@@ -1,5 +1,5 @@
 extern crate rula;
-use rula::parser::ast::{AstNode, PathKind};
+use rula::parser::ast::{AstNode, Expr, ExprKind, Import, PathKind, Stmt, StmtKind};
 
 mod import_tests {
     use super::*;
@@ -8,7 +8,9 @@ mod import_tests {
         let import_expr = "import hello";
         let ast_nodes = rula::parse(import_expr).unwrap();
         let expected_paths = vec![["hello"].iter().collect()];
-        let expected_ast_nodes = vec![AstNode::Import(PathKind::from(expected_paths))];
+        let expected_ast_nodes = vec![AstNode::Stmt(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::Import(Import::new(PathKind::from(expected_paths))),
+        ))))];
         assert_eq!(ast_nodes.len(), 1);
         assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
     }
@@ -18,7 +20,9 @@ mod import_tests {
         let import_expr = "import hello::world";
         let ast_nodes = rula::parse(import_expr).unwrap();
         let expected_paths = vec![["hello", "world"].iter().collect()];
-        let expected_ast_nodes = vec![AstNode::Import(PathKind::from(expected_paths))];
+        let expected_ast_nodes = vec![AstNode::Stmt(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::Import(Import::new(PathKind::from(expected_paths))),
+        ))))];
         assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
     }
 
@@ -31,7 +35,9 @@ mod import_tests {
         let expected_path_hello_there = ["hello", "there"].iter().collect();
 
         let expected_paths = vec![expected_path_hello_world, expected_path_hello_there];
-        let expected_ast_nodes = vec![AstNode::Import(PathKind::from(expected_paths))];
+        let expected_ast_nodes = vec![AstNode::Stmt(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::Import(Import::new(PathKind::from(expected_paths))),
+        ))))];
         assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
     }
 
@@ -80,5 +86,19 @@ mod comment_tests {
         let target_ast_nodes = vec![AstNode::Eoi];
         assert_eq!(empty_ast_nodes.len(), 1);
         assert_eq!(empty_ast_nodes[0], target_ast_nodes[0]);
+    }
+}
+
+mod if_tests {
+    use super::*;
+
+    #[test]
+    fn test_single_if_stmt() {
+        let if_stmt = "if(expression){expression}";
+        let if_ast_nodes = rula::parse(if_stmt).unwrap();
+        // let target_ast_nodes = vec![
+        //     // AstNode::If(IfKind::new(Expr, Expr))
+        // ];
+        // assert_eq!(target_ast_nodes, if_ast_nodes);
     }
 }

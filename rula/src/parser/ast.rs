@@ -1,24 +1,88 @@
 use std::fmt::Debug;
-use std::iter::{IntoIterator, Iterator};
+use std::iter::Iterator;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
-    Integer(i32),
-    Float(f64),
-    Import(PathKind),
-    If {
-        expression: Box<Expr>,
-    },
-    Term {
-        lhs: Box<AstNode>,
-        op: Box<OpCode>,
-        rhs: Box<AstNode>,
-    },
-    Else,
-    Test,
-    Eoi, // End of input
+    Stmt(Stmt),
+    Test, // Debug use
+    Eoi,  // End of input
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Stmt {
+    pub kind: Box<StmtKind>,
+}
+
+impl Stmt {
+    pub fn new(stmt_kind: StmtKind) -> Stmt {
+        Stmt {
+            kind: Box::new(stmt_kind),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtKind {
+    Let,
+    Expr(Expr),
+    Test, // debug use
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Expr {
+    // What kind of expression
+    pub expr: Box<ExprKind>,
+}
+
+impl Expr {
+    pub fn new(exp_kind: ExprKind) -> Expr {
+        Expr {
+            expr: Box::new(exp_kind),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprKind {
+    Import(Import),
+    If(If),
+    Fn(Fn),
+    Test, // debug
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Import {
+    pub path: Box<PathKind>,
+}
+
+impl Import {
+    pub fn new(path: PathKind) -> Import {
+        Import {
+            path: Box::new(path),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct If {
+    pub block: Box<Expr>,
+    pub expr: Box<Expr>,
+    pub elif: Option<Box<If>>,
+    pub els: Option<Box<Expr>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Fn {
+    pub arguments: Box<Expr>,
+    pub expr: Box<Expr>,
+}
+
+// impl IfKind{
+//     pub fn new(cond: Expr, act: Expr) -> IfKind{
+//         IfKind{condition: Box::new(cond), action: Box::new(act)}
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PathKind {
@@ -63,32 +127,6 @@ impl Iterator for PathKind {
         }
     }
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Expr;
-// Number(i32),
-// Op(Box<Expr>, OpCode, Box<Expr>),
-// Error
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum OpCode {
-    Mul,
-    Div,
-    Add,
-    Sub,
-}
-
-// impl Debug for OpCode {
-//     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-//         use self::OpCode::*;
-//         match *self {
-//             Mul => write!(fmt, "*"),
-//             Div => write!(fmt, "/"),
-//             Add => write!(fmt, "+"),
-//             Sub => write!(fmt, "-"),
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

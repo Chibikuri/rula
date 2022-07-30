@@ -1,9 +1,11 @@
 pub mod ast;
 pub mod error;
 pub mod token;
+mod util;
 
 use crate::Rule;
-use ast::{AstNode, PathKind};
+use ast::{AstNode, Expr, ExprKind, Import, PathKind};
+use ast::{Stmt, StmtKind};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -12,6 +14,9 @@ use pest::iterators::Pair;
 // Custome error interface for rula
 pub type IResult<T> = std::result::Result<T, RuLaError>;
 
+/**
+ * parse rula system and if it matches program, going to `build_ast_from_program`.
+*/
 pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
         Rule::program => build_ast_from_program(pair.into_inner().next().unwrap()),
@@ -22,34 +27,53 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<AstNode> {
 
 fn build_ast_from_program(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
-        Rule::stmt => build_ast_from_stmt(pair.into_inner().next().unwrap()),
+        Rule::stmt => Ok(AstNode::Stmt(
+            build_ast_from_stmt(pair.into_inner().next().unwrap()).unwrap(),
+        )),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
+fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
-        Rule::if_stmt => build_ast_from_if_stmt(pair.into_inner().next().unwrap()),
-        Rule::import_stmt => build_ast_from_import_stmt(pair),
-        Rule::expr => build_ast_from_expr(pair.into_inner().next().unwrap()),
+        Rule::let_stmt => Ok(Stmt::new(
+            build_ast_from_let_stmt(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        Rule::expr => Ok(Stmt::new(
+            build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap(),
+        )),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<AstNode> {
+fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<StmtKind> {
+    // Ok(AstNode::Test)
+    Ok(StmtKind::Let)
+}
+
+fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<StmtKind> {
     match pair.as_rule() {
-        // Rule::import_expr => build_ast_from_import_expr(pair),
-        Rule::let_expr => build_ast_from_let_expr(pair.into_inner().next().unwrap()),
+        Rule::if_expr => Ok(StmtKind::Expr(build_ast_from_if_expr(pair).unwrap())),
+        Rule::import_expr => Ok(StmtKind::Expr(build_ast_from_import_expr(pair).unwrap())),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_if_stmt(pair: pest::iterators::Pair<Rule>) -> IResult<AstNode> {
-    println!("{:#?}", pair);
-    Ok(AstNode::Test)
+fn build_ast_from_if_expr(pair: pest::iterators::Pair<Rule>) -> IResult<Expr> {
+    let mut expr_vec: Vec<Expr> = vec![];
+    for expr in pair.into_inner() {
+        match expr.as_rule() {
+            Rule::paren_expr => {
+                // expr_vec.push(build_ast_from_expr(expr.into_inner().next().unwrap()).unwrap());
+            }
+            Rule::brace_stmt => {}
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(Expr::new(ExprKind::Test))
 }
 
-fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
+fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Expr> {
     let mut path_list: Vec<PathBuf> = vec![];
     let mut end_paths: Vec<&str> = vec![];
     // ::{a, b} expression must be single not two of them
@@ -79,12 +103,12 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
             path_list.push(cloned_path);
         }
     }
-    Ok(AstNode::Import(PathKind::from(path_list)))
+
+    Ok(Expr::new(ExprKind::Import(Import::new(PathKind::from(
+        path_list,
+    )))))
 }
 
-fn build_ast_from_let_expr(pair: Pair<Rule>) -> IResult<AstNode> {
-    Ok(AstNode::Test)
-}
 // fn build_ast_from_term(pair: pest::iterators::Pair<Rule>) -> AstNode {
 //     match pair.as_rule() {
 //         Rule::expr => build_ast_from_term(pair.into_inner().next().unwrap()),
