@@ -19,7 +19,13 @@ pub type IResult<T> = std::result::Result<T, RuLaError>;
 */
 pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<AstNode> {
     match pair.as_rule() {
-        Rule::program => build_ast_from_program(pair.into_inner().next().unwrap()),
+        Rule::program => {
+            if pair.as_str() == "" {
+                return Ok(AstNode::Ignore);
+            } else {
+                return build_ast_from_program(pair.into_inner().next().unwrap());
+            }
+        }
         Rule::EOI => Ok(AstNode::Eoi),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
@@ -35,6 +41,7 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<AstNode> {
 }
 
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
+    println!("{:#?}", &pair);
     match pair.as_rule() {
         Rule::let_stmt => Ok(Stmt::new(
             build_ast_from_let_stmt(pair.into_inner().next().unwrap()).unwrap(),

@@ -5,8 +5,9 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
     Stmt(Stmt),
-    Test, // Debug use
-    Eoi,  // End of input
+    Ignore, // ignore symbol such as comment
+    Test,   // Debug use
+    Eoi,    // End of input
 }
 
 #[derive(Debug, Clone, PartialEq)]

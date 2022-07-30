@@ -1,12 +1,12 @@
 // Everything starts here
-rula = {SOI ~ program? ~ EOI}
+rula = {SOI ~ COMMENT? ~ program ~ COMMENT? ~EOI}
 
 // Program 
-program = { stmt }
+program = { (stmt)* }
 
-stmt = {(let_stmt| expr)}
+stmt = {(let_stmt | expr) ~ ";"}
 
-let_stmt = {"let" ~ ident ~ "=" ~ number}
+let_stmt = {"let" ~ ident ~ "=" ~ (number | ident)}
 
 expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | term)}
 
@@ -29,5 +29,5 @@ number = {ASCII_DIGIT+}
 ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
 ident_list = { ident ~ ("," ~ ident)* }
 
-COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ "\n")}
+COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ ("\n" | EOI))}
 WHITESPACE = _{(" " | "\n")}
