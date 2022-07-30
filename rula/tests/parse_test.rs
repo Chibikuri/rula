@@ -1,5 +1,5 @@
 extern crate rula;
-use rula::parser::ast::AstNode;
+use rula::parser::ast::{AstNode, PathKind};
 
 mod import_tests {
     use super::*;
@@ -8,9 +8,7 @@ mod import_tests {
         let import_expr = "import hello";
         let ast_nodes = rula::parse(import_expr).unwrap();
         let expected_paths = vec![["hello"].iter().collect()];
-        let expected_ast_nodes = vec![AstNode::Import {
-            paths: expected_paths,
-        }];
+        let expected_ast_nodes = vec![AstNode::Import(PathKind::from(expected_paths))];
         assert_eq!(ast_nodes.len(), 1);
         assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
     }
@@ -20,9 +18,7 @@ mod import_tests {
         let import_expr = "import hello::world";
         let ast_nodes = rula::parse(import_expr).unwrap();
         let expected_paths = vec![["hello", "world"].iter().collect()];
-        let expected_ast_nodes = vec![AstNode::Import {
-            paths: expected_paths,
-        }];
+        let expected_ast_nodes = vec![AstNode::Import(PathKind::from(expected_paths))];
         assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
     }
 
@@ -35,9 +31,7 @@ mod import_tests {
         let expected_path_hello_there = ["hello", "there"].iter().collect();
 
         let expected_paths = vec![expected_path_hello_world, expected_path_hello_there];
-        let expected_ast_nodes = vec![AstNode::Import {
-            paths: expected_paths,
-        }];
+        let expected_ast_nodes = vec![AstNode::Import(PathKind::from(expected_paths))];
         assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
     }
 

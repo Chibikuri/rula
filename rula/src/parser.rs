@@ -3,7 +3,7 @@ pub mod error;
 pub mod token;
 
 use crate::Rule;
-use ast::AstNode;
+use ast::{AstNode, PathKind};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -79,7 +79,7 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<AstNode> {
             path_list.push(cloned_path);
         }
     }
-    Ok(AstNode::Import { paths: path_list })
+    Ok(AstNode::Import(PathKind::from(path_list)))
 }
 
 fn build_ast_from_let_expr(pair: Pair<Rule>) -> IResult<AstNode> {
