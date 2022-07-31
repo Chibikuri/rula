@@ -1,7 +1,7 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    AstNode, Expr, ExprKind, Ident, Import, Let, PathKind, Stmt, StmtKind, StringLit,
+    AstNode, Expr, ExprKind, Ident, If, Import, Let, PathKind, Stmt, StmtKind, StringLit,
 };
 
 mod import_tests {
@@ -100,25 +100,98 @@ mod let_tests {
         let let_stmt = r#"let hello = "world";"#;
         let let_ast_nodes = rula::parse(let_stmt).unwrap();
         let target_ast_nodes = vec![AstNode::Stmt(Stmt::new(StmtKind::Let(Let::new(
-            Ident::new("hello"),
+            ExprKind::Ident(Ident::new("hello")),
             StmtKind::Expr(Expr::new(ExprKind::StringLit(StringLit::new("world")))),
         ))))];
         assert_eq!(let_ast_nodes, target_ast_nodes);
     }
+
+    // #[test]
+    // fn test_let_with_if_expr(){
+    //     let let_stmt = "let hello = if(block) {
+    //         expression;
+    //     }";
+    //     let let_ast_nodes = rula::parse(let_stmt).unwrap();
+    //     let target_ast_nodes = vec![
+    //         AstNode::Stmt(
+    //             Stmt::new(
+    //                 StmtKind::Let(
+    //                     Let::new(
+    //                         Ident::new("hello"),
+    //                         StmtKind::Expr(
+    //                             ExprKind::If(
+    //                                 If::new(
+    //                                     Expr::new()
+    //                                 )
+    //                             )
+    //                         )
+    //                     )
+    //                 )
+    //             )
+    //         )
+    //     ]
+    // }
 }
 
 mod if_tests {
     use super::*;
 
     #[test]
-    fn test_single_if_stmt() {
-        let if_stmt = "if(expression){
-                                expression;
-                            };";
-        let if_ast_nodes = rula::parse(if_stmt).unwrap();
-        // let target_ast_nodes = vec![
-        //     // AstNode::If(IfKind::new(Expr, Expr))
-        // ];
-        // assert_eq!(target_ast_nodes, if_ast_nodes);
+    #[rustfmt::skip]
+    fn test_single_if_expr() {
+        let if_expr = "if(block){expression;};";
+        let if_ast_nodes = rula::parse(if_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::Stmt(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::If(
+                                If::new(
+                                    // (block)
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Ident(
+                                                Ident::new(
+                                                    "block"
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // {expression}
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Ident(
+                                                    Ident::new(
+                                                        "expression"
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // elif ~
+                                    None,
+                                    // else ~
+                                    None,
+                                )
+                            )
+
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(target_ast_nodes, if_ast_nodes);
+    }
+
+    fn test_if_else_expr() {
+        let if_else = "if(block){expression;}else{expression2;};";
+        let if_else_nodes = rula::parse(if_else).unwrap();
+    }
+
+    fn test_if_elif_expr() {
+        let if_elif_expr = "if(block){expression;}elif{second_expression;};";
+        let if_elif_ast_nodes = rula::parse(if_elif_expr).unwrap();
     }
 }

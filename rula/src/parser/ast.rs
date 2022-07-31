@@ -21,23 +21,29 @@ impl Stmt {
             kind: Box::new(stmt_kind),
         }
     }
+    pub fn place_holder() -> Stmt {
+        Stmt {
+            kind: Box::new(StmtKind::PlaceHolder),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
     Let(Let),
     Expr(Expr),
-    Test, // debug use
+    PlaceHolder, // For initialization use
+    Test,        // debug use
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<Ident>,
-    pub expr: Box<StmtKind>, // StmtKind::Expr
+    pub ident: Box<ExprKind>, // ExprKind::Ident
+    pub expr: Box<StmtKind>,  // StmtKind::Expr
 }
 
 impl Let {
-    pub fn new(identity: Ident, expr: StmtKind) -> Let {
+    pub fn new(identity: ExprKind, expr: StmtKind) -> Let {
         Let {
             ident: Box::new(identity),
             expr: Box::new(expr),
@@ -110,10 +116,30 @@ impl Import {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct If {
-    pub block: Box<Expr>,
-    pub expr: Box<Expr>,
-    pub elif: Option<Box<If>>,
-    pub els: Option<Box<Expr>>,
+    pub block: Box<StmtKind>, // StmtKind::Expr
+    pub stmt: Box<Stmt>,
+    pub elif: Box<Option<If>>,
+    pub els: Box<Option<Expr>>,
+}
+
+impl If {
+    pub fn new(block: StmtKind, stmt: Stmt, elif: Option<If>, els: Option<Expr>) -> If {
+        If {
+            block: Box::new(block),
+            stmt: Box::new(stmt),
+            elif: Box::new(elif),
+            els: Box::new(els),
+        }
+    }
+
+    pub fn place_holder() -> If {
+        If {
+            block: Box::new(StmtKind::PlaceHolder),
+            stmt: Box::new(Stmt::place_holder()),
+            elif: Box::new(None),
+            els: Box::new(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

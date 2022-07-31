@@ -7,7 +7,7 @@ use crate::Rule;
 // Statements
 use ast::{Let, Stmt, StmtKind};
 // Expressions
-use ast::{AstNode, Expr, ExprKind, Ident, Import, PathKind, StringLit};
+use ast::{AstNode, Expr, ExprKind, Ident, If, Import, PathKind, StringLit};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -54,7 +54,7 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
 
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<StmtKind> {
     // Ugh ugly
-    let mut identity = Ident::place_holder();
+    let mut identity = ExprKind::Ident(Ident::place_holder());
     let mut expr = StmtKind::Expr(Expr::place_holder());
     for let_pair in pair.into_inner() {
         match let_pair.as_rule() {
@@ -69,23 +69,30 @@ fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<StmtKind> {
         }
     }
     // Should have easier way
-    // if identity == Ident::place_holder() || expr == StmtKind::Expr(Expr::place_holder()) {
-    //     return Err(RuLaError::RuLaSyntaxError);
-    // }
+    if identity == ExprKind::Ident(Ident::place_holder())
+        || expr == StmtKind::Expr(Expr::place_holder())
+    {
+        return Err(RuLaError::RuLaSyntaxError);
+    }
     Ok(StmtKind::Let(Let::new(identity, expr)))
 }
 
-fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<Ident> {
-    return Ok(Ident::new(pair.as_str()));
+fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<ExprKind> {
+    return Ok(ExprKind::Ident(Ident::new(pair.as_str())));
 }
 
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<StmtKind> {
     match pair.as_rule() {
         Rule::if_expr => Ok(StmtKind::Expr(build_ast_from_if_expr(pair).unwrap())),
+        // Should be recursive?
+        // Rule::paren_expr => Ok(StmtKind::Expr(build_ast_from_paren_expr(pair).unwrap())),
         Rule::import_expr => Ok(StmtKind::Expr(build_ast_from_import_expr(pair).unwrap())),
         Rule::literals => Ok(StmtKind::Expr(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
         )),
+        Rule::ident => Ok(StmtKind::Expr(Expr::new(
+            build_ast_from_ident(pair).unwrap(),
+        ))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -115,17 +122,43 @@ fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
 }
 
 fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<Expr> {
-    let mut expr_vec: Vec<Expr> = vec![];
+    // `pair` structure
+    // if_expr -> inner {paren_expr, block_expr}
+    let mut block_expr = StmtKind::Expr(Expr::place_holder());
+    let mut stmt = Stmt::place_holder();
     for expr in pair.into_inner() {
         match expr.as_rule() {
+            // block statement
             Rule::paren_expr => {
-                // expr_vec.push(build_ast_from_expr(expr.into_inner().next().unwrap()).unwrap());
+                // structured nested expr (paren_expr -> expr)
+                block_expr = build_ast_from_expr(
+                    expr.into_inner()
+                        .next()
+                        .unwrap() // paren_expr -> expr
+                        .into_inner()
+                        .next()
+                        .unwrap(), // expr -> inner_expr
+                )
+                .unwrap();
             }
-            Rule::brace_stmt => {}
+            Rule::brace_stmt => {
+                // nested expr (brace stmt -> stmt)
+                stmt = build_ast_from_stmt(
+                    expr.into_inner()
+                        .next()
+                        .unwrap() // brace_stmt -> stmt
+                        .into_inner()
+                        .next()
+                        .unwrap(), // stmt -> inner_stmt
+                )
+                .unwrap();
+            }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(Expr::new(ExprKind::Test))
+    Ok(Expr::new(ExprKind::If(If::new(
+        block_expr, stmt, None, None,
+    ))))
 }
 
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Expr> {
