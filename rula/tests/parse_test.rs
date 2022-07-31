@@ -106,31 +106,62 @@ mod let_tests {
         assert_eq!(let_ast_nodes, target_ast_nodes);
     }
 
-    // #[test]
-    // fn test_let_with_if_expr(){
-    //     let let_stmt = "let hello = if(block) {
-    //         expression;
-    //     }";
-    //     let let_ast_nodes = rula::parse(let_stmt).unwrap();
-    //     let target_ast_nodes = vec![
-    //         AstNode::Stmt(
-    //             Stmt::new(
-    //                 StmtKind::Let(
-    //                     Let::new(
-    //                         Ident::new("hello"),
-    //                         StmtKind::Expr(
-    //                             ExprKind::If(
-    //                                 If::new(
-    //                                     Expr::new()
-    //                                 )
-    //                             )
-    //                         )
-    //                     )
-    //                 )
-    //             )
-    //         )
-    //     ]
-    // }
+    #[test]
+    #[rustfmt::skip]
+    fn test_let_with_if_expr(){
+        let let_stmt = "let hello = if(block){expression;};";
+        let let_if_ast_nodes = rula::parse(let_stmt).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::Stmt(
+                Stmt::new(
+                    StmtKind::Let(
+                        Let::new(
+                            ExprKind::Ident(
+                                Ident::new(
+                                    "hello"
+                                )
+                            ),
+                            StmtKind::Expr(
+                                Expr::new(
+                                    ExprKind::If(
+                                        If::new(
+                                            // (block)
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::Ident(
+                                                        Ident::new(
+                                                            "block"
+                                                        )
+                                                    )
+                                                )
+                                            ),
+                                            // {expression}
+                                            Stmt::new(
+                                                StmtKind::Expr(
+                                                    Expr::new(
+                                                        ExprKind::Ident(
+                                                            Ident::new(
+                                                                "expression"
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            ),
+                                            // elif ~
+                                            None,
+                                            // else ~
+                                            None,
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(target_ast_nodes, let_if_ast_nodes)
+    }
 }
 
 mod if_tests {
@@ -176,7 +207,6 @@ mod if_tests {
                                     None,
                                 )
                             )
-
                         )
                     )
                 )
