@@ -7,7 +7,7 @@ extern crate pest_derive;
 #[grammar = "parser/rula.pest"]
 pub struct RuLaParser;
 
-use parser::ast::AstNode;
+use parser::ast::{AstNode, RuLa};
 use parser::error::RuLaError;
 use parser::IResult;
 use pest::Parser;
@@ -31,7 +31,9 @@ pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
     for pair in pairs {
         match pair.as_rule() {
             Rule::rula => {
-                ast.push(build_ast_from_rula(pair.into_inner().next().unwrap())?);
+                ast.push(AstNode::RuLa(
+                    build_ast_from_rula(pair.into_inner().next().unwrap()).unwrap(),
+                ));
             }
             _ => {
                 println!("Not Rula proram");

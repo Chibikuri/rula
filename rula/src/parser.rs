@@ -7,7 +7,10 @@ use crate::Rule;
 // Statements
 use ast::{Let, Stmt, StmtKind};
 // Expressions
-use ast::{AstNode, Expr, ExprKind, Ident, If, Import, Lit, LitKind, PathKind, StringLit};
+use ast::{
+    Expr, ExprKind, Ident, If, Import, Lit, LitKind, PathKind, Program, ProgramKind, RuLa,
+    RuLaKind, StringLit,
+};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -19,30 +22,34 @@ pub type IResult<T> = std::result::Result<T, RuLaError>;
 /**
  * parse rula system and if it matches program, going to `build_ast_from_program`.
 */
-pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<AstNode> {
+pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
     match pair.as_rule() {
         Rule::program => {
-            // edge case
             if pair.as_str() == "" {
-                return Ok(AstNode::Ignore);
+                // edge case (e.g. only comment)
+                return Ok(RuLa::ignore());
             } else {
-                return build_ast_from_program(pair.into_inner().next().unwrap());
+                return Ok(RuLa::new(RuLaKind::Program(
+                    build_ast_from_program(pair.into_inner().next().unwrap()).unwrap(),
+                )));
             }
         }
-        Rule::EOI => Ok(AstNode::Eoi),
+        Rule::EOI => Ok(RuLa::aoi()),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_program(pair: Pair<Rule>) -> IResult<AstNode> {
+// Parse program <-> statement
+fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
     match pair.as_rule() {
-        Rule::stmt => Ok(AstNode::Stmt(
+        Rule::stmt => Ok(Program::new(ProgramKind::Stmt(
             build_ast_from_stmt(pair.into_inner().next().unwrap()).unwrap(),
-        )),
+        ))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
+// Parse statement <--> {Let statement | expression}
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
         Rule::let_stmt => Ok(Stmt::new(StmtKind::Let(
@@ -55,6 +62,7 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     }
 }
 
+// Parse Let statement (semi endpoint)
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<Let> {
     // Ugh ugly
     let mut identity = Ident::place_holder();
@@ -78,10 +86,12 @@ fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<Let> {
     Ok(Let::new(identity, expr))
 }
 
+// Parse identifier(Endpoint)
 fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<Ident> {
     return Ok(Ident::new(pair.as_str()));
 }
 
+// Parse expression <--> {If | Import | Lit | Identifier}
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
     match pair.as_rule() {
         Rule::if_expr => Ok(Expr::new(ExprKind::If(
@@ -102,6 +112,7 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
     }
 }
 
+// Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     match pair.as_rule() {
         Rule::strings => Ok(Lit::new(LitKind::StringLit(
@@ -112,6 +123,7 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     }
 }
 
+// Parse string literal <--> {string | raw string} semi endpoint
 fn build_ast_from_strings(pair: Pair<Rule>) -> IResult<StringLit> {
     match pair.as_rule() {
         Rule::string => {
@@ -122,10 +134,12 @@ fn build_ast_from_strings(pair: Pair<Rule>) -> IResult<StringLit> {
     }
 }
 
+// Parse raw_string literal endpoint
 fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
     Ok(StringLit::new(pair.as_str()))
 }
 
+// Parse If expr <--> {paren_expr | brace_stmt | else_if | else} semi endpoint
 fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
     // `pair` structure
     // if_expr -> inner {paren_expr, block_expr}
@@ -163,6 +177,7 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
     Ok(if_expr)
 }
 
+// parse block expression <--> expr
 fn build_ast_from_block_expr(pair: Pair<Rule>) -> IResult<Expr> {
     Ok(build_ast_from_expr(
         pair.into_inner()
