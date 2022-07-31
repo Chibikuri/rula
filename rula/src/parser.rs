@@ -124,41 +124,48 @@ fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
 fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<Expr> {
     // `pair` structure
     // if_expr -> inner {paren_expr, block_expr}
-    let mut block_expr = StmtKind::Expr(Expr::place_holder());
-    let mut stmt = Stmt::place_holder();
+    let mut if_expr = If::place_holder();  // initialize if expr
     for expr in pair.into_inner() {
         match expr.as_rule() {
             // block statement
             Rule::paren_expr => {
                 // structured nested expr (paren_expr -> expr)
-                block_expr = build_ast_from_expr(
-                    expr.into_inner()
-                        .next()
-                        .unwrap() // paren_expr -> expr
-                        .into_inner()
-                        .next()
-                        .unwrap(), // expr -> inner_expr
-                )
-                .unwrap();
+                let block_expr = build_ast_from_block_expr(expr).unwrap();
+                if_expr.add_block(block_expr);
             }
             Rule::brace_stmt => {
                 // nested expr (brace stmt -> stmt)
-                stmt = build_ast_from_stmt(
-                    expr.into_inner()
-                        .next()
-                        .unwrap() // brace_stmt -> stmt
-                        .into_inner()
-                        .next()
-                        .unwrap(), // stmt -> inner_stmt
-                )
-                .unwrap();
+                let stmt = build_ast_from_brace_stmt(expr).unwrap();
+                if_expr.add_stmt(stmt);
+            }
+            Rule::else_if_expr => {}
+            Rule::else_expr => {
+                // nested expr (expr_stmt -> brace stmt -> stmt)
+                let else_stmt = build_ast_from_brace_stmt(expr.into_inner().next().unwrap()).unwrap();
+                if_expr.add_else(else_stmt);
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(Expr::new(ExprKind::If(If::new(
-        block_expr, stmt, None, None,
-    ))))
+    if_expr.check();
+    Ok(Expr::new(ExprKind::If(if_expr)))
+}
+
+fn build_ast_from_block_expr(pair: Pair<Rule>) -> IResult<StmtKind>{
+    Ok(build_ast_from_expr(
+        pair.into_inner().next().unwrap().into_inner().next().unwrap()
+    ).unwrap())
+}
+fn build_ast_from_brace_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
+    Ok(build_ast_from_stmt(
+        pair.into_inner()
+            .next()
+            .unwrap()
+            .into_inner()
+            .next()
+            .unwrap(),
+    )
+    .unwrap())
 }
 
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Expr> {

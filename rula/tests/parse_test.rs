@@ -185,9 +185,65 @@ mod if_tests {
         assert_eq!(target_ast_nodes, if_ast_nodes);
     }
 
+    #[test]
+    #[rustfmt::skip]
     fn test_if_else_expr() {
         let if_else = "if(block){expression;}else{expression2;};";
-        let if_else_nodes = rula::parse(if_else).unwrap();
+        let if_else_ast_nodes = rula::parse(if_else).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::Stmt(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::If(
+                                If::new(
+                                    // (block)
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Ident(
+                                                Ident::new(
+                                                    "block"
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // {expression}
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Ident(
+                                                    Ident::new(
+                                                        "expression"
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // elif ~
+                                    None,
+                                    // else ~
+                                    Some(
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::Ident(
+                                                        Ident::new(
+                                                            "expression2"
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(target_ast_nodes, if_else_ast_nodes);
     }
 
     fn test_if_elif_expr() {

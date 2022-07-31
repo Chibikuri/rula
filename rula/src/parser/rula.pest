@@ -15,9 +15,9 @@ expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | term | liter
 
 import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
 
-if_expr = {"if" ~ paren_expr ~ brace_stmt ~ (else_if_expr)* ~ else_stmt?}
+if_expr = {"if" ~ paren_expr ~ brace_stmt ~ (else_if_expr)* ~ else_expr?}
 else_if_expr = {"else" ~ "if" ~ paren_expr ~ brace_stmt}
-else_stmt = {"else" ~ brace_stmt}
+else_expr = {"else" ~ brace_stmt}
 
 fn_def_expr = {"fn" ~ paren_expr ~ brace_stmt}
 

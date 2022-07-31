@@ -119,11 +119,11 @@ pub struct If {
     pub block: Box<StmtKind>, // StmtKind::Expr
     pub stmt: Box<Stmt>,
     pub elif: Box<Option<If>>,
-    pub els: Box<Option<Expr>>,
+    pub els: Box<Option<Stmt>>,
 }
 
 impl If {
-    pub fn new(block: StmtKind, stmt: Stmt, elif: Option<If>, els: Option<Expr>) -> If {
+    pub fn new(block: StmtKind, stmt: Stmt, elif: Option<If>, els: Option<Stmt>) -> If {
         If {
             block: Box::new(block),
             stmt: Box::new(stmt),
@@ -138,6 +138,28 @@ impl If {
             stmt: Box::new(Stmt::place_holder()),
             elif: Box::new(None),
             els: Box::new(None),
+        }
+    }
+
+    pub fn add_block(&mut self, block: StmtKind) {
+        self.block = Box::new(block);
+    }
+
+    pub fn add_stmt(&mut self, stmt: Stmt){
+        self.stmt = Box::new(stmt);
+    }
+
+    pub fn add_else(&mut self, els: Stmt){
+        self.els = Box::new(Some(els));
+    }
+
+    pub fn check(&self) {
+        if *self.block == StmtKind::PlaceHolder {
+            // Maybe just error returning
+            panic!("No block expressio set!");
+        }
+        if *self.stmt == Stmt::place_holder(){
+            panic!("No statement found!");
         }
     }
 }
