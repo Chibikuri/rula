@@ -246,8 +246,171 @@ mod if_tests {
         assert_eq!(target_ast_nodes, if_else_ast_nodes);
     }
 
+    #[test]
+    #[rustfmt::skip]
     fn test_if_elif_expr() {
-        let if_elif_expr = "if(block){expression;}elif{second_expression;};";
+        let if_elif_expr = "if(block){expression;} else if (block2){expression2;};";
         let if_elif_ast_nodes = rula::parse(if_elif_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::Stmt(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::If(
+                                If::new(
+                                    // (block)
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Ident(
+                                                Ident::new(
+                                                    "block"
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // {expression}
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Ident(
+                                                    Ident::new(
+                                                        "expression"
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // elif ~
+                                    Some(
+                                        ExprKind::If(
+                                            If::new(
+                                                // else if (block)
+                                                StmtKind::Expr(
+                                                    Expr::new(
+                                                        ExprKind::Ident(
+                                                            Ident::new(
+                                                                "block2"
+                                                            )
+                                                        )
+                                                    )
+                                                ),
+                                                // else if () {statement2;};
+                                                Stmt::new(
+                                                    StmtKind::Expr(
+                                                        Expr::new(
+                                                            ExprKind::Ident(
+                                                                Ident::new(
+                                                                    "expression2"
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                ),
+                                                None,
+                                                None,
+                                            )
+                                        )
+                                    ),
+                                    // else ~
+                                    None,
+                                )
+                            )
+
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(target_ast_nodes, if_elif_ast_nodes);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_if_elif_else_expr() {
+        let if_elif_expr = "if(block){expression;} else if (block2){expression2;} else {expression3;};";
+        let if_elif_ast_nodes = rula::parse(if_elif_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::Stmt(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::If(
+                                If::new(
+                                    // (block)
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Ident(
+                                                Ident::new(
+                                                    "block"
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // {expression}
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Ident(
+                                                    Ident::new(
+                                                        "expression"
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    // elif ~
+                                    Some(
+                                        ExprKind::If(
+                                            If::new(
+                                                // else if (block)
+                                                StmtKind::Expr(
+                                                    Expr::new(
+                                                        ExprKind::Ident(
+                                                            Ident::new(
+                                                                "block2"
+                                                            )
+                                                        )
+                                                    )
+                                                ),
+                                                // else if () {statement2;};
+                                                Stmt::new(
+                                                    StmtKind::Expr(
+                                                        Expr::new(
+                                                            ExprKind::Ident(
+                                                                Ident::new(
+                                                                    "expression2"
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                ),
+                                                None,
+                                                None,
+                                            )
+                                        )
+                                    ),
+                                    // else ~
+                                    Some(
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::Ident(
+                                                        Ident::new(
+                                                            "expression3"
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(target_ast_nodes, if_elif_ast_nodes);
     }
 }

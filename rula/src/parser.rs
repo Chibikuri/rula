@@ -83,13 +83,15 @@ fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<ExprKind> {
 
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<StmtKind> {
     match pair.as_rule() {
-        Rule::if_expr => Ok(StmtKind::Expr(build_ast_from_if_expr(pair).unwrap())),
+        Rule::if_expr => Ok(StmtKind::Expr(Expr::new(
+            build_ast_from_if_expr(pair).unwrap(),
+        ))),
         // Should be recursive?
         // Rule::paren_expr => Ok(StmtKind::Expr(build_ast_from_paren_expr(pair).unwrap())),
         Rule::import_expr => Ok(StmtKind::Expr(build_ast_from_import_expr(pair).unwrap())),
-        Rule::literals => Ok(StmtKind::Expr(
+        Rule::literals => Ok(StmtKind::Expr(Expr::new(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
-        )),
+        ))),
         Rule::ident => Ok(StmtKind::Expr(Expr::new(
             build_ast_from_ident(pair).unwrap(),
         ))),
@@ -97,11 +99,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<StmtKind> {
     }
 }
 
-fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Expr> {
+fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<ExprKind> {
     match pair.as_rule() {
-        Rule::strings => Ok(Expr::new(
-            build_ast_from_strings(pair.into_inner().next().unwrap()).unwrap(),
-        )),
+        Rule::strings => Ok(build_ast_from_strings(pair.into_inner().next().unwrap()).unwrap()),
         Rule::bool => todo!(),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
@@ -121,10 +121,10 @@ fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
     Ok(StringLit::new(pair.as_str()))
 }
 
-fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<Expr> {
+fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<ExprKind> {
     // `pair` structure
     // if_expr -> inner {paren_expr, block_expr}
-    let mut if_expr = If::place_holder();  // initialize if expr
+    let mut if_expr = If::place_holder(); // initialize if expr
     for expr in pair.into_inner() {
         match expr.as_rule() {
             // block statement
@@ -138,23 +138,36 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<Expr> {
                 let stmt = build_ast_from_brace_stmt(expr).unwrap();
                 if_expr.add_stmt(stmt);
             }
-            Rule::else_if_expr => {}
+            Rule::else_if_expr => {
+                // recursively apply
+                let elif_stmt = build_ast_from_if_expr(expr).unwrap();
+                if_expr.add_elif(elif_stmt);
+            }
             Rule::else_expr => {
                 // nested expr (expr_stmt -> brace stmt -> stmt)
-                let else_stmt = build_ast_from_brace_stmt(expr.into_inner().next().unwrap()).unwrap();
+
+                let else_stmt =
+                    build_ast_from_brace_stmt(expr.into_inner().next().unwrap()).unwrap();
                 if_expr.add_else(else_stmt);
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
+    // Check if block and expresions are properly set
     if_expr.check();
-    Ok(Expr::new(ExprKind::If(if_expr)))
+    Ok(ExprKind::If(if_expr))
 }
 
-fn build_ast_from_block_expr(pair: Pair<Rule>) -> IResult<StmtKind>{
+fn build_ast_from_block_expr(pair: Pair<Rule>) -> IResult<StmtKind> {
     Ok(build_ast_from_expr(
-        pair.into_inner().next().unwrap().into_inner().next().unwrap()
-    ).unwrap())
+        pair.into_inner()
+            .next()
+            .unwrap()
+            .into_inner()
+            .next()
+            .unwrap(),
+    )
+    .unwrap())
 }
 fn build_ast_from_brace_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     Ok(build_ast_from_stmt(

@@ -118,16 +118,16 @@ impl Import {
 pub struct If {
     pub block: Box<StmtKind>, // StmtKind::Expr
     pub stmt: Box<Stmt>,
-    pub elif: Box<Option<If>>,
+    pub elif: Vec<Option<ExprKind>>, // Vec [ExprKind::If]
     pub els: Box<Option<Stmt>>,
 }
 
 impl If {
-    pub fn new(block: StmtKind, stmt: Stmt, elif: Option<If>, els: Option<Stmt>) -> If {
+    pub fn new(block: StmtKind, stmt: Stmt, elif: Option<ExprKind>, els: Option<Stmt>) -> If {
         If {
             block: Box::new(block),
             stmt: Box::new(stmt),
-            elif: Box::new(elif),
+            elif: vec![elif],
             els: Box::new(els),
         }
     }
@@ -136,7 +136,7 @@ impl If {
         If {
             block: Box::new(StmtKind::PlaceHolder),
             stmt: Box::new(Stmt::place_holder()),
-            elif: Box::new(None),
+            elif: vec![None],
             els: Box::new(None),
         }
     }
@@ -145,11 +145,19 @@ impl If {
         self.block = Box::new(block);
     }
 
-    pub fn add_stmt(&mut self, stmt: Stmt){
+    pub fn add_stmt(&mut self, stmt: Stmt) {
         self.stmt = Box::new(stmt);
     }
 
-    pub fn add_else(&mut self, els: Stmt){
+    pub fn add_elif(&mut self, elif: ExprKind) {
+        // Um, better way?
+        if self.elif[0] == None {
+            self.elif.pop();
+        }
+        self.elif.push(Some(elif));
+    }
+
+    pub fn add_else(&mut self, els: Stmt) {
         self.els = Box::new(Some(els));
     }
 
@@ -158,7 +166,7 @@ impl If {
             // Maybe just error returning
             panic!("No block expressio set!");
         }
-        if *self.stmt == Stmt::place_holder(){
+        if *self.stmt == Stmt::place_holder() {
             panic!("No statement found!");
         }
     }

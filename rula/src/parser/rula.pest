@@ -13,10 +13,13 @@ let_stmt = {"let" ~ ident ~ "=" ~ expr}
 // Expressions
 expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | term | literals)}
 
+// Import Expression (e.g. import hello::world)
 import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
 
+// If expression (e.g. if (block > 0) {expreesion; };)
 if_expr = {"if" ~ paren_expr ~ brace_stmt ~ (else_if_expr)* ~ else_expr?}
 else_if_expr = {"else" ~ "if" ~ paren_expr ~ brace_stmt}
+// else_if_expr = {"else" ~ (if_expr)* ~ !else_expr}
 else_expr = {"else" ~ brace_stmt}
 
 fn_def_expr = {"fn" ~ paren_expr ~ brace_stmt}
