@@ -1,5 +1,8 @@
 extern crate rula;
-use rula::parser::ast::{AstNode, Expr, ExprKind, Import, PathKind, Stmt, StmtKind};
+
+use rula::parser::ast::{
+    AstNode, Expr, ExprKind, Ident, Import, Let, PathKind, Stmt, StmtKind, StringLit,
+};
 
 mod import_tests {
     use super::*;
@@ -86,6 +89,21 @@ mod comment_tests {
         let target_ast_nodes = vec![AstNode::Ignore];
         assert_eq!(empty_ast_nodes.len(), 1);
         assert_eq!(empty_ast_nodes[0], target_ast_nodes[0]);
+    }
+}
+
+mod let_tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_let_stmt() {
+        let let_stmt = r#"let hello = "world";"#;
+        let let_ast_nodes = rula::parse(let_stmt).unwrap();
+        let target_ast_nodes = vec![AstNode::Stmt(Stmt::new(StmtKind::Let(Let::new(
+            Ident::new("hello"),
+            StmtKind::Expr(Expr::new(ExprKind::StringLit(StringLit::new("world")))),
+        ))))];
+        assert_eq!(let_ast_nodes, target_ast_nodes);
     }
 }
 

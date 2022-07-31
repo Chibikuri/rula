@@ -4,8 +4,10 @@ pub mod token;
 mod util;
 
 use crate::Rule;
-use ast::{AstNode, Expr, ExprKind, Import, PathKind};
-use ast::{Stmt, StmtKind};
+// Statements
+use ast::{Let, Stmt, StmtKind};
+// Expressions
+use ast::{AstNode, Expr, ExprKind, Ident, Import, PathKind, StringLit};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -41,11 +43,8 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<AstNode> {
 }
 
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
-    println!("{:#?}", &pair);
     match pair.as_rule() {
-        Rule::let_stmt => Ok(Stmt::new(
-            build_ast_from_let_stmt(pair.into_inner().next().unwrap()).unwrap(),
-        )),
+        Rule::let_stmt => Ok(Stmt::new(build_ast_from_let_stmt(pair).unwrap())),
         Rule::expr => Ok(Stmt::new(
             build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap(),
         )),
@@ -54,19 +53,68 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
 }
 
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<StmtKind> {
-    // Ok(AstNode::Test)
-    Ok(StmtKind::Let)
+    // Ugh ugly
+    let mut identity = Ident::place_holder();
+    let mut expr = StmtKind::Expr(Expr::place_holder());
+    for let_pair in pair.into_inner() {
+        match let_pair.as_rule() {
+            Rule::ident => {
+                identity = build_ast_from_ident(let_pair).unwrap();
+            }
+            Rule::expr => {
+                expr = build_ast_from_expr(let_pair.into_inner().next().unwrap()).unwrap();
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+            // _ => todo!(),
+        }
+    }
+    // Should have easier way
+    // if identity == Ident::place_holder() || expr == StmtKind::Expr(Expr::place_holder()) {
+    //     return Err(RuLaError::RuLaSyntaxError);
+    // }
+    Ok(StmtKind::Let(Let::new(identity, expr)))
+}
+
+fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<Ident> {
+    return Ok(Ident::new(pair.as_str()));
 }
 
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<StmtKind> {
     match pair.as_rule() {
         Rule::if_expr => Ok(StmtKind::Expr(build_ast_from_if_expr(pair).unwrap())),
         Rule::import_expr => Ok(StmtKind::Expr(build_ast_from_import_expr(pair).unwrap())),
+        Rule::literals => Ok(StmtKind::Expr(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_if_expr(pair: pest::iterators::Pair<Rule>) -> IResult<Expr> {
+fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Expr> {
+    match pair.as_rule() {
+        Rule::strings => Ok(Expr::new(
+            build_ast_from_strings(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        Rule::bool => todo!(),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
+fn build_ast_from_strings(pair: Pair<Rule>) -> IResult<ExprKind> {
+    match pair.as_rule() {
+        Rule::string => Ok(ExprKind::StringLit(
+            build_raw_string_from_string(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        Rule::raw_string => Ok(ExprKind::StringLit(StringLit::new(pair.as_str()))),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
+fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
+    Ok(StringLit::new(pair.as_str()))
+}
+
+fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<Expr> {
     let mut expr_vec: Vec<Expr> = vec![];
     for expr in pair.into_inner() {
         match expr.as_rule() {

@@ -1,14 +1,17 @@
 // Everything starts here
 rula = {SOI ~ COMMENT? ~ program ~ COMMENT? ~EOI}
 
-// Program 
+// Program endpoing
 program = { (stmt)* }
 
+// Statement includes {let, expression, }
 stmt = {(let_stmt | expr) ~ ";"}
 
-let_stmt = {"let" ~ ident ~ "=" ~ (number | ident)}
+// Variable assignment
+let_stmt = {"let" ~ ident ~ "=" ~ expr}
 
-expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | term)}
+// Expressions
+expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | term | literals)}
 
 import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
 
@@ -25,9 +28,36 @@ term = {number ~ (op ~ number)*}
 
 op = {"*" | "/" | "+" | "-"}
 
-number = {ASCII_DIGIT+}
+// number = {ASCII_DIGIT+}
 ident = {ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
 ident_list = { ident ~ ("," ~ ident)* }
+
+// Literals (ref: https://pest.rs/book/examples/rust/literals.html)
+literals = {(bool | strings)}
+
+// Boolean literal
+true_lit  = { "true" }
+false_lit = { "false" }
+bool      = { true_lit | false_lit }
+
+// Integer literal (10, 1000, 10e10, -10, -10e-10 etc)
+int = { "-"? ~ ASCII_DIGIT+ ~ ("e" ~ ("+" | "-")? ~ ASCII_DIGIT+)? ~!(ASCII_ALPHA)}
+// Floating point literal (1.2, 10., 10.00e10)
+float = { ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* ~ ("e" ~ ("+" | "-")? ~ASCII_DIGIT+)? ~!(ASCII_ALPHA)}
+number = { (int | float) }
+// String literals (escape should be added later)
+strings = {(string | raw_string)}
+string = { "\"" ~ (raw_string)* ~ "\"" }
+raw_string = { (!("\\" | "\"") ~ ANY)+ }
+
+
+
+// hex = _{ '0'..'9' | 'a'..'f' | 'A'..'F' }
+// unicode_hex = { hex{1, 6} }
+// predefined = { "n" | "r" | "t" | "\\" | "0" | "\"" | "'" }
+// byte       = { "x" ~ hex{2} }
+// unicode    = { "u" ~ "{" ~ unicode_hex ~ "}" }
+// escape     = { "\\" ~ (predefined | byte | unicode) }
 
 COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ ("\n" | EOI))}
 WHITESPACE = _{(" " | "\n")}

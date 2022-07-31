@@ -25,9 +25,24 @@ impl Stmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
-    Let,
+    Let(Let),
     Expr(Expr),
     Test, // debug use
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Let {
+    pub ident: Box<Ident>,
+    pub expr: Box<StmtKind>, // StmtKind::Expr
+}
+
+impl Let {
+    pub fn new(identity: Ident, expr: StmtKind) -> Let {
+        Let {
+            ident: Box::new(identity),
+            expr: Box::new(expr),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,6 +57,12 @@ impl Expr {
             expr: Box::new(exp_kind),
         }
     }
+
+    pub fn place_holder() -> Expr {
+        Expr {
+            expr: Box::new(ExprKind::PlaceHolder),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,7 +70,29 @@ pub enum ExprKind {
     Import(Import),
     If(If),
     Fn(Fn),
-    Test, // debug
+    StringLit(StringLit),
+    Ident(Ident),
+    PlaceHolder, // for initializing reason, but maybe better way?
+    Test,        // debug
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ident {
+    pub name: Box<String>,
+}
+
+impl Ident {
+    pub fn new(name: &str) -> Ident {
+        Ident {
+            name: Box::new(String::from(name)),
+        }
+    }
+    // Do we have better way?
+    pub fn place_holder() -> Ident {
+        Ident {
+            name: Box::new(String::from("")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -78,12 +121,6 @@ pub struct Fn {
     pub arguments: Box<Expr>,
     pub expr: Box<Expr>,
 }
-
-// impl IfKind{
-//     pub fn new(cond: Expr, act: Expr) -> IfKind{
-//         IfKind{condition: Box::new(cond), action: Box::new(act)}
-//     }
-// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PathKind {
@@ -125,6 +162,19 @@ impl Iterator for PathKind {
             let curr = self.index;
             self.index = self.index + 1;
             return Some(self.paths[curr as usize].clone());
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringLit {
+    string: Box<String>,
+}
+
+impl StringLit {
+    pub fn new(strs: &str) -> StringLit {
+        StringLit {
+            string: Box::new(String::from(strs)),
         }
     }
 }
