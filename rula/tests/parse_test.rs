@@ -1,7 +1,8 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    AstNode, Expr, ExprKind, Ident, If, Import, Let, PathKind, Stmt, StmtKind, StringLit,
+    AstNode, Expr, ExprKind, Ident, If, Import, Let, Lit, LitKind, PathKind, Stmt, StmtKind,
+    StringLit,
 };
 
 mod import_tests {
@@ -96,13 +97,32 @@ mod let_tests {
     use super::*;
 
     #[test]
+    #[rustfmt::skip]
     fn test_simple_let_stmt() {
         let let_stmt = r#"let hello = "world";"#;
         let let_ast_nodes = rula::parse(let_stmt).unwrap();
-        let target_ast_nodes = vec![AstNode::Stmt(Stmt::new(StmtKind::Let(Let::new(
-            ExprKind::Ident(Ident::new("hello")),
-            StmtKind::Expr(Expr::new(ExprKind::StringLit(StringLit::new("world")))),
-        ))))];
+        let target_ast_nodes = vec![
+            AstNode::Stmt(
+                Stmt::new(
+                    StmtKind::Let(
+                        Let::new(
+                            Ident::new("hello"),
+                            Expr::new(
+                                ExprKind::Lit(
+                                    Lit::new(
+                                        LitKind::StringLit(
+                                            StringLit::new(
+                                                "world"
+                                        )
+                                    )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
         assert_eq!(let_ast_nodes, target_ast_nodes);
     }
 
@@ -116,45 +136,40 @@ mod let_tests {
                 Stmt::new(
                     StmtKind::Let(
                         Let::new(
-                            ExprKind::Ident(
-                                Ident::new(
-                                    "hello"
-                                )
+                            Ident::new(
+                                "hello"
                             ),
-                            StmtKind::Expr(
-                                Expr::new(
-                                    ExprKind::If(
-                                        If::new(
-                                            // (block)
+                            Expr::new(
+                                ExprKind::If(
+                                    If::new(
+                                        // (block)
+                                        Expr::new(
+                                            ExprKind::Ident(
+                                                Ident::new(
+                                                    "block"
+                                                )
+                                            )
+                                        ),
+                                        // {expression}
+                                        Stmt::new(
                                             StmtKind::Expr(
                                                 Expr::new(
                                                     ExprKind::Ident(
                                                         Ident::new(
-                                                            "block"
+                                                            "expression"
                                                         )
                                                     )
                                                 )
-                                            ),
-                                            // {expression}
-                                            Stmt::new(
-                                                StmtKind::Expr(
-                                                    Expr::new(
-                                                        ExprKind::Ident(
-                                                            Ident::new(
-                                                                "expression"
-                                                            )
-                                                        )
-                                                    )
-                                                )
-                                            ),
-                                            // elif ~
-                                            None,
-                                            // else ~
-                                            None,
-                                        )
+                                            )
+                                        ),
+                                        // elif ~
+                                        None,
+                                        // else ~
+                                        None,
                                     )
                                 )
                             )
+
                         )
                     )
                 )
@@ -180,12 +195,10 @@ mod if_tests {
                             ExprKind::If(
                                 If::new(
                                     // (block)
-                                    StmtKind::Expr(
-                                        Expr::new(
-                                            ExprKind::Ident(
-                                                Ident::new(
-                                                    "block"
-                                                )
+                                    Expr::new(
+                                        ExprKind::Ident(
+                                            Ident::new(
+                                                "block"
                                             )
                                         )
                                     ),
@@ -228,12 +241,10 @@ mod if_tests {
                             ExprKind::If(
                                 If::new(
                                     // (block)
-                                    StmtKind::Expr(
-                                        Expr::new(
-                                            ExprKind::Ident(
-                                                Ident::new(
-                                                    "block"
-                                                )
+                                    Expr::new(
+                                        ExprKind::Ident(
+                                            Ident::new(
+                                                "block"
                                             )
                                         )
                                     ),
@@ -289,12 +300,10 @@ mod if_tests {
                             ExprKind::If(
                                 If::new(
                                     // (block)
-                                    StmtKind::Expr(
-                                        Expr::new(
-                                            ExprKind::Ident(
-                                                Ident::new(
-                                                    "block"
-                                                )
+                                    Expr::new(
+                                        ExprKind::Ident(
+                                            Ident::new(
+                                                "block"
                                             )
                                         )
                                     ),
@@ -312,34 +321,30 @@ mod if_tests {
                                     ),
                                     // elif ~
                                     Some(
-                                        ExprKind::If(
-                                            If::new(
-                                                // else if (block)
+                                        If::new(
+                                            // else if (block)
+                                            Expr::new(
+                                                ExprKind::Ident(
+                                                    Ident::new(
+                                                        "block2"
+                                                    )
+                                                )
+                                            ),
+                                            // else if () {statement2;};
+                                            Stmt::new(
                                                 StmtKind::Expr(
                                                     Expr::new(
                                                         ExprKind::Ident(
                                                             Ident::new(
-                                                                "block2"
+                                                                "expression2"
                                                             )
                                                         )
                                                     )
-                                                ),
-                                                // else if () {statement2;};
-                                                Stmt::new(
-                                                    StmtKind::Expr(
-                                                        Expr::new(
-                                                            ExprKind::Ident(
-                                                                Ident::new(
-                                                                    "expression2"
-                                                                )
-                                                            )
-                                                        )
-                                                    )
-                                                ),
-                                                None,
-                                                None,
-                                            )
-                                        )
+                                                )
+                                            ),
+                                            None,
+                                            None,
+                                        ),
                                     ),
                                     // else ~
                                     None,
@@ -367,12 +372,10 @@ mod if_tests {
                             ExprKind::If(
                                 If::new(
                                     // (block)
-                                    StmtKind::Expr(
-                                        Expr::new(
-                                            ExprKind::Ident(
-                                                Ident::new(
-                                                    "block"
-                                                )
+                                    Expr::new(
+                                        ExprKind::Ident(
+                                            Ident::new(
+                                                "block"
                                             )
                                         )
                                     ),
@@ -390,33 +393,29 @@ mod if_tests {
                                     ),
                                     // elif ~
                                     Some(
-                                        ExprKind::If(
-                                            If::new(
-                                                // else if (block)
+                                        If::new(
+                                            // else if (block)
+                                            Expr::new(
+                                                ExprKind::Ident(
+                                                    Ident::new(
+                                                        "block2"
+                                                    )
+                                                )
+                                            ),
+                                            // else if () {statement2;};
+                                            Stmt::new(
                                                 StmtKind::Expr(
                                                     Expr::new(
                                                         ExprKind::Ident(
                                                             Ident::new(
-                                                                "block2"
+                                                                "expression2"
                                                             )
                                                         )
                                                     )
-                                                ),
-                                                // else if () {statement2;};
-                                                Stmt::new(
-                                                    StmtKind::Expr(
-                                                        Expr::new(
-                                                            ExprKind::Ident(
-                                                                Ident::new(
-                                                                    "expression2"
-                                                                )
-                                                            )
-                                                        )
-                                                    )
-                                                ),
-                                                None,
-                                                None,
-                                            )
+                                                )
+                                            ),
+                                            None,
+                                            None,
                                         )
                                     ),
                                     // else ~

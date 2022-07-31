@@ -19,9 +19,9 @@ import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "
 // If expression (e.g. if (block > 0) {expreesion; };)
 if_expr = {"if" ~ paren_expr ~ brace_stmt ~ (else_if_expr)* ~ else_expr?}
 else_if_expr = {"else" ~ "if" ~ paren_expr ~ brace_stmt}
-// else_if_expr = {"else" ~ (if_expr)* ~ !else_expr}
 else_expr = {"else" ~ brace_stmt}
 
+// Function definition (e.g. fn hello(){world})
 fn_def_expr = {"fn" ~ paren_expr ~ brace_stmt}
 
 paren_expr = {"(" ~ expr ~ ")"}

@@ -38,15 +38,15 @@ pub enum StmtKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<ExprKind>, // ExprKind::Ident
-    pub expr: Box<StmtKind>,  // StmtKind::Expr
+    pub ident: Box<ExprKind>,
+    pub expr: Box<StmtKind>,
 }
 
 impl Let {
-    pub fn new(identity: ExprKind, expr: StmtKind) -> Let {
+    pub fn new(identifier: Ident, expr: Expr) -> Let {
         Let {
-            ident: Box::new(identity),
-            expr: Box::new(expr),
+            ident: Box::new(ExprKind::Ident(identifier)),
+            expr: Box::new(StmtKind::Expr(expr)),
         }
     }
 }
@@ -76,10 +76,28 @@ pub enum ExprKind {
     Import(Import),
     If(If),
     Fn(Fn),
-    StringLit(StringLit),
+    Lit(Lit),
     Ident(Ident),
     PlaceHolder, // for initializing reason, but maybe better way?
     Test,        // debug
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lit {
+    pub kind: Box<LitKind>,
+}
+
+impl Lit {
+    pub fn new(kind: LitKind) -> Lit {
+        Lit {
+            kind: Box::new(kind),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LitKind {
+    StringLit(StringLit),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,14 +136,15 @@ impl Import {
 pub struct If {
     pub block: Box<StmtKind>, // StmtKind::Expr
     pub stmt: Box<Stmt>,
-    pub elif: Vec<Option<ExprKind>>, // Vec [ExprKind::If]
+    pub elif: Vec<Option<If>>, // Vec [ExprKind::If]
     pub els: Box<Option<Stmt>>,
 }
 
 impl If {
-    pub fn new(block: StmtKind, stmt: Stmt, elif: Option<ExprKind>, els: Option<Stmt>) -> If {
+    pub fn new(block: Expr, stmt: Stmt, elif: Option<If>, els: Option<Stmt>) -> If {
         If {
-            block: Box::new(block),
+            // enum type validation
+            block: Box::new(StmtKind::Expr(block)),
             stmt: Box::new(stmt),
             elif: vec![elif],
             els: Box::new(els),
@@ -134,22 +153,22 @@ impl If {
 
     pub fn place_holder() -> If {
         If {
-            block: Box::new(StmtKind::PlaceHolder),
+            block: Box::new(StmtKind::Expr(Expr::place_holder())),
             stmt: Box::new(Stmt::place_holder()),
             elif: vec![None],
             els: Box::new(None),
         }
     }
 
-    pub fn add_block(&mut self, block: StmtKind) {
-        self.block = Box::new(block);
+    pub fn add_block(&mut self, block: Expr) {
+        self.block = Box::new(StmtKind::Expr(block));
     }
 
     pub fn add_stmt(&mut self, stmt: Stmt) {
         self.stmt = Box::new(stmt);
     }
 
-    pub fn add_elif(&mut self, elif: ExprKind) {
+    pub fn add_elif(&mut self, elif: If) {
         // Um, better way?
         if self.elif[0] == None {
             self.elif.pop();
@@ -162,7 +181,7 @@ impl If {
     }
 
     pub fn check(&self) {
-        if *self.block == StmtKind::PlaceHolder {
+        if *self.block == StmtKind::Expr(Expr::place_holder()) {
             // Maybe just error returning
             panic!("No block expressio set!");
         }
