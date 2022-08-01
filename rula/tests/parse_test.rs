@@ -1,8 +1,8 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    AstNode, Expr, ExprKind, Ident, If, Import, Let, Lit, LitKind, PathKind, Program, ProgramKind,
-    RuLa, RuLaKind, Stmt, StmtKind, StringLit,
+    AstNode, Expr, ExprKind, FnDef, Ident, If, Import, IntegerLit, Let, Lit, LitKind, PathKind,
+    Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
 };
 
 mod import_tests {
@@ -181,7 +181,7 @@ mod let_tests {
     #[test]
     #[rustfmt::skip]
     fn test_simple_let_stmt() {
-        let let_stmt = r#"let hello = "world";"#;
+        let let_stmt = r#"let hello: str = "world";"#;
         let let_ast_nodes = rula::parse(let_stmt).unwrap();
         let target_ast_nodes = vec![
             AstNode::RuLa(
@@ -192,7 +192,10 @@ mod let_tests {
                                 Stmt::new(
                                     StmtKind::Let(
                                         Let::new(
-                                            Ident::new("hello"),
+                                            Ident::new(
+                                                "hello",
+                                                Some(TypeDef::Str),
+                                            ),
                                             Expr::new(
                                                 ExprKind::Lit(
                                                     Lit::new(
@@ -201,6 +204,47 @@ mod let_tests {
                                                                 "world"
                                                         )
                                                     )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(let_ast_nodes, target_ast_nodes);
+    }
+
+    #[test]
+    #[rustfmt::skip] 
+    fn test_simple_let_stmt_int() {
+        let let_stmt = r#"let hello:i32 = 123;"#;
+        let let_ast_nodes = rula::parse(let_stmt).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Let(
+                                        Let::new(
+                                            Ident::new(
+                                                "hello",
+                                                Some(TypeDef::Integer32),
+                                            ),
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::IntegerLit(
+                                                            IntegerLit::new(
+                                                                "123"
+                                                            )
+                                                        )
                                                     )
                                                 )
                                             )
@@ -231,7 +275,8 @@ mod let_tests {
                                     StmtKind::Let(
                                         Let::new(
                                             Ident::new(
-                                                "hello"
+                                                "hello",
+                                                None
                                             ),
                                             Expr::new(
                                                 ExprKind::If(
@@ -240,7 +285,8 @@ mod let_tests {
                                                         Expr::new(
                                                             ExprKind::Ident(
                                                                 Ident::new(
-                                                                    "block"
+                                                                    "block",
+                                                                    None
                                                                 )
                                                             )
                                                         ),
@@ -250,7 +296,8 @@ mod let_tests {
                                                                 Expr::new(
                                                                     ExprKind::Ident(
                                                                         Ident::new(
-                                                                            "expression"
+                                                                            "expression",
+                                                                            None
                                                                         )
                                                                     )
                                                                 )
@@ -300,7 +347,8 @@ mod if_tests {
                                                     Expr::new(
                                                         ExprKind::Ident(
                                                             Ident::new(
-                                                                "block"
+                                                                "block",
+                                                                None
                                                             )
                                                         )
                                                     ),
@@ -310,7 +358,8 @@ mod if_tests {
                                                             Expr::new(
                                                                 ExprKind::Ident(
                                                                     Ident::new(
-                                                                        "expression"
+                                                                        "expression",
+                                                                        None
                                                                     )
                                                                 )
                                                             )
@@ -354,7 +403,8 @@ mod if_tests {
                                                     Expr::new(
                                                         ExprKind::Ident(
                                                             Ident::new(
-                                                                "block"
+                                                                "block",
+                                                                None
                                                             )
                                                         )
                                                     ),
@@ -364,7 +414,8 @@ mod if_tests {
                                                             Expr::new(
                                                                 ExprKind::Ident(
                                                                     Ident::new(
-                                                                        "expression"
+                                                                        "expression",
+                                                                        None
                                                                     )
                                                                 )
                                                             )
@@ -379,7 +430,8 @@ mod if_tests {
                                                                 Expr::new(
                                                                     ExprKind::Ident(
                                                                         Ident::new(
-                                                                            "expression2"
+                                                                            "expression2",
+                                                                            None
                                                                         )
                                                                     )
                                                                 )
@@ -421,7 +473,8 @@ mod if_tests {
                                                     Expr::new(
                                                         ExprKind::Ident(
                                                             Ident::new(
-                                                                "block"
+                                                                "block",
+                                                                None
                                                             )
                                                         )
                                                     ),
@@ -431,7 +484,8 @@ mod if_tests {
                                                             Expr::new(
                                                                 ExprKind::Ident(
                                                                     Ident::new(
-                                                                        "expression"
+                                                                        "expression",
+                                                                        None
                                                                     )
                                                                 )
                                                             )
@@ -444,7 +498,8 @@ mod if_tests {
                                                             Expr::new(
                                                                 ExprKind::Ident(
                                                                     Ident::new(
-                                                                        "block2"
+                                                                        "block2",
+                                                                        None
                                                                     )
                                                                 )
                                                             ),
@@ -454,7 +509,8 @@ mod if_tests {
                                                                     Expr::new(
                                                                         ExprKind::Ident(
                                                                             Ident::new(
-                                                                                "expression2"
+                                                                                "expression2",
+                                                                                None
                                                                             )
                                                                         )
                                                                     )
@@ -501,7 +557,8 @@ mod if_tests {
                                                     Expr::new(
                                                         ExprKind::Ident(
                                                             Ident::new(
-                                                                "block"
+                                                                "block",
+                                                                None
                                                             )
                                                         )
                                                     ),
@@ -511,7 +568,8 @@ mod if_tests {
                                                             Expr::new(
                                                                 ExprKind::Ident(
                                                                     Ident::new(
-                                                                        "expression"
+                                                                        "expression",
+                                                                        None
                                                                     )
                                                                 )
                                                             )
@@ -524,7 +582,8 @@ mod if_tests {
                                                             Expr::new(
                                                                 ExprKind::Ident(
                                                                     Ident::new(
-                                                                        "block2"
+                                                                        "block2",
+                                                                        None
                                                                     )
                                                                 )
                                                             ),
@@ -534,7 +593,8 @@ mod if_tests {
                                                                     Expr::new(
                                                                         ExprKind::Ident(
                                                                             Ident::new(
-                                                                                "expression2"
+                                                                                "expression2",
+                                                                                None
                                                                             )
                                                                         )
                                                                     )
@@ -551,7 +611,8 @@ mod if_tests {
                                                                 Expr::new(
                                                                     ExprKind::Ident(
                                                                         Ident::new(
-                                                                            "expression3"
+                                                                            "expression3",
+                                                                            None
                                                                         )
                                                                     )
                                                                 )
@@ -571,5 +632,104 @@ mod if_tests {
             )
         ];
         assert_eq!(target_ast_nodes, if_elif_ast_nodes);
+    }
+    // Add error test here
+}
+
+mod fn_def_test {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_fn_def() {
+        let fn_def_expr = "fn(block:i32){expression;};";
+        let fn_def_asts = rula::parse(fn_def_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::FnDef(
+                                                FnDef::new(
+                                                    vec![
+                                                        Ident::new(
+                                                            "block",
+                                                            Some(TypeDef::Integer32)
+                                                        )
+                                                        ],
+                                                        Stmt::new(
+                                                            StmtKind::Expr(
+                                                                Expr::new(
+                                                                    ExprKind::Ident(
+                                                                        Ident::new("expression", None)
+                                                                    )
+                                                                ),
+                                                            )
+                                                        )
+                                                    ),
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                )
+                ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_mlti_args_fn_def() {
+        let fn_def_expr = "fn(block:i32, hello:str){expression;};";
+        let fn_def_asts = rula::parse(fn_def_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::FnDef(
+                                                FnDef::new(
+                                                    vec![
+                                                        Ident::new(
+                                                            "block",
+                                                            Some(TypeDef::Integer32)
+                                                        ),
+                                                        Ident::new(
+                                                            "hello",
+                                                            Some(TypeDef::Str)
+                                                        ),
+                                                        ],
+                                                        Stmt::new(
+                                                            StmtKind::Expr(
+                                                                Expr::new(
+                                                                    ExprKind::Ident(
+                                                                        Ident::new("expression", None)
+                                                                    )
+                                                                ),
+                                                            )
+                                                        )
+                                                    ),
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                )
+                ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }

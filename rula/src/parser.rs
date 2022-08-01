@@ -4,13 +4,16 @@ pub mod token;
 mod util;
 
 use crate::Rule;
+// RuLa
+use ast::{RuLa, RuLaKind};
+// Program
+use ast::{Program, ProgramKind};
 // Statements
 use ast::{Let, Stmt, StmtKind};
 // Expressions
-use ast::{
-    Expr, ExprKind, Ident, If, Import, Lit, LitKind, PathKind, Program, ProgramKind, RuLa,
-    RuLaKind, StringLit,
-};
+use ast::{Expr, ExprKind, FnDef, Ident, If, Import, Lit, LitKind, PathKind, StringLit};
+// Literals
+use ast::{IntegerLit, TypeDef};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -65,30 +68,40 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
 // Parse Let statement (semi endpoint)
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<Let> {
     // Ugh ugly
-    let mut identity = Ident::place_holder();
-    let mut expr = Expr::place_holder();
+    let mut let_stmt = Let::place_holder();
     for let_pair in pair.into_inner() {
         match let_pair.as_rule() {
             Rule::ident => {
-                identity = build_ast_from_ident(let_pair).unwrap();
+                let_stmt.add_ident(build_ast_from_ident(let_pair).unwrap());
             }
             Rule::expr => {
-                expr = build_ast_from_expr(let_pair.into_inner().next().unwrap()).unwrap();
+                let_stmt
+                    .add_expr(build_ast_from_expr(let_pair.into_inner().next().unwrap()).unwrap());
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
-            // _ => todo!(),
         }
     }
-    // Should have easier way
-    if identity == Ident::place_holder() || expr == Expr::place_holder() {
-        return Err(RuLaError::RuLaSyntaxError);
-    }
-    Ok(Let::new(identity, expr))
+    Ok(let_stmt)
 }
 
 // Parse identifier(Endpoint)
 fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<Ident> {
-    return Ok(Ident::new(pair.as_str()));
+    let mut identifier = Ident::place_holder();
+    for ids in pair.into_inner() {
+        match ids.as_rule() {
+            Rule::identifier => {
+                identifier.add_name(ids.as_str());
+            }
+            Rule::typedef_lit => {
+                identifier.add_type_hint(Some(
+                    build_ast_from_typedef_lit(ids.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    identifier.check();
+    Ok(identifier)
 }
 
 // Parse expression <--> {If | Import | Lit | Identifier}
@@ -97,10 +110,11 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::if_expr => Ok(Expr::new(ExprKind::If(
             build_ast_from_if_expr(pair).unwrap(),
         ))),
-        // Should be recursive?
-        // Rule::paren_expr => Ok(StmtKind::Expr(build_ast_from_paren_expr(pair).unwrap())),
         Rule::import_expr => Ok(Expr::new(ExprKind::Import(
             build_ast_from_import_expr(pair).unwrap(),
+        ))),
+        Rule::fn_def_expr => Ok(Expr::new(ExprKind::FnDef(
+            build_ast_from_fn_def_expr(pair).unwrap(),
         ))),
         Rule::literals => Ok(Expr::new(ExprKind::Lit(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
@@ -117,6 +131,9 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     match pair.as_rule() {
         Rule::strings => Ok(Lit::new(LitKind::StringLit(
             build_ast_from_strings(pair.into_inner().next().unwrap()).unwrap(),
+        ))),
+        Rule::number => Ok(Lit::new(LitKind::IntegerLit(
+            build_ast_from_number(pair.into_inner().next().unwrap()).unwrap(),
         ))),
         Rule::bool => todo!(),
         _ => Err(RuLaError::RuLaSyntaxError),
@@ -137,6 +154,13 @@ fn build_ast_from_strings(pair: Pair<Rule>) -> IResult<StringLit> {
 // Parse raw_string literal endpoint
 fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
     Ok(StringLit::new(pair.as_str()))
+}
+
+fn build_ast_from_number(pair: Pair<Rule>) -> IResult<IntegerLit> {
+    match pair.as_rule() {
+        Rule::int => Ok(IntegerLit::new(pair.as_str())),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
 }
 
 // Parse If expr <--> {paren_expr | brace_stmt | else_if | else} semi endpoint
@@ -236,6 +260,60 @@ fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
     Ok(Import::new(PathKind::from(path_list)))
 }
 
+fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
+    let mut fnc_def = FnDef::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::arguments => {
+                // loop over all arguments
+                for arg in block.into_inner() {
+                    fnc_def.add_arg(build_ast_from_ident(arg).unwrap());
+                }
+            }
+            Rule::brace_stmt => fnc_def.add_expr(build_ast_from_brace_stmt(block).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(fnc_def)
+}
+
+fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
+    match pair.as_rule() {
+        Rule::integer_type => match pair.as_str() {
+            "i32" => return Ok(TypeDef::Integer32),
+            "i64" => return Ok(TypeDef::Integer64),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::unsigned_integer_type => match pair.as_str() {
+            "u32" => return Ok(TypeDef::UnsignedInteger32),
+            "u64" => return Ok(TypeDef::UnsignedInteger64),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::float_type => match pair.as_str() {
+            "f32" => return Ok(TypeDef::Float32),
+            "f64" => return Ok(TypeDef::Float64),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::complex_type => match pair.as_str() {
+            "c64" => return Ok(TypeDef::Complex64),
+            "c128" => return Ok(TypeDef::Complex128),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::boolean_type => match pair.as_str() {
+            "bool" => return Ok(TypeDef::Boolean),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::string_type => match pair.as_str() {
+            "str" => return Ok(TypeDef::Str),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::qubit_type => match pair.as_str() {
+            "qubit" => return Ok(TypeDef::Qubit),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        _ => todo!("Should be unknown type error here"),
+    }
+}
 // fn build_ast_from_term(pair: pest::iterators::Pair<Rule>) -> AstNode {
 //     match pair.as_rule() {
 //         Rule::expr => build_ast_from_term(pair.into_inner().next().unwrap()),

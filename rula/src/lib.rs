@@ -7,7 +7,7 @@ extern crate pest_derive;
 #[grammar = "parser/rula.pest"]
 pub struct RuLaParser;
 
-use parser::ast::{AstNode, RuLa};
+use parser::ast::{AstNode};
 use parser::error::RuLaError;
 use parser::IResult;
 use pest::Parser;

@@ -98,6 +98,19 @@ impl Let {
             expr: Box::new(StmtKind::Expr(expr)),
         }
     }
+    pub fn place_holder() -> Let {
+        Let {
+            ident: Box::new(ExprKind::PlaceHolder),
+            expr: Box::new(StmtKind::PlaceHolder),
+        }
+    }
+    pub fn add_ident(&mut self, identifier: Ident) {
+        self.ident = Box::new(ExprKind::Ident(identifier));
+    }
+
+    pub fn add_expr(&mut self, expr: Expr) {
+        self.expr = Box::new(StmtKind::Expr(expr));
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,7 +137,7 @@ impl Expr {
 pub enum ExprKind {
     Import(Import),
     If(If),
-    Fn(Fn),
+    FnDef(FnDef),
     Lit(Lit),
     Ident(Ident),
     PlaceHolder, // for initializing reason, but maybe better way?
@@ -147,25 +160,84 @@ impl Lit {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LitKind {
     StringLit(StringLit),
+    IntegerLit(IntegerLit),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringLit {
+    string: Box<String>,
+}
+
+impl StringLit {
+    pub fn new(strs: &str) -> StringLit {
+        StringLit {
+            string: Box::new(String::from(strs)),
+        }
+    }
+}
+
+// Should be able to integrate to 64
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntegerLit {
+    // At this point, this is just string, but converted to integer
+    integer: Box<String>,
+}
+
+impl IntegerLit {
+    pub fn new(integer: &str) -> IntegerLit {
+        IntegerLit {
+            integer: Box::new(String::from(integer)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ident {
     pub name: Box<String>,
+    pub type_hint: Box<Option<TypeDef>>,
 }
 
 impl Ident {
-    pub fn new(name: &str) -> Ident {
+    pub fn new(name: &str, type_def: Option<TypeDef>) -> Ident {
         Ident {
             name: Box::new(String::from(name)),
+            type_hint: Box::new(type_def),
         }
     }
     // Do we have better way?
     pub fn place_holder() -> Ident {
         Ident {
             name: Box::new(String::from("")),
+            type_hint: Box::new(None),
         }
     }
+    pub fn add_name(&mut self, name: &str) {
+        self.name = Box::new(String::from(name));
+    }
+
+    pub fn add_type_hint(&mut self, type_hint: Option<TypeDef>) {
+        self.type_hint = Box::new(type_hint);
+    }
+    pub fn check(&self) {
+        if *self.name == String::from("") {
+            panic!("Identify name not set!")
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeDef {
+    Integer32,
+    Integer64,
+    UnsignedInteger32,
+    UnsignedInteger64,
+    Float32,
+    Float64,
+    Complex64,
+    Complex128,
+    Boolean,
+    Str,
+    Qubit,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -241,9 +313,32 @@ impl If {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Fn {
-    pub arguments: Box<Expr>,
-    pub expr: Box<Expr>,
+pub struct FnDef {
+    pub arguments: Vec<Ident>,
+    pub stmt: Box<Stmt>,
+}
+
+impl FnDef {
+    pub fn new(arguments: Vec<Ident>, stmt: Stmt) -> FnDef {
+        FnDef {
+            arguments: arguments,
+            stmt: Box::new(stmt),
+        }
+    }
+    pub fn place_holder() -> FnDef {
+        FnDef {
+            arguments: vec![],
+            stmt: Box::new(Stmt::place_holder()),
+        }
+    }
+
+    pub fn add_arg(&mut self, argument: Ident) {
+        self.arguments.push(argument);
+    }
+
+    pub fn add_expr(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -286,19 +381,6 @@ impl Iterator for PathKind {
             let curr = self.index;
             self.index = self.index + 1;
             return Some(self.paths[curr as usize].clone());
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StringLit {
-    string: Box<String>,
-}
-
-impl StringLit {
-    pub fn new(strs: &str) -> StringLit {
-        StringLit {
-            string: Box::new(String::from(strs)),
         }
     }
 }
