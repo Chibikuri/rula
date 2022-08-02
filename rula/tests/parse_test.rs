@@ -238,14 +238,8 @@ mod let_tests {
                                                 Some(TypeDef::Integer32),
                                             ),
                                             Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::IntegerLit(
-                                                            IntegerLit::new(
-                                                                "123"
-                                                            )
-                                                        )
-                                                    )
+                                                ExprKind::Term(
+                                                    123
                                                 )
                                             )
                                         )
@@ -721,6 +715,39 @@ mod fn_def_test {
                                                         )
                                                     ),
                                                 )
+                                            )
+                                        )
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                )
+                ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
+
+mod term_tests {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_term_expr() {
+        let term_expr = "1+3;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                4
+                                            )
                                             )
                                         )
                                     )

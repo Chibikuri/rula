@@ -1,80 +1,93 @@
 // Everything starts here
-rula = {SOI ~ COMMENT? ~ program ~ COMMENT? ~EOI}
+rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~EOI }
 
 // Program endpoing
-program = { (stmt)* }
+program = { ( stmt )* }
 
 // Statement includes {let, expression, }
-stmt = {(let_stmt | expr) ~ ";"}
+stmt = { ( let_stmt | brace_stmt | expr ) ~ ";" }
 
 // Variable assignment
-let_stmt = {"let" ~ ident ~ "=" ~ expr}
+let_stmt = { "let" ~ ident ~ "=" ~ expr }
 
 // Expressions
-expr = {(import_expr| fn_def_expr | if_expr  | brace_stmt | ident | literals)}
+expr = { ( import_expr 
+           | fn_def_expr 
+           | if_expr
+           | ident
+           | term
+           | literals   
+            ) }
 
 // Import Expression (e.g. import hello::world)
-import_expr = {"import" ~ ident ~ ("::" ~ ident)* ~ ("::" ~ "{" ~ ident_list ~ "}")? ~!"::"}
+import_expr = { "import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")? ~!"::" }
 
 // If expression (e.g. if (block > 0) {expreesion; };)
-if_expr = {"if" ~ paren_expr ~ brace_stmt ~ (else_if_expr)* ~ else_expr?}
-else_if_expr = {"else" ~ "if" ~ paren_expr ~ brace_stmt}
-else_expr = {"else" ~ brace_stmt}
+if_expr = { "if" ~ paren_expr ~ brace_stmt ~ ( else_if_expr )* ~ else_expr? }
+else_if_expr = { "else" ~ "if" ~ paren_expr ~ brace_stmt }
+else_expr = { "else" ~ brace_stmt }
 
 // expression with parenthesis
-paren_expr = {"(" ~ expr ~ ")"}
-brace_stmt = {"{" ~ stmt ~ "}"}
+paren_expr = { "(" ~ expr ~ ")" }
+brace_stmt = { "{" ~ stmt ~ "}" }
 
 // Function definition (e.g. fn hello(){world})
-fn_def_expr = {"fn" ~ arguments ~ brace_stmt}
-arguments = {"(" ~ (ident ? ~ ("," ~ ident)*) ~ ")"}
+fn_def_expr = { "fn" ~ arguments ~ brace_stmt }
+arguments = { "(" ~ (ident ? ~ ("," ~ ident)*) ~ ")" }
 
-// term = {number ~ (op ~ number)*}
+// Precedence arithmetic as a flat expr here
+term = { inner_term ~ (op ~ inner_term)* }
+inner_term = _{ number | "(" ~ term ~ ")" }
 
-// op = {"*" | "/" | "+" | "-"}
+op = { ( plus | minus | asterisk | slash | caret ) }
+plus = {"+"}
+minus = {"-"}
+asterisk = {"*"}
+slash = {"/"}
+caret = {"^"}
 
 // Identifiers
-ident = {identifier ~ (":" ~ typedef_lit)?}
-identifier = { ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*}
-ident_list = { identifier ~ ("," ~ identifier)* }
+ident = { identifier ~ ( ":" ~ typedef_lit )? }
+identifier = { ASCII_ALPHA ~ ( ASCII_ALPHA | ASCII_DIGIT | "_")* }
+ident_list = { identifier ~ ( "," ~ identifier )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
-literals = { ( number | bool | strings ) }
+literals = { ( bool | strings ) }
 
 // Boolean literal
 true_lit  = { "true" }
 false_lit = { "false" }
 bool      = { true_lit | false_lit }
 
-// number literal
-number = { (int | float) }
+// number literal (int, float)
+number = @{ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
 // Integer literal (10, 1000, 10e10, -10, -10e-10 etc)
 // This will allow white space between digits (FIXME)
-int = { "-"? ~ ASCII_DIGIT+ ~ ("e" ~ ("+" | "-")? ~ ASCII_DIGIT+)? ~!(ASCII_ALPHA)}
+int = { "-"? ~ ASCII_DIGIT+ ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? ~!( ASCII_ALPHA ) }
 // Floating point literal (1.2, 10., 10.00e10)
-float = { ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* ~ ("e" ~ ("+" | "-")? ~ASCII_DIGIT+)? ~!(ASCII_ALPHA)}
+// float = { ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* ~ ( "e" ~ ( "+" | "-" )? ~ASCII_DIGIT+ )? ~!( ASCII_ALPHA ) }
 
 // String literals (escape should be added later)
-strings = {(string | raw_string)}
-string = { "\"" ~ (raw_string)* ~ "\"" }
-raw_string = { (!("\\" | "\"") ~ ANY)+ }
+strings = { ( string | raw_string ) }
+string = { "\"" ~ ( raw_string )* ~ "\"" }
+raw_string = { (!( "\\" | "\"" ) ~ ANY )+ }
 
 // Type definition literal
-typedef_lit = {(integer_type
+typedef_lit = { ( integer_type
 | unsigned_integer_type 
 | float_type 
 | complex_type 
 | boolean_type
 | string_type
 | qubit_type
-)}
-integer_type = {("i32" | "i64")}
-unsigned_integer_type = {("u32" | "u64")}
-float_type = {("f32" | "f64")}
-complex_type = {("c64" | "c128")}
-boolean_type = {"bool"}
-string_type = {"str"}
-qubit_type = {"qubit"}
+) }
+integer_type = { ( "i32" | "i64" ) }
+unsigned_integer_type = { ( "u32" | "u64" ) }
+float_type = { ( "f32" | "f64" ) }
+complex_type = { ( "c64" | "c128" ) }
+boolean_type = { "bool" }
+string_type = { "str" }
+qubit_type = { "qubit" }
 
 
 // hex = _{ '0'..'9' | 'a'..'f' | 'A'..'F' }
@@ -84,5 +97,5 @@ qubit_type = {"qubit"}
 // unicode    = { "u" ~ "{" ~ unicode_hex ~ "}" }
 // escape     = { "\\" ~ (predefined | byte | unicode) }
 
-COMMENT = _{("/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!"\n" ~ ANY)* ~ ("\n" | EOI))}
-WHITESPACE = _{(" " | "\n")}
+COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
+WHITESPACE = _{ ( " " | "\n" ) }

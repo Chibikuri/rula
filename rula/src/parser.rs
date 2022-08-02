@@ -17,10 +17,20 @@ use ast::{IntegerLit, TypeDef};
 use error::RuLaError;
 use std::path::PathBuf;
 
-use pest::iterators::Pair;
+use once_cell::sync::Lazy;
+use pest::iterators::{Pair, Pairs};
+use pest::prec_climber::{Assoc, Operator, PrecClimber};
 
 // Custome error interface for rula
 pub type IResult<T> = std::result::Result<T, RuLaError>;
+
+static PREC_CLIMBER: Lazy<PrecClimber<Rule>> = Lazy::new(|| {
+    PrecClimber::new(vec![
+        Operator::new(Rule::plus, Assoc::Left) | Operator::new(Rule::minus, Assoc::Left),
+        Operator::new(Rule::asterisk, Assoc::Left) | Operator::new(Rule::slash, Assoc::Left),
+        Operator::new(Rule::caret, Assoc::Right),
+    ])
+});
 
 /**
  * parse rula system and if it matches program, going to `build_ast_from_program`.
@@ -107,25 +117,72 @@ fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<Ident> {
 // Parse expression <--> {If | Import | Lit | Identifier}
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
     match pair.as_rule() {
-        Rule::if_expr => Ok(Expr::new(ExprKind::If(
-            build_ast_from_if_expr(pair).unwrap(),
-        ))),
+        // Same order as .pest file
+        // import hello::world;
         Rule::import_expr => Ok(Expr::new(ExprKind::Import(
             build_ast_from_import_expr(pair).unwrap(),
         ))),
+        // fn(hello:i32){expression;};
         Rule::fn_def_expr => Ok(Expr::new(ExprKind::FnDef(
             build_ast_from_fn_def_expr(pair).unwrap(),
         ))),
-        Rule::literals => Ok(Expr::new(ExprKind::Lit(
-            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        // if(block){expression;};
+        Rule::if_expr => Ok(Expr::new(ExprKind::If(
+            build_ast_from_if_expr(pair).unwrap(),
         ))),
+        // identifier
         Rule::ident => Ok(Expr::new(ExprKind::Ident(
             build_ast_from_ident(pair).unwrap(),
+        ))),
+        // 1+10, (1+18)*20
+        Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
+        // true, false, "words"
+        Rule::literals => Ok(Expr::new(ExprKind::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
         ))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
+// Don't want to evaluate anything at this moment.
+fn eval_term(terms: Pairs<Rule>) -> i32 {
+    // let primary = |pair| eval_term(pair);
+    // let infix = |lhs: i32, op: Pair<Rule>, rhs: i32| match op.as_rule() {
+    //     Rule::plus => lhs + rhs,
+    //     Rule::minus => lhs - rhs,
+    //     Rule::asterisk => lhs * rhs,
+    //     Rule::slash => lhs / rhs,
+    //     Rule::caret => lhs.pow(rhs as u32),
+    //     _ => unreachable!(),
+    // };
+
+    // match pair.as_rule() {
+    //     Rule::inner_term => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
+    //     Rule::number => pair.as_str().parse().unwrap(),
+    //     _ => unreachable!("pair: {:#?}", &pair),
+    // }
+    println!("TERM{:#?}", terms);
+    let infix = PREC_CLIMBER.climb(
+        terms,
+        |pair: Pair<Rule>| match pair.as_rule() {
+            Rule::number => {
+                pair.as_str().parse::<i32>().unwrap()
+            },
+            Rule::inner_term => eval_term(pair.into_inner()),
+            _ => unreachable!("primary failed{:#?}", pair),
+        },
+        |lhs: i32, op: Pair<Rule>, rhs: i32| match op.as_rule() {
+            Rule::plus => lhs + rhs,
+            Rule::minus => lhs - rhs,
+            Rule::asterisk => lhs * rhs,
+            Rule::slash => lhs / rhs,
+            Rule::caret => lhs.pow(rhs as u32),
+            _ => unreachable!("infix failed"),
+        },
+    );
+    infix
+    // Ok(infix)
+}
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     match pair.as_rule() {
@@ -314,35 +371,3 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
         _ => todo!("Should be unknown type error here"),
     }
 }
-// fn build_ast_from_term(pair: pest::iterators::Pair<Rule>) -> AstNode {
-//     match pair.as_rule() {
-//         Rule::expr => build_ast_from_term(pair.into_inner().next().unwrap()),
-//         Rule::number => {
-//             let mut pair = pair.into_inner();
-//             let verb = pair.next().unwrap();
-//             let expr = pair.next().unwrap();
-//             let expr = build_ast_from_term(expr);
-//             parse_monadic_verb(verb, expr)
-//         }
-//         _ => todo!(), // ... other cases elided here ...
-//     }
-// }
-
-// fn parse_monadic_verb(pair: pest::iterators::Pair<Rule>, expr: AstNode) -> AstNode {
-//     AstNode::Test
-// }
-// fn parse_monadic_verb(pair: pest::iterators::Pair<Rule>, expr: AstNode) -> AstNode {
-//     AstNode::MonadicOp {
-//         verb: match pair.as_str() {
-//             ">:" => MonadicVerb::Increment,
-//             "*:" => MonadicVerb::Square,
-//             "-" => MonadicVerb::Negate,
-//             "%" => MonadicVerb::Reciprocal,
-//             "#" => MonadicVerb::Tally,
-//             ">." => MonadicVerb::Ceiling,
-//             "$" => MonadicVerb::ShapeOf,
-//             _ => panic!("Unsupported monadic verb: {}", pair.as_str()),
-//         },
-//         expr: Box::new(expr),
-//     }
-// }

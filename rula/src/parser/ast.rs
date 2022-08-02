@@ -140,8 +140,23 @@ pub enum ExprKind {
     FnDef(FnDef),
     Lit(Lit),
     Ident(Ident),
+    Term(i32),   // There could be better way. Leave this for now.
     PlaceHolder, // for initializing reason, but maybe better way?
     Test,        // debug
+}
+
+pub enum NumberKind {
+    Integer(i64), // This could be converted to i32 later
+    Float(f64),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OpKind {
+    Plus,
+    Minus,
+    Asterisk,
+    Slash,
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -155,12 +170,18 @@ impl Lit {
             kind: Box::new(kind),
         }
     }
+    pub fn place_holder() -> Lit {
+        Lit {
+            kind: Box::new(LitKind::PlaceHolder),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LitKind {
     StringLit(StringLit),
     IntegerLit(IntegerLit),
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]
