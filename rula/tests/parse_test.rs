@@ -1,8 +1,8 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    AstNode, Expr, ExprKind, FnDef, Ident, If, Import, IntegerLit, Let, Lit, LitKind, PathKind,
-    Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
+    AstNode, Expr, ExprKind, FnDef, Ident, If, Import, Let, Lit, LitKind, PathKind, Program,
+    ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
 };
 
 mod import_tests {
@@ -239,7 +239,7 @@ mod let_tests {
                                             ),
                                             Expr::new(
                                                 ExprKind::Term(
-                                                    123
+                                                    123.0
                                                 )
                                             )
                                         )
@@ -746,7 +746,7 @@ mod term_tests {
                                     StmtKind::Expr(
                                         Expr::new(
                                             ExprKind::Term(
-                                                4
+                                                4.0
                                             )
                                             )
                                         )
@@ -757,6 +757,183 @@ mod term_tests {
                     )
                 )
                 ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_term_expr_with_order() {
+        let term_expr = "4*(3+4);";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                28.0    
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_term_expr_with_order2() {
+        let term_expr = "(1-4)*(3+4)/3;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                -7.0   
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_edge_case_term_expr() {
+        let term_expr = "((12));";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                12.0
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+    
+    #[test]
+    #[rustfmt::skip]
+    fn test_complex_term_expr() {
+        // divition is tricky a little
+        let term_expr = "(1/(3-1));";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                1.0/(3.0-1.0)
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_complex_term_expr2() {
+        // divition is tricky a little
+        let term_expr = "(1+(2*(3/(4-(5*(6/(7+8)))))));";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                1.0+(2.0*(3.0/(4.0-(5.0*(6.0/(7.0+8.0))))))
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_complex_term_expr3() {
+        // divition is tricky a little
+        let term_expr = "(((((1+2)-3)*4)+5)-6);";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Term(
+                                                (((((1+2)-3)*4)+5)-6) as f64
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }

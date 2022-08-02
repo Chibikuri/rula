@@ -27,6 +27,17 @@ if_expr = { "if" ~ paren_expr ~ brace_stmt ~ ( else_if_expr )* ~ else_expr? }
 else_if_expr = { "else" ~ "if" ~ paren_expr ~ brace_stmt }
 else_expr = { "else" ~ brace_stmt }
 
+// Precedence arithmetic as a flat expr here
+term = { inner_term ~ (op ~ inner_term)* }
+inner_term = _{ number | "(" ~ term ~ ")"}
+
+op = _{ ( plus | minus | asterisk | slash | caret ) }
+plus = {"+"}
+minus = {"-"}
+asterisk = {"*"}
+slash = {"/"}
+caret = {"^"}
+
 // expression with parenthesis
 paren_expr = { "(" ~ expr ~ ")" }
 brace_stmt = { "{" ~ stmt ~ "}" }
@@ -34,17 +45,6 @@ brace_stmt = { "{" ~ stmt ~ "}" }
 // Function definition (e.g. fn hello(){world})
 fn_def_expr = { "fn" ~ arguments ~ brace_stmt }
 arguments = { "(" ~ (ident ? ~ ("," ~ ident)*) ~ ")" }
-
-// Precedence arithmetic as a flat expr here
-term = { inner_term ~ (op ~ inner_term)* }
-inner_term = _{ number | "(" ~ term ~ ")" }
-
-op = { ( plus | minus | asterisk | slash | caret ) }
-plus = {"+"}
-minus = {"-"}
-asterisk = {"*"}
-slash = {"/"}
-caret = {"^"}
 
 // Identifiers
 ident = { identifier ~ ( ":" ~ typedef_lit )? }

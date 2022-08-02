@@ -18,7 +18,7 @@ use error::RuLaError;
 use std::path::PathBuf;
 
 use once_cell::sync::Lazy;
-use pest::iterators::{Pair, Pairs};
+use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 
 // Custome error interface for rula
@@ -135,7 +135,8 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
             build_ast_from_ident(pair).unwrap(),
         ))),
         // 1+10, (1+18)*20
-        Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
+        // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
+        Rule::term => Ok(Expr::new(ExprKind::Term(eval_prec(pair)))),
         // true, false, "words"
         Rule::literals => Ok(Expr::new(ExprKind::Lit(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
@@ -145,44 +146,25 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
 }
 
 // Don't want to evaluate anything at this moment.
-fn eval_term(terms: Pairs<Rule>) -> i32 {
-    // let primary = |pair| eval_term(pair);
-    // let infix = |lhs: i32, op: Pair<Rule>, rhs: i32| match op.as_rule() {
-    //     Rule::plus => lhs + rhs,
-    //     Rule::minus => lhs - rhs,
-    //     Rule::asterisk => lhs * rhs,
-    //     Rule::slash => lhs / rhs,
-    //     Rule::caret => lhs.pow(rhs as u32),
-    //     _ => unreachable!(),
-    // };
+fn eval_prec(pair: Pair<Rule>) -> f64 {
+    // primary closure taking pair and throw it to consume function.
+    let primary = |pair| eval_prec(pair);
+    let infix = |lhs: f64, op: Pair<Rule>, rhs: f64| match op.as_rule() {
+        Rule::plus => lhs + rhs,
+        Rule::minus => lhs - rhs,
+        Rule::asterisk => lhs * rhs,
+        Rule::slash => lhs / rhs,
+        Rule::caret => lhs.powf(rhs),
+        _ => unreachable!("operation unreachable, {:#?}", &op),
+    };
 
-    // match pair.as_rule() {
-    //     Rule::inner_term => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
-    //     Rule::number => pair.as_str().parse().unwrap(),
-    //     _ => unreachable!("pair: {:#?}", &pair),
-    // }
-    println!("TERM{:#?}", terms);
-    let infix = PREC_CLIMBER.climb(
-        terms,
-        |pair: Pair<Rule>| match pair.as_rule() {
-            Rule::number => {
-                pair.as_str().parse::<i32>().unwrap()
-            },
-            Rule::inner_term => eval_term(pair.into_inner()),
-            _ => unreachable!("primary failed{:#?}", pair),
-        },
-        |lhs: i32, op: Pair<Rule>, rhs: i32| match op.as_rule() {
-            Rule::plus => lhs + rhs,
-            Rule::minus => lhs - rhs,
-            Rule::asterisk => lhs * rhs,
-            Rule::slash => lhs / rhs,
-            Rule::caret => lhs.pow(rhs as u32),
-            _ => unreachable!("infix failed"),
-        },
-    );
-    infix
-    // Ok(infix)
+    match pair.as_rule() {
+        Rule::term => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
+        Rule::number => pair.as_str().parse().unwrap(),
+        _ => unreachable!("unreachable{:#?}", &pair),
+    }
 }
+
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     match pair.as_rule() {

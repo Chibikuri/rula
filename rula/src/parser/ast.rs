@@ -140,7 +140,7 @@ pub enum ExprKind {
     FnDef(FnDef),
     Lit(Lit),
     Ident(Ident),
-    Term(i32),   // There could be better way. Leave this for now.
+    Term(f64),   // There could be better way. Leave this for now.
     PlaceHolder, // for initializing reason, but maybe better way?
     Test,        // debug
 }
