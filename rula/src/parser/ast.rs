@@ -2,13 +2,16 @@ use std::fmt::Debug;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
-// top ast
+/**
+ * Top AST node starts from RuLa
+*/
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
     RuLa(RuLa),
     Test, // Debug use
 }
 
+// This doesn't do much, but could be used for preprocessing or something later.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuLa {
     rula: Box<RuLaKind>,
@@ -21,11 +24,13 @@ impl RuLa {
             rula: Box::new(rula),
         }
     }
+
     pub fn ignore() -> RuLa {
         RuLa {
             rula: Box::new(RuLaKind::Ignore),
         }
     }
+
     pub fn aoi() -> RuLa {
         RuLa {
             rula: Box::new(RuLaKind::Eoi),
@@ -33,6 +38,8 @@ impl RuLa {
     }
 }
 
+// In top level AST could have main program or EOI(EOF)
+// Ignore is used for comment but can be removed I believe
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuLaKind {
     Program(Program),
@@ -40,7 +47,7 @@ pub enum RuLaKind {
     Eoi,
 }
 
-// ast -> program
+// Second layer AST called program and store a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub kind: Box<ProgramKind>, // Program Kind expr
@@ -54,11 +61,13 @@ impl Program {
     }
 }
 
+// Not program can only include a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProgramKind {
     Stmt(Stmt),
 }
 
+// Statement AST could be the top level AST in user writable for now
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stmt {
     pub kind: Box<StmtKind>,
@@ -70,6 +79,7 @@ impl Stmt {
             kind: Box::new(stmt_kind),
         }
     }
+
     pub fn place_holder() -> Stmt {
         Stmt {
             kind: Box::new(StmtKind::PlaceHolder),
@@ -82,9 +92,15 @@ pub enum StmtKind {
     Let(Let),
     Expr(Expr),
     PlaceHolder, // For initialization use
-    Test,        // debug use
 }
 
+/**
+ * Let statement composed of identifier and expression
+ *
+ *  `ident`: LitKind::IdentLit
+ *  `expr`: StmtKind::Expr
+ *
+ */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
     pub ident: Box<LitKind>,
@@ -92,18 +108,21 @@ pub struct Let {
 }
 
 impl Let {
+    // Constructor with kind check
     pub fn new(identifier: Ident, expr: Expr) -> Let {
         Let {
             ident: Box::new(LitKind::IdentLit(identifier)),
             expr: Box::new(StmtKind::Expr(expr)),
         }
     }
+
     pub fn place_holder() -> Let {
         Let {
             ident: Box::new(LitKind::PlaceHolder),
             expr: Box::new(StmtKind::PlaceHolder),
         }
     }
+
     pub fn add_ident(&mut self, identifier: Ident) {
         self.ident = Box::new(LitKind::IdentLit(identifier));
     }
@@ -113,9 +132,13 @@ impl Let {
     }
 }
 
+/**
+ * Expression structure can take ExprKind
+ *
+ *  `expr`: ExprKind
+*/
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
-    // What kind of expression
     pub expr: Box<ExprKind>,
 }
 
@@ -133,6 +156,15 @@ impl Expr {
     }
 }
 
+/**
+ * ExprKind can be
+ * `Import` (import modules)
+ * `If` (if expression)
+ * `FnDef` (function definition)
+ * `Lit` (literatures)
+ * `Term` (number terms)
+ * `PlaceHolder` This for initialization use. This should not be in the final AST
+ * */
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     Import(Import),
@@ -141,21 +173,164 @@ pub enum ExprKind {
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
     PlaceHolder, // for initializing reason, but maybe better way?
-    Test,        // debug
 }
 
-pub enum NumberKind {
-    Integer(i64), // This could be converted to i32 later
-    Float(f64),
+/**
+ * Import modules with path name
+ *
+ *  `path`: Box<PathKind> path to module
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct Import {
+    pub path: Box<PathKind>,
+}
+
+impl Import {
+    pub fn new(path: PathKind) -> Import {
+        Import {
+            path: Box::new(path),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum OpKind {
-    Plus,
-    Minus,
-    Asterisk,
-    Slash,
-    PlaceHolder,
+pub struct PathKind {
+    paths: Vec<PathBuf>,
+    index: u32, // for iterator (should have better way)
+}
+
+impl PathKind {
+    pub fn new() -> PathKind {
+        PathKind {
+            paths: vec![],
+            index: 0,
+        }
+    }
+
+    pub fn from(path_vec: Vec<PathBuf>) -> PathKind {
+        PathKind {
+            paths: path_vec,
+            index: 0,
+        }
+    }
+
+    pub fn add(&mut self, path: PathBuf) {
+        self.paths.push(path);
+    }
+
+    pub fn size_hint(&self) -> usize {
+        self.paths.len()
+    }
+}
+
+impl Iterator for PathKind {
+    type Item = PathBuf;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index > self.paths.len() as u32 {
+            return None;
+        } else {
+            let curr = self.index;
+            self.index = self.index + 1;
+            return Some(self.paths[curr as usize].clone());
+        }
+    }
+}
+
+/**
+ * If expression (e.g.) if(a == b) {c;};
+ *
+ *  `block`: block expression in '(' ~ ')'
+ *  `stmt`: statement in '{' ~ '}'
+ *  `elif`: optional another if statement
+ *  `else`: optional final actions
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct If {
+    pub block: Box<Expr>, // StmtKind::Expr
+    pub stmt: Box<Stmt>,
+    pub elif: Vec<Option<If>>, // Vec [ExprKind::If] (If ~ else ~ else is error in grammar level)
+    pub els: Box<Option<Stmt>>,
+}
+
+impl If {
+    pub fn new(block: Expr, stmt: Stmt, elif: Option<If>, els: Option<Stmt>) -> If {
+        If {
+            // enum type validation
+            block: Box::new(block),
+            stmt: Box::new(stmt),
+            elif: vec![elif],
+            els: Box::new(els),
+        }
+    }
+
+    pub fn place_holder() -> If {
+        If {
+            block: Box::new(Expr::place_holder()),
+            stmt: Box::new(Stmt::place_holder()),
+            elif: vec![None],
+            els: Box::new(None),
+        }
+    }
+
+    pub fn add_block(&mut self, block: Expr) {
+        self.block = Box::new(block);
+    }
+
+    pub fn add_stmt(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt);
+    }
+
+    pub fn add_elif(&mut self, elif: If) {
+        // Um, better way?
+        if self.elif[0] == None {
+            self.elif.pop();
+        }
+        self.elif.push(Some(elif));
+    }
+
+    pub fn add_else(&mut self, els: Stmt) {
+        self.els = Box::new(Some(els));
+    }
+
+    pub fn check(&self) {
+        if *self.block == Expr::place_holder() {
+            // Maybe just error returning
+            panic!("No block expressio set!");
+        }
+        if *self.stmt == Stmt::place_holder() {
+            panic!("No statement found!");
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FnDef {
+    pub arguments: Vec<LitKind>, // LitKind::Ident
+    pub stmt: Box<Stmt>,
+}
+
+impl FnDef {
+    pub fn new(args: Vec<LitKind>, stmt: Stmt) -> FnDef {
+        FnDef {
+            arguments: args,
+            stmt: Box::new(stmt),
+        }
+    }
+    pub fn place_holder() -> FnDef {
+        FnDef {
+            arguments: vec![],
+            stmt: Box::new(Stmt::place_holder()),
+        }
+    }
+
+    pub fn add_arg(&mut self, argument: Ident) {
+        self.arguments.push(LitKind::IdentLit(argument));
+    }
+
+    pub fn add_expr(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -244,151 +419,6 @@ pub enum TypeDef {
     Boolean,
     Str,
     Qubit,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Import {
-    pub path: Box<PathKind>,
-}
-
-impl Import {
-    pub fn new(path: PathKind) -> Import {
-        Import {
-            path: Box::new(path),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct If {
-    pub block: Box<Expr>, // StmtKind::Expr
-    pub stmt: Box<Stmt>,
-    pub elif: Vec<Option<If>>, // Vec [ExprKind::If] (If ~ else ~ else is error in grammar level)
-    pub els: Box<Option<Stmt>>,
-}
-
-impl If {
-    pub fn new(block: Expr, stmt: Stmt, elif: Option<If>, els: Option<Stmt>) -> If {
-        If {
-            // enum type validation
-            block: Box::new(block),
-            stmt: Box::new(stmt),
-            elif: vec![elif],
-            els: Box::new(els),
-        }
-    }
-
-    pub fn place_holder() -> If {
-        If {
-            block: Box::new(Expr::place_holder()),
-            stmt: Box::new(Stmt::place_holder()),
-            elif: vec![None],
-            els: Box::new(None),
-        }
-    }
-
-    pub fn add_block(&mut self, block: Expr) {
-        self.block = Box::new(block);
-    }
-
-    pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt);
-    }
-
-    pub fn add_elif(&mut self, elif: If) {
-        // Um, better way?
-        if self.elif[0] == None {
-            self.elif.pop();
-        }
-        self.elif.push(Some(elif));
-    }
-
-    pub fn add_else(&mut self, els: Stmt) {
-        self.els = Box::new(Some(els));
-    }
-
-    pub fn check(&self) {
-        if *self.block == Expr::place_holder() {
-            // Maybe just error returning
-            panic!("No block expressio set!");
-        }
-        if *self.stmt == Stmt::place_holder() {
-            panic!("No statement found!");
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FnDef {
-    pub arguments: Vec<LitKind>, // LitKind::Ident
-    pub stmt: Box<Stmt>,
-}
-
-impl FnDef {
-    pub fn new(arguments: Vec<LitKind>, stmt: Stmt) -> FnDef {
-        FnDef {
-            arguments: arguments,
-            stmt: Box::new(stmt),
-        }
-    }
-    pub fn place_holder() -> FnDef {
-        FnDef {
-            arguments: vec![],
-            stmt: Box::new(Stmt::place_holder()),
-        }
-    }
-
-    pub fn add_arg(&mut self, argument: Ident) {
-        self.arguments.push(LitKind::IdentLit(argument));
-    }
-
-    pub fn add_expr(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PathKind {
-    paths: Vec<PathBuf>,
-    index: u32, // for iterator (should have better way)
-}
-
-impl PathKind {
-    pub fn new() -> PathKind {
-        PathKind {
-            paths: vec![],
-            index: 0,
-        }
-    }
-
-    pub fn from(path_vec: Vec<PathBuf>) -> PathKind {
-        PathKind {
-            paths: path_vec,
-            index: 0,
-        }
-    }
-
-    pub fn add(&mut self, path: PathBuf) {
-        self.paths.push(path);
-    }
-
-    pub fn size_hint(&self) -> usize {
-        self.paths.len()
-    }
-}
-
-impl Iterator for PathKind {
-    type Item = PathBuf;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index > self.paths.len() as u32 {
-            return None;
-        } else {
-            let curr = self.index;
-            self.index = self.index + 1;
-            return Some(self.paths[curr as usize].clone());
-        }
-    }
 }
 
 #[cfg(test)]
