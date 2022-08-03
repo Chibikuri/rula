@@ -277,21 +277,29 @@ mod let_tests {
                                                     If::new(
                                                         // (block)
                                                         Expr::new(
-                                                            ExprKind::Ident(
-                                                                Ident::new(
-                                                                    "block",
-                                                                    None
-                                                                )
+                                                            ExprKind::Lit(
+                                                                Lit::new(
+                                                                    LitKind::IdentLit(
+                                                                        Ident::new(
+                                                                            "block",
+                                                                            None
+                                                                        )
+                                                                    )  
+                                                                ) 
                                                             )
                                                         ),
                                                         // {expression}
                                                         Stmt::new(
                                                             StmtKind::Expr(
                                                                 Expr::new(
-                                                                    ExprKind::Ident(
-                                                                        Ident::new(
-                                                                            "expression",
-                                                                            None
+                                                                    ExprKind::Lit(
+                                                                        Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                                Ident::new(
+                                                                                    "expression",
+                                                                                    None
+                                                                                )
+                                                                            )
                                                                         )
                                                                     )
                                                                 )
@@ -339,10 +347,14 @@ mod if_tests {
                                                 If::new(
                                                     // (block)
                                                     Expr::new(
-                                                        ExprKind::Ident(
-                                                            Ident::new(
-                                                                "block",
-                                                                None
+                                                        ExprKind::Lit(
+                                                            Lit::new(
+                                                                LitKind::IdentLit(
+                                                                    Ident::new(
+                                                                        "block",
+                                                                        None
+                                                                    )
+                                                                )
                                                             )
                                                         )
                                                     ),
@@ -350,10 +362,14 @@ mod if_tests {
                                                     Stmt::new(
                                                         StmtKind::Expr(
                                                             Expr::new(
-                                                                ExprKind::Ident(
-                                                                    Ident::new(
-                                                                        "expression",
-                                                                        None
+                                                                ExprKind::Lit(
+                                                                    Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                            Ident::new(
+                                                                                "expression",
+                                                                                None
+                                                                            )
+                                                                        )
                                                                     )
                                                                 )
                                                             )
@@ -395,10 +411,14 @@ mod if_tests {
                                                 If::new(
                                                     // (block)
                                                     Expr::new(
-                                                        ExprKind::Ident(
-                                                            Ident::new(
-                                                                "block",
-                                                                None
+                                                        ExprKind::Lit(
+                                                            Lit::new(
+                                                                LitKind::IdentLit(
+                                                                    Ident::new(
+                                                                        "block",
+                                                                        None
+                                                                    )
+                                                                )
                                                             )
                                                         )
                                                     ),
@@ -406,10 +426,14 @@ mod if_tests {
                                                     Stmt::new(
                                                         StmtKind::Expr(
                                                             Expr::new(
-                                                                ExprKind::Ident(
-                                                                    Ident::new(
-                                                                        "expression",
-                                                                        None
+                                                                ExprKind::Lit(
+                                                                    Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                            Ident::new(
+                                                                                "expression",
+                                                                                None
+                                                                            )
+                                                                        )
                                                                     )
                                                                 )
                                                             )
@@ -422,10 +446,14 @@ mod if_tests {
                                                         Stmt::new(
                                                             StmtKind::Expr(
                                                                 Expr::new(
-                                                                    ExprKind::Ident(
-                                                                        Ident::new(
-                                                                            "expression2",
-                                                                            None
+                                                                    ExprKind::Lit(
+                                                                        Lit::new(
+                                                                            LitKind::IdentLit(
+                                                                                Ident::new(
+                                                                                    "expression2",
+                                                                                    None
+                                                                                )
+                                                                            )
                                                                         )
                                                                     )
                                                                 )
@@ -465,10 +493,14 @@ mod if_tests {
                                                 If::new(
                                                     // (block)
                                                     Expr::new(
-                                                        ExprKind::Ident(
-                                                            Ident::new(
-                                                                "block",
-                                                                None
+                                                        ExprKind::Lit(
+                                                            Lit::new(
+                                                                LitKind::IdentLit(
+                                                                    Ident::new(
+                                                                        "block",
+                                                                        None
+                                                                    )
+                                                                )
                                                             )
                                                         )
                                                     ),
@@ -476,10 +508,14 @@ mod if_tests {
                                                     Stmt::new(
                                                         StmtKind::Expr(
                                                             Expr::new(
-                                                                ExprKind::Ident(
-                                                                    Ident::new(
-                                                                        "expression",
-                                                                        None
+                                                                ExprKind::Lit(
+                                                                    Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                            Ident::new(
+                                                                                "expression",
+                                                                                None
+                                                                            )
+                                                                        )
                                                                     )
                                                                 )
                                                             )
@@ -490,10 +526,14 @@ mod if_tests {
                                                         If::new(
                                                             // else if (block)
                                                             Expr::new(
-                                                                ExprKind::Ident(
-                                                                    Ident::new(
-                                                                        "block2",
-                                                                        None
+                                                                ExprKind::Lit(
+                                                                    Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                            Ident::new(
+                                                                                "block2",
+                                                                                None
+                                                                            )
+                                                                        )
                                                                     )
                                                                 )
                                                             ),
@@ -501,10 +541,14 @@ mod if_tests {
                                                             Stmt::new(
                                                                 StmtKind::Expr(
                                                                     Expr::new(
-                                                                        ExprKind::Ident(
-                                                                            Ident::new(
-                                                                                "expression2",
-                                                                                None
+                                                                        ExprKind::Lit(
+                                                                            Lit::new(
+                                                                                LitKind::IdentLit(
+                                                                                    Ident::new(
+                                                                                        "expression2",
+                                                                                        None
+                                                                                    )
+                                                                                )
                                                                             )
                                                                         )
                                                                     )
@@ -549,10 +593,14 @@ mod if_tests {
                                                 If::new(
                                                     // (block)
                                                     Expr::new(
-                                                        ExprKind::Ident(
-                                                            Ident::new(
-                                                                "block",
-                                                                None
+                                                        ExprKind::Lit(
+                                                            Lit::new(
+                                                                LitKind::IdentLit(
+                                                                    Ident::new(
+                                                                        "block",
+                                                                        None
+                                                                    )
+                                                                )
                                                             )
                                                         )
                                                     ),
@@ -560,10 +608,14 @@ mod if_tests {
                                                     Stmt::new(
                                                         StmtKind::Expr(
                                                             Expr::new(
-                                                                ExprKind::Ident(
-                                                                    Ident::new(
-                                                                        "expression",
-                                                                        None
+                                                                ExprKind::Lit(
+                                                                    Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                            Ident::new(
+                                                                                "expression",
+                                                                                None
+                                                                            )
+                                                                        )
                                                                     )
                                                                 )
                                                             )
@@ -574,10 +626,14 @@ mod if_tests {
                                                         If::new(
                                                             // else if (block)
                                                             Expr::new(
-                                                                ExprKind::Ident(
-                                                                    Ident::new(
-                                                                        "block2",
-                                                                        None
+                                                                ExprKind::Lit(
+                                                                    Lit::new(
+                                                                        LitKind::IdentLit(
+                                                                            Ident::new(
+                                                                                "block2",
+                                                                                None
+                                                                            )
+                                                                        )
                                                                     )
                                                                 )
                                                             ),
@@ -585,10 +641,14 @@ mod if_tests {
                                                             Stmt::new(
                                                                 StmtKind::Expr(
                                                                     Expr::new(
-                                                                        ExprKind::Ident(
-                                                                            Ident::new(
-                                                                                "expression2",
-                                                                                None
+                                                                        ExprKind::Lit(
+                                                                            Lit::new(
+                                                                                LitKind::IdentLit(
+                                                                                    Ident::new(
+                                                                                        "expression2",
+                                                                                        None
+                                                                                    )
+                                                                                )
                                                                             )
                                                                         )
                                                                     )
@@ -603,10 +663,14 @@ mod if_tests {
                                                         Stmt::new(
                                                             StmtKind::Expr(
                                                                 Expr::new(
-                                                                    ExprKind::Ident(
-                                                                        Ident::new(
-                                                                            "expression3",
-                                                                            None
+                                                                    ExprKind::Lit(
+                                                                        Lit::new(
+                                                                            LitKind::IdentLit(
+                                                                                Ident::new(
+                                                                                    "expression3",
+                                                                                    None
+                                                                                )
+                                                                            )
                                                                         )
                                                                     )
                                                                 )
@@ -650,16 +714,25 @@ mod fn_def_test {
                                             ExprKind::FnDef(
                                                 FnDef::new(
                                                     vec![
-                                                        Ident::new(
-                                                            "block",
-                                                            Some(TypeDef::Integer32)
+                                                        LitKind::IdentLit(
+                                                            Ident::new(
+                                                                "block",
+                                                                Some(TypeDef::Integer32),
+                                                            )
                                                         )
                                                         ],
                                                         Stmt::new(
                                                             StmtKind::Expr(
                                                                 Expr::new(
-                                                                    ExprKind::Ident(
-                                                                        Ident::new("expression", None)
+                                                                    ExprKind::Lit(
+                                                                        Lit::new(
+                                                                            LitKind::IdentLit(
+                                                                                Ident::new(
+                                                                                    "expression",
+                                                                                    None
+                                                                                )
+                                                                            )
+                                                                        )
                                                                     )
                                                                 ),
                                                             )
@@ -695,20 +768,30 @@ mod fn_def_test {
                                             ExprKind::FnDef(
                                                 FnDef::new(
                                                     vec![
-                                                        Ident::new(
-                                                            "block",
-                                                            Some(TypeDef::Integer32)
+                                                        LitKind::IdentLit(
+                                                            Ident::new(
+                                                                "block",
+                                                                Some(TypeDef::Integer32),
+                                                            )
                                                         ),
-                                                        Ident::new(
-                                                            "hello",
-                                                            Some(TypeDef::Str)
-                                                        ),
+                                                        LitKind::IdentLit(
+                                                            Ident::new(
+                                                                "hello",
+                                                                Some(TypeDef::Str)
+                                                            ))
                                                         ],
                                                         Stmt::new(
                                                             StmtKind::Expr(
                                                                 Expr::new(
-                                                                    ExprKind::Ident(
-                                                                        Ident::new("expression", None)
+                                                                    ExprKind::Lit(
+                                                                        Lit::new(
+                                                                            LitKind::IdentLit(
+                                                                                Ident::new(
+                                                                                    "expression",
+                                                                                    None
+                                                                                )
+                                                                            )
+                                                                        )
                                                                     )
                                                                 ),
                                                             )
@@ -846,7 +929,7 @@ mod term_tests {
             ];
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
-    
+
     #[test]
     #[rustfmt::skip]
     fn test_complex_term_expr() {
@@ -924,6 +1007,74 @@ mod term_tests {
                                         Expr::new(
                                             ExprKind::Term(
                                                 (((((1+2)-3)*4)+5)-6) as f64
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
+
+mod test_literals {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_boolean_true_literal() {
+        // divition is tricky a little
+        let term_expr = "true;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Lit(
+                                                Lit::new(
+                                                    LitKind::BooleanLit(true)
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_boolean_false_literal() {
+        // divition is tricky a little
+        let term_expr = "false;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            AstNode::RuLa(
+                RuLa::new(
+                    RuLaKind::Program(
+                        Program::new(
+                            ProgramKind::Stmt(
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Lit(
+                                                Lit::new(
+                                                    LitKind::BooleanLit(false)
+                                                )
                                             )
                                         )
                                     )

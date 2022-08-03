@@ -14,9 +14,8 @@ let_stmt = { "let" ~ ident ~ "=" ~ expr }
 expr = { ( import_expr 
            | fn_def_expr 
            | if_expr
-           | ident
            | term
-           | literals   
+           | literals
             ) }
 
 // Import Expression (e.g. import hello::world)
@@ -52,12 +51,13 @@ identifier = { ASCII_ALPHA ~ ( ASCII_ALPHA | ASCII_DIGIT | "_")* }
 ident_list = { identifier ~ ( "," ~ identifier )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
-literals = { ( bool | strings ) }
+// Should ident be in literals?
+literals = { ( bool | ident | strings ) }
 
 // Boolean literal
+bool = { true_lit | false_lit }
 true_lit  = { "true" }
 false_lit = { "false" }
-bool      = { true_lit | false_lit }
 
 // number literal (int, float)
 number = @{ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }

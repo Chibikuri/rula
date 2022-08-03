@@ -13,7 +13,7 @@ use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{Expr, ExprKind, FnDef, Ident, If, Import, Lit, LitKind, PathKind, StringLit};
 // Literals
-use ast::{IntegerLit, TypeDef};
+use ast::TypeDef;
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -130,10 +130,6 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::if_expr => Ok(Expr::new(ExprKind::If(
             build_ast_from_if_expr(pair).unwrap(),
         ))),
-        // identifier
-        Rule::ident => Ok(Expr::new(ExprKind::Ident(
-            build_ast_from_ident(pair).unwrap(),
-        ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
         Rule::term => Ok(Expr::new(ExprKind::Term(eval_prec(pair)))),
@@ -168,13 +164,18 @@ fn eval_prec(pair: Pair<Rule>) -> f64 {
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     match pair.as_rule() {
+        // identifier
+        Rule::ident => Ok(Lit::new(LitKind::IdentLit(
+            build_ast_from_ident(pair).unwrap(),
+        ))),
         Rule::strings => Ok(Lit::new(LitKind::StringLit(
             build_ast_from_strings(pair.into_inner().next().unwrap()).unwrap(),
         ))),
-        Rule::number => Ok(Lit::new(LitKind::IntegerLit(
-            build_ast_from_number(pair.into_inner().next().unwrap()).unwrap(),
-        ))),
-        Rule::bool => todo!(),
+        Rule::bool => match pair.as_str() {
+            "true" => Ok(Lit::new(LitKind::BooleanLit(true))),
+            "false" => Ok(Lit::new(LitKind::BooleanLit(false))),
+            _ => unreachable!(),
+        },
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -193,13 +194,6 @@ fn build_ast_from_strings(pair: Pair<Rule>) -> IResult<StringLit> {
 // Parse raw_string literal endpoint
 fn build_raw_string_from_string(pair: Pair<Rule>) -> IResult<StringLit> {
     Ok(StringLit::new(pair.as_str()))
-}
-
-fn build_ast_from_number(pair: Pair<Rule>) -> IResult<IntegerLit> {
-    match pair.as_rule() {
-        Rule::int => Ok(IntegerLit::new(pair.as_str())),
-        _ => Err(RuLaError::RuLaSyntaxError),
-    }
 }
 
 // Parse If expr <--> {paren_expr | brace_stmt | else_if | else} semi endpoint

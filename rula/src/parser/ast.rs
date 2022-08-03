@@ -87,25 +87,25 @@ pub enum StmtKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<ExprKind>,
+    pub ident: Box<LitKind>,
     pub expr: Box<StmtKind>,
 }
 
 impl Let {
     pub fn new(identifier: Ident, expr: Expr) -> Let {
         Let {
-            ident: Box::new(ExprKind::Ident(identifier)),
+            ident: Box::new(LitKind::IdentLit(identifier)),
             expr: Box::new(StmtKind::Expr(expr)),
         }
     }
     pub fn place_holder() -> Let {
         Let {
-            ident: Box::new(ExprKind::PlaceHolder),
+            ident: Box::new(LitKind::PlaceHolder),
             expr: Box::new(StmtKind::PlaceHolder),
         }
     }
     pub fn add_ident(&mut self, identifier: Ident) {
-        self.ident = Box::new(ExprKind::Ident(identifier));
+        self.ident = Box::new(LitKind::IdentLit(identifier));
     }
 
     pub fn add_expr(&mut self, expr: Expr) {
@@ -139,7 +139,6 @@ pub enum ExprKind {
     If(If),
     FnDef(FnDef),
     Lit(Lit),
-    Ident(Ident),
     Term(f64),   // There could be better way. Leave this for now.
     PlaceHolder, // for initializing reason, but maybe better way?
     Test,        // debug
@@ -179,8 +178,9 @@ impl Lit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LitKind {
+    BooleanLit(bool),
+    IdentLit(Ident),
     StringLit(StringLit),
-    IntegerLit(IntegerLit),
     PlaceHolder,
 }
 
@@ -193,21 +193,6 @@ impl StringLit {
     pub fn new(strs: &str) -> StringLit {
         StringLit {
             string: Box::new(String::from(strs)),
-        }
-    }
-}
-
-// Should be able to integrate to 64
-#[derive(Debug, Clone, PartialEq)]
-pub struct IntegerLit {
-    // At this point, this is just string, but converted to integer
-    integer: Box<String>,
-}
-
-impl IntegerLit {
-    pub fn new(integer: &str) -> IntegerLit {
-        IntegerLit {
-            integer: Box::new(String::from(integer)),
         }
     }
 }
@@ -335,12 +320,12 @@ impl If {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
-    pub arguments: Vec<Ident>,
+    pub arguments: Vec<LitKind>, // LitKind::Ident
     pub stmt: Box<Stmt>,
 }
 
 impl FnDef {
-    pub fn new(arguments: Vec<Ident>, stmt: Stmt) -> FnDef {
+    pub fn new(arguments: Vec<LitKind>, stmt: Stmt) -> FnDef {
         FnDef {
             arguments: arguments,
             stmt: Box::new(stmt),
@@ -354,7 +339,7 @@ impl FnDef {
     }
 
     pub fn add_arg(&mut self, argument: Ident) {
-        self.arguments.push(argument);
+        self.arguments.push(LitKind::IdentLit(argument));
     }
 
     pub fn add_expr(&mut self, stmt: Stmt) {
