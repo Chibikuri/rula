@@ -1087,4 +1087,68 @@ mod test_literals {
             ];
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
+
+    // helper function
+    fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> Vec<AstNode> {
+        let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+            ProgramKind::Stmt(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                Lit::new(LitKind::IdentLit(Ident::new(name, type_def))),
+            ))))),
+        ))))];
+        target_ast_nodes
+    }
+
+    #[test]
+    fn test_type_literals() {
+        // divition is tricky a little
+        let term_expr = "integer:i32;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Integer32));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:i64;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Integer64));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:f32;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Float32));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:f64;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Float64));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:u32;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::UnsignedInteger32));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:u64;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::UnsignedInteger64));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:c128;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Complex128));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:bool;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Boolean));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:str;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Str));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+
+        let term_expr = "integer:qubit;";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Qubit));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
 }
