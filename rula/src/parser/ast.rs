@@ -103,7 +103,7 @@ pub enum StmtKind {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<LitKind>,
+    pub ident: Box<LitKind>, // ExprKind::Ident
     pub expr: Box<StmtKind>,
 }
 
@@ -111,7 +111,7 @@ impl Let {
     // Constructor with kind check
     pub fn new(identifier: Ident, expr: Expr) -> Let {
         Let {
-            ident: Box::new(LitKind::IdentLit(identifier)),
+            ident: Box::new(LitKind::Ident(identifier)),
             expr: Box::new(StmtKind::Expr(expr)),
         }
     }
@@ -124,7 +124,7 @@ impl Let {
     }
 
     pub fn add_ident(&mut self, identifier: Ident) {
-        self.ident = Box::new(LitKind::IdentLit(identifier));
+        self.ident = Box::new(LitKind::Ident(identifier));
     }
 
     pub fn add_expr(&mut self, expr: Expr) {
@@ -325,7 +325,7 @@ impl FnDef {
     }
 
     pub fn add_arg(&mut self, argument: Ident) {
-        self.arguments.push(LitKind::IdentLit(argument));
+        self.arguments.push(LitKind::Ident(argument));
     }
 
     pub fn add_expr(&mut self, stmt: Stmt) {
@@ -354,7 +354,7 @@ impl Lit {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LitKind {
     BooleanLit(bool),
-    IdentLit(Ident),
+    Ident(Ident),
     StringLit(StringLit),
     PlaceHolder,
 }
