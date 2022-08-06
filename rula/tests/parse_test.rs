@@ -2,8 +2,8 @@ extern crate rula;
 
 use rula::parser::ast::{
     Array, AstNode, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let,
-    Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, RuleExpr, Stmt,
-    StmtKind, StringLit, Struct, TypeDef, While,
+    Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, Return, RuLa, RuLaKind, RuleExpr,
+    Stmt, StmtKind, StringLit, Struct, TypeDef, While,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1321,6 +1321,45 @@ mod test_struct_expr {
                                             Some(TypeDef::Boolean)
                                         )
                                     ]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
+
+mod test_return_expr {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_return_expr() {
+
+        let struct_expr = "return hello";
+        let fn_def_asts = rula::parse(struct_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::Return(
+                                Return::new(
+                                    Expr::new(
+                                        ExprKind::Lit(
+                                            Lit::new(
+                                                LitKind::Ident(
+                                                    Ident::new(
+                                                        "hello",
+                                                        None
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
                                 )
                             )
                         )

@@ -13,7 +13,7 @@ use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{
     Array, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind,
-    PathKind, RuleExpr, Struct, While,
+    PathKind, Return, RuleExpr, Struct, While,
 };
 // Literals
 use ast::TypeDef;
@@ -157,6 +157,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         ))),
         Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
             build_ast_from_comp_expr(pair).unwrap(),
+        ))),
+        Rule::return_expr => Ok(Expr::new(ExprKind::Return(
+            build_ast_from_return_expr(pair).unwrap(),
         ))),
         Rule::rule_expr => Ok(Expr::new(ExprKind::RuleExpr(
             build_ast_from_rule_expr(pair).unwrap(),
@@ -332,6 +335,19 @@ fn buil_ast_from_struct_expr(pair: Pair<Rule>) -> IResult<Struct> {
         }
     }
     Ok(struct_expr)
+}
+
+fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
+    let mut return_expr = Return::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => return_expr.add_target(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(build_ast_from_ident(block).unwrap()),
+            )))),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(return_expr)
 }
 
 fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {

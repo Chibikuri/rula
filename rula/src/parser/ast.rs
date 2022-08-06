@@ -174,6 +174,7 @@ pub enum ExprKind {
     FnDef(FnDef),
     FnCall(FnCall),
     Struct(Struct),
+    Return(Return),
     Comp(Comp),
     RuleExpr(RuleExpr),
     Array(Array), // [..]
@@ -449,6 +450,27 @@ impl Struct {
     }
     pub fn add_item(&mut self, item: Ident) {
         self.items.push(item)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Return {
+    target: Box<Expr>,
+}
+
+impl Return {
+    pub fn new(return_target: Expr) -> Self {
+        Return {
+            target: Box::new(return_target),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Return {
+            target: Box::new(Expr::place_holder()),
+        }
+    }
+    pub fn add_target(&mut self, target: Expr) {
+        self.target = Box::new(target);
     }
 }
 
