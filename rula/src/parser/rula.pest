@@ -8,16 +8,21 @@ program = { ( stmt )* }
 stmt = { let_stmt | brace_stmt | expr }
 
 // Variable assignment
-let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ "=" ~ ( compr | expr ) ~ ";" }
+let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ ( compr | expr ))? ~ ";" }
 
-// Expressions (shoud ident be in expression?)
+// Expressions
 expr = { ( import_expr
            | fn_def_expr
            | if_expr
            | for_expr
            | while_expr
-           | term
-           | literals
+           | struct_expr
+           | return_expr
+           | rule_expr
+           | braket_expr
+           | fn_call_expr
+           | term_expr
+           | literal_expr
             ) }
 
 // Import statement (e.g. import hello::world; import hello::world::{yo, ya};)
@@ -29,19 +34,43 @@ else_if_expr = { ^"else" ~ ^"if" ~ paren_expr ~ brace_stmt }
 else_expr = { ^"else" ~ brace_stmt }
 
 // For expression (e.g. for (i) in [0..10]{})
-for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ expr ~ brace_stmt }
+for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ generator ~ brace_stmt }
 pattern = _{ ident_list }
+// generator will be more flex
+// literal must be identifiers
+generator = { braket_expr | fn_call_expr | literal_expr }
 
-// While expression (e.g. while(True){doforever;})
+// While expression (e.g. while(True){doforever})
 while_expr = { ^"while" ~ paren_expr ~ brace_stmt }
 
- // Function definition expression (e.g. fn hello(){world})
+// Function definition expression (e.g. fn hello(){world})
 fn_def_expr = { ^"fn" ~ arguments ~ brace_stmt }
 arguments = { "(" ~ ( ident_typed? ~ ( "," ~ ident_typed )* ) ~ ")" }
 
+// Fnction call expression with parenthesis
+fn_call_expr = { ident ~ paren_expr }
+
+// Struct expression to define ordinary structure
+struct_expr = {^"struct" ~ ident ~ "{" ~ (ident ~ ":" ~ typedef_lit)? ~ ("," ~ ident ~ ":" ~ typedef_lit)* ~ ","? ~ "}"}
+
+// Return expression to return variables
+return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
+tuple = {"(" ~ literal_list? ~ ")"}
+
+// Rule expression to define RuLa rule
+rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
+
+// Condition expression for qubit to wait until all meet
+cond_expr = {^"cond" ~ ident? ~ "{" ~ awaitable ~ "}"}
+awaitable = _{ident} // for now, awaitable could be expression?
+
+// Action expression for qubit to act on operations
+act_expr = {^"act" ~ ident? ~ "{" ~ operatable ~ "}"}
+operatable = _{ident}
+
 // Term expr without any operator recedence
-term = { inner_term ~ ( op ~ inner_term )* }
-inner_term = _{ number | "(" ~ term ~ ")" }
+term_expr = { inner_term ~ ( op ~ inner_term )* }
+inner_term = _{ number | "(" ~ term_expr ~ ")" }
 
 // A set of arithmetic operations for tems
 op = _{ ( plus | minus | asterisk | slash | caret ) }
@@ -55,11 +84,18 @@ caret = { "^" }
 compr = { expr ~ comp_op ~ expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!="}
 
-// expression with parenthesis
-paren_expr = _{ "(" ~ ( compr | expr )  ~ ")" }
+// Braket expression
+braket_expr = _{"[" ~ literal_list? ~ "]"}
+
+// Expression with angle brakets
+angle_expr = _{"<" ~ ( expr | arguments )? ~ ">"}
+
+// Expression with parenthesis
+paren_expr = _{ "(" ~ ( compr | expr )?  ~ ")" }
 
 // Statement srrounded by curly brace
-brace_stmt = _{ "{" ~ stmt ~ "}" }
+brace_stmt = _{ "{" ~ stmt? ~ "}" }
+
 
 // Identifiers
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }
@@ -67,7 +103,8 @@ ident_typed = { ident ~ ( ":" ~ typedef_lit ) }
 ident = @{ ASCII_ALPHA ~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
-literals = { ( bool | string | ident | binary | hex | unicord ) }
+literal_expr = { ( bool | string | ident | number | binary | hex | unicord ) }
+literal_list = {literal_expr ~ ("," ~ literal_expr)*}
 
 // Boolean literal
 bool = { true_lit | false_lit }
@@ -84,7 +121,8 @@ int = { "-"? ~ ASCII_DIGIT+ ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? ~!( ASCII
 binary = {"b" ~ ( "0" | "1" )*}
 
 // Hex digit literals (e.g. x109ab2)
-hex = {"x" ~ ( '0'..'9' | "a" | "b" | "c" | "d" | "e" )*}
+// Should this be case sensitive?
+hex = {"x" ~ ( ASCII_DIGIT | "a" | "b" | "c" | "d" | "e" )*}
 
 // Unicord
 unicord = { "u" ~ hex }

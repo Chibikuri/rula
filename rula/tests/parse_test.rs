@@ -1,8 +1,8 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    AstNode, Expr, ExprKind, FnDef, Ident, If, Import, Let, Lit, LitKind, PathKind, Program,
-    ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
+    AstNode, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let, Lit, LitKind, PathKind,
+    Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -888,6 +888,65 @@ mod term_tests {
                         Expr::new(
                             ExprKind::Term(
                                 (((((1+2)-3)*4)+5)-6) as f64
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
+
+mod for_expr_test {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_for_expr() {
+        // divition is tricky a little
+        let term_expr = "for (i) in range(){hello}";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::For(
+                                For::new(
+                                    vec![
+                                        Ident::new(
+                                            "i",
+                                            None
+                                        )
+                                    ],
+                                    Expr::new(
+                                        ExprKind::FnCall(
+                                            FnCall::new(
+                                                Ident::new(
+                                                    "range",
+                                                    None
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "hello",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
                             )
                         )
                     )

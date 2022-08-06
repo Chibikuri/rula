@@ -169,7 +169,10 @@ impl Expr {
 pub enum ExprKind {
     Import(Import),
     If(If),
+    For(For),
     FnDef(FnDef),
+    FnCall(FnCall),
+    Array(Array),
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
     PlaceHolder, // for initializing reason, but maybe better way?
@@ -304,6 +307,40 @@ impl If {
     }
 }
 
+// for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ expr ~ brace_stmt }
+#[derive(Debug, Clone, PartialEq)]
+pub struct For {
+    pub pattern: Vec<Ident>,
+    pub generator: Box<Expr>,
+    pub stmt: Box<Stmt>,
+}
+
+impl For {
+    pub fn new(idents: Vec<Ident>, expression: Expr, statement: Stmt) -> Self {
+        For {
+            pattern: idents,
+            generator: Box::new(expression),
+            stmt: Box::new(statement),
+        }
+    }
+    pub fn place_holder() -> Self {
+        For {
+            pattern: vec![],
+            generator: Box::new(Expr::place_holder()),
+            stmt: Box::new(Stmt::place_holder()),
+        }
+    }
+    pub fn add_ident(&mut self, ident: Ident) {
+        self.pattern.push(ident);
+    }
+    pub fn add_expr(&mut self, expr: Expr) {
+        self.generator = Box::new(expr);
+    }
+    pub fn add_stmt(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
     pub arguments: Vec<LitKind>, // LitKind::Ident
@@ -330,6 +367,55 @@ impl FnDef {
 
     pub fn add_expr(&mut self, stmt: Stmt) {
         self.stmt = Box::new(stmt);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FnCall {
+    pub func_name: Box<Ident>,
+}
+
+impl FnCall {
+    pub fn new(name: Ident) -> Self {
+        FnCall {
+            func_name: Box::new(name),
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        FnCall {
+            func_name: Box::new(Ident::place_holder()),
+        }
+    }
+
+    pub fn add_name(&mut self, name: Ident) {
+        self.func_name = Box::new(name);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Array {
+    // pub type_hint: Box<TypeDef>,
+    pub items: Vec<Lit>,
+}
+
+impl Array {
+    pub fn new(type_val: TypeDef, item_vec: Vec<Lit>) -> Self {
+        Array {
+            // type_hint: Box::new(type_val),
+            items: item_vec,
+        }
+    }
+    pub fn place_holder() -> Self {
+        Array {
+            // type_hint: Box::new(TypeDef::PlaceHolder),
+            items: vec![],
+        }
+    }
+    // pub fn add_type_hind(typedef: TypeDef)
+
+    pub fn add_item(&mut self, item: Lit) {
+        self.items.push(item)
     }
 }
 
@@ -419,6 +505,7 @@ pub enum TypeDef {
     Boolean,
     Str,
     Qubit,
+    PlaceHolder,
 }
 
 #[cfg(test)]

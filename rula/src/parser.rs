@@ -11,7 +11,9 @@ use ast::{Program, ProgramKind};
 // Statements
 use ast::{Let, Stmt, StmtKind};
 // Expressions
-use ast::{Expr, ExprKind, FnDef, Ident, If, Import, Lit, LitKind, PathKind, StringLit};
+use ast::{
+    Array, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind, PathKind, StringLit,
+};
 // Literals
 use ast::TypeDef;
 use error::RuLaError;
@@ -142,11 +144,14 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::if_expr => Ok(Expr::new(ExprKind::If(
             build_ast_from_if_expr(pair).unwrap(),
         ))),
+        Rule::for_expr => Ok(Expr::new(ExprKind::For(
+            build_ast_from_for_expr(pair).unwrap(),
+        ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
-        Rule::term => Ok(Expr::new(ExprKind::Term(eval_prec(pair)))),
+        Rule::term_expr => Ok(Expr::new(ExprKind::Term(eval_prec(pair)))),
         // true, false, "words"
-        Rule::literals => Ok(Expr::new(ExprKind::Lit(
+        Rule::literal_expr => Ok(Expr::new(ExprKind::Lit(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
         ))),
         _ => Err(RuLaError::RuLaSyntaxError),
@@ -167,7 +172,7 @@ fn eval_prec(pair: Pair<Rule>) -> f64 {
     };
 
     match pair.as_rule() {
-        Rule::term => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
+        Rule::term_expr => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
         Rule::number => pair.as_str().parse().unwrap(),
         _ => unreachable!("unreachable{:#?}", &pair),
     }
@@ -232,6 +237,58 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
     Ok(if_expr)
 }
 
+fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
+    let mut for_expr = For::place_holder();
+    // for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ generator ~ brace_stmt }
+    for blocks in pair.into_inner() {
+        match blocks.as_rule() {
+            Rule::ident_list => {
+                // omitted (patterns)
+                // for identifier lists (ident, ident2, ...)
+                for ident in blocks.into_inner() {
+                    // get ident
+                    for_expr.add_ident(build_ast_from_ident(ident).unwrap());
+                }
+            }
+            Rule::generator => {
+                // generator can get three expressions right now.
+                let gen_expression = blocks.into_inner().next().unwrap();
+                let expr = match gen_expression.as_rule() {
+                    // { braket_expr | fn_call_expr | literal_expr }
+                    Rule::literal_list => {
+                        let mut arr = Array::place_holder();
+                        // braket_expr could be list of literals
+                        for lit in gen_expression.into_inner() {
+                            arr.add_item(build_ast_from_literals(lit).unwrap())
+                        }
+                        Expr::new(ExprKind::Array(arr))
+                    }
+                    Rule::fn_call_expr => {
+                        // fn call e.g. hello_world()
+                        Expr::new(ExprKind::FnCall(
+                            build_ast_from_fn_call_expr(gen_expression).unwrap(),
+                        ))
+                    }
+                    Rule::literal_expr => {
+                        // Only identifier can go here
+                        Expr::new(ExprKind::Lit(
+                            build_ast_from_literals(gen_expression).unwrap(),
+                        ))
+                    }
+                    _ => unreachable!(),
+                };
+                for_expr.add_expr(expr);
+            }
+            Rule::stmt => {
+                for_expr
+                    .add_stmt(build_ast_from_stmt(blocks.into_inner().next().unwrap()).unwrap());
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(for_expr)
+}
+
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
     let mut path_list: Vec<PathBuf> = vec![];
     let mut end_paths: Vec<&str> = vec![];
@@ -283,6 +340,19 @@ fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
         }
     }
     Ok(fnc_def)
+}
+
+fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
+    let mut fnc_call = FnCall::place_holder();
+    // println!("fnc call {:#?}", &pair);
+    let fnc_name = pair.into_inner().next().unwrap();
+    match fnc_name.as_rule() {
+        Rule::ident => {
+            fnc_call.add_name(build_ast_from_ident(fnc_name).unwrap());
+        }
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
+    Ok(fnc_call)
 }
 
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
