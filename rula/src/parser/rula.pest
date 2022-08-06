@@ -8,7 +8,7 @@ program = { ( stmt )* }
 stmt = { let_stmt | brace_stmt | expr }
 
 // Variable assignment
-let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ ( compr | expr ))? ~ ";" }
+let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ expr )? ~ ";" }
 
 // Expressions
 expr = { ( import_expr
@@ -19,6 +19,7 @@ expr = { ( import_expr
            | struct_expr
            | return_expr
            | rule_expr
+           | comp_expr
            | braket_expr
            | fn_call_expr
            | term_expr
@@ -81,7 +82,8 @@ slash = { "/" }
 caret = { "^" }
 
 // Comparison (no chain comparison allowed)
-compr = { expr ~ comp_op ~ expr }
+comp_expr = { comparable ~ comp_op ~ comparable }
+comparable = { fn_call_expr | term_expr | literal_expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!="}
 
 // Braket expression
@@ -91,7 +93,7 @@ braket_expr = _{"[" ~ literal_list? ~ "]"}
 angle_expr = _{"<" ~ ( expr | arguments )? ~ ">"}
 
 // Expression with parenthesis
-paren_expr = _{ "(" ~ ( compr | expr )?  ~ ")" }
+paren_expr = _{ "(" ~ ( expr )?  ~ ")" }
 
 // Statement srrounded by curly brace
 brace_stmt = _{ "{" ~ stmt? ~ "}" }

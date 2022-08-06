@@ -11,7 +11,10 @@ use ast::{Program, ProgramKind};
 // Statements
 use ast::{Let, Stmt, StmtKind};
 // Expressions
-use ast::{Array, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind, PathKind};
+use ast::{
+    Array, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind,
+    PathKind, While,
+};
 // Literals
 use ast::TypeDef;
 use ast::{NumberLit, StringLit};
@@ -146,6 +149,12 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::for_expr => Ok(Expr::new(ExprKind::For(
             build_ast_from_for_expr(pair).unwrap(),
         ))),
+        Rule::while_expr => Ok(Expr::new(ExprKind::While(
+            build_ast_from_while_expr(pair).unwrap(),
+        ))),
+        Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
+            build_ast_from_comp_expr(pair).unwrap(),
+        ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
         Rule::term_expr => Ok(Expr::new(ExprKind::Term(eval_prec(pair)))),
@@ -205,9 +214,6 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
             // block statement
             Rule::expr => {
                 if_expr.add_block(build_ast_from_expr(expr.into_inner().next().unwrap()).unwrap());
-            }
-            Rule::compr => {
-                todo!()
             }
             Rule::stmt => {
                 // nested expr (brace stmt -> stmt)
@@ -290,6 +296,53 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
         }
     }
     Ok(for_expr)
+}
+
+fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
+    let mut while_expr = While::place_holder();
+    for blocks in pair.into_inner() {
+        // println!("block{:#?}", &blocks);
+        match blocks.as_rule() {
+            Rule::expr => while_expr
+                .add_block(build_ast_from_expr(blocks.into_inner().next().unwrap()).unwrap()),
+            Rule::stmt => while_expr
+                .add_stmt(build_ast_from_stmt(blocks.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(while_expr)
+}
+
+fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
+    let mut comp_op = CompOpKind::PlaceHolder;
+    let mut comp_expr = Comp::place_holder();
+    let mut expressions = vec![];
+    for block in pair.into_inner() {
+        println!("comps{:#?}", &block);
+        match block.as_rule() {
+            Rule::comparable => {
+                expressions.push(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap());
+            }
+            Rule::comp_op => match block.as_str() {
+                "<" => comp_op = CompOpKind::Lt,
+                ">" => comp_op = CompOpKind::Gt,
+                "=<" => comp_op = CompOpKind::LtE,
+                ">=" => comp_op = CompOpKind::GtE,
+                "==" => comp_op = CompOpKind::Eq,
+                "!=" => comp_op = CompOpKind::Nq,
+                _ => unreachable!("Unknown ops!"),
+            },
+            _ => unreachable!(),
+        }
+    }
+    if expressions.len() != 2 {
+        // Should this be avoided by grammar level?
+        return Err(RuLaError::RuLaSyntaxError);
+    }
+    comp_expr.add_lhs(expressions[0].clone());
+    comp_expr.add_comp_op(comp_op);
+    comp_expr.add_rhs(expressions[1].clone());
+    Ok(comp_expr)
 }
 
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {

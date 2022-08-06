@@ -1,8 +1,9 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    Array, AstNode, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let, Lit, LitKind,
-    NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
+    Array, AstNode, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let,
+    Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind,
+    StringLit, TypeDef, While,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1100,6 +1101,75 @@ mod for_expr_test {
     }
 }
 
+mod test_while_expr {
+    use rula::parser::ast::CompOpKind;
+
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_while_expr() {
+
+        let while_expr = "while(count > 0){expression}";
+        let fn_def_asts = rula::parse(while_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::While(
+                                While::new(
+                                    Expr::new(
+                                        ExprKind::Comp(
+                                            Comp::new(
+                                                Expr::new(
+                                                    ExprKind::Lit(
+                                                        Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "count",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            ),
+                                            CompOpKind::Gt,
+                                            Expr::new(
+                                                ExprKind::Term(
+                                                    0.0
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Lit(
+                                                Lit::new(
+                                                    LitKind::Ident(
+                                                        Ident::new(
+                                                            "expression",
+                                                            None
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
+
 mod test_literals {
     use super::*;
 
@@ -1107,8 +1177,8 @@ mod test_literals {
     #[rustfmt::skip]
     fn test_boolean_true_literal() {
         // divition is tricky a little
-        let term_expr = "true";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "true";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
                 Stmt::new(
@@ -1131,8 +1201,8 @@ mod test_literals {
     #[rustfmt::skip]
     fn test_boolean_false_literal() {
         // divition is tricky a little
-        let term_expr = "false";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "false";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
                 Stmt::new(
@@ -1165,53 +1235,53 @@ mod test_literals {
     #[test]
     fn test_type_literals() {
         // divition is tricky a little
-        let term_expr = "let integer:i32 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:i32 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Integer32));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:i64 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:i64 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Integer64));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:f32 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:f32 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Float32));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:f64 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:f64 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Float64));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:u32 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:u32 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::UnsignedInteger32));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:u64 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:u64 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::UnsignedInteger64));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:c128 = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:c128 = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Complex128));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:bool = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:bool = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Boolean));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:str = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:str = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Str));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let term_expr = "let integer:qubit = val;";
-        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let lit_expr = "let integer:qubit = val;";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Qubit));
         assert_eq!(target_ast_nodes, fn_def_asts);
     }

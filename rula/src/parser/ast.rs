@@ -170,9 +170,11 @@ pub enum ExprKind {
     Import(Import),
     If(If),
     For(For),
+    While(While),
     FnDef(FnDef),
     FnCall(FnCall),
-    Array(Array),
+    Comp(Comp),
+    Array(Array), // [..]
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
     PlaceHolder, // for initializing reason, but maybe better way?
@@ -342,6 +344,33 @@ impl For {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct While {
+    pub block: Box<Expr>,
+    pub stmt: Box<Stmt>,
+}
+
+impl While {
+    pub fn new(block_expr: Expr, stmt: Stmt) -> Self {
+        While {
+            block: Box::new(block_expr),
+            stmt: Box::new(stmt),
+        }
+    }
+    pub fn place_holder() -> Self {
+        While {
+            block: Box::new(Expr::place_holder()),
+            stmt: Box::new(Stmt::place_holder()),
+        }
+    }
+    pub fn add_block(&mut self, block: Expr) {
+        self.block = Box::new(block)
+    }
+    pub fn add_stmt(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
     pub arguments: Vec<LitKind>, // LitKind::Ident
     pub stmt: Box<Stmt>,
@@ -391,6 +420,50 @@ impl FnCall {
     pub fn add_name(&mut self, name: Ident) {
         self.func_name = Box::new(name);
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Comp {
+    lhs: Box<Expr>, // comparable expression (should be traited later)
+    comp_op: Box<CompOpKind>,
+    rhs: Box<Expr>,
+}
+
+impl Comp {
+    pub fn new(lhs: Expr, comp_op: CompOpKind, rhs: Expr) -> Self {
+        Comp {
+            lhs: Box::new(lhs),
+            comp_op: Box::new(comp_op),
+            rhs: Box::new(rhs),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Comp {
+            lhs: Box::new(Expr::place_holder()),
+            comp_op: Box::new(CompOpKind::PlaceHolder),
+            rhs: Box::new(Expr::place_holder()),
+        }
+    }
+    pub fn add_lhs(&mut self, lhs: Expr) {
+        self.lhs = Box::new(lhs)
+    }
+    pub fn add_rhs(&mut self, rhs: Expr) {
+        self.rhs = Box::new(rhs)
+    }
+    pub fn add_comp_op(&mut self, op: CompOpKind) {
+        self.comp_op = Box::new(op)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CompOpKind {
+    Lt,  // `<`
+    Gt,  // `>`
+    LtE, // `<=`,
+    GtE, // '>='
+    Eq,  // `==`
+    Nq,  // `!=`
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]
