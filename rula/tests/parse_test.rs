@@ -3,7 +3,7 @@ extern crate rula;
 use rula::parser::ast::{
     Array, AstNode, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let,
     Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind,
-    StringLit, TypeDef, While,
+    StringLit, Struct, TypeDef, While,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1102,8 +1102,6 @@ mod for_expr_test {
 }
 
 mod test_while_expr {
-    use rula::parser::ast::CompOpKind;
-
     use super::*;
 
     #[test]
@@ -1168,8 +1166,171 @@ mod test_while_expr {
         ];
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_while_expr_ident() {
+
+        let while_expr = "while(count){expression}";
+        let fn_def_asts = rula::parse(while_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::While(
+                                While::new(
+                                    Expr::new(
+                                        ExprKind::Lit(
+                                            Lit::new(
+                                                LitKind::Ident(
+                                                    Ident::new(
+                                                        "count",
+                                                        None,
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "expression",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_while_expr_literal() {
+
+        let while_expr = "while(true){expression}";
+        let fn_def_asts = rula::parse(while_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::While(
+                                While::new(
+                                    Expr::new(
+                                        ExprKind::Lit(
+                                            Lit::new(
+                                                LitKind::BooleanLit(
+                                                    true
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "expression",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
 }
 
+mod test_struct_expr {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_empty_struct_expr() {
+
+        let struct_expr = "struct Test{}";
+        let fn_def_asts = rula::parse(struct_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::Struct(
+                                Struct::new(
+                                    Ident::new(
+                                        "Test",
+                                        None
+                                    ),
+                                    vec![]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_struct_expr() {
+
+        let struct_expr = "struct Test{flag: bool}";
+        let fn_def_asts = rula::parse(struct_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::Struct(
+                                Struct::new(
+                                    Ident::new(
+                                        "Test",
+                                        None
+                                    ),
+                                    vec![
+                                        Ident::new(
+                                            "flag",
+                                            Some(TypeDef::Boolean)
+                                        )
+                                    ]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
 mod test_literals {
     use super::*;
 

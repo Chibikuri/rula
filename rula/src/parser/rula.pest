@@ -52,7 +52,8 @@ arguments = { "(" ~ ( ident_typed? ~ ( "," ~ ident_typed )* ) ~ ")" }
 fn_call_expr = { ident ~ paren_expr }
 
 // Struct expression to define ordinary structure
-struct_expr = {^"struct" ~ ident ~ "{" ~ (ident ~ ":" ~ typedef_lit)? ~ ("," ~ ident ~ ":" ~ typedef_lit)* ~ ","? ~ "}"}
+struct_expr = {^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}
+struct_name = {ident} // for parser use
 
 // Return expression to return variables
 return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}

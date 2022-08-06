@@ -173,6 +173,7 @@ pub enum ExprKind {
     While(While),
     FnDef(FnDef),
     FnCall(FnCall),
+    Struct(Struct),
     Comp(Comp),
     Array(Array), // [..]
     Lit(Lit),
@@ -419,6 +420,34 @@ impl FnCall {
 
     pub fn add_name(&mut self, name: Ident) {
         self.func_name = Box::new(name);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Struct {
+    name: Box<Ident>,
+    items: Vec<Ident>,
+}
+
+impl Struct {
+    pub fn new(name: Ident, item_vec: Vec<Ident>) -> Self {
+        Struct {
+            name: Box::new(name),
+            items: item_vec,
+        }
+    }
+    pub fn place_holder() -> Self {
+        Struct {
+            name: Box::new(Ident::place_holder()),
+            items: vec![],
+        }
+    }
+
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name)
+    }
+    pub fn add_item(&mut self, item: Ident) {
+        self.items.push(item)
     }
 }
 

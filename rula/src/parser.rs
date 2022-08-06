@@ -13,7 +13,7 @@ use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{
     Array, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind,
-    PathKind, While,
+    PathKind, Struct, While,
 };
 // Literals
 use ast::TypeDef;
@@ -151,6 +151,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         ))),
         Rule::while_expr => Ok(Expr::new(ExprKind::While(
             build_ast_from_while_expr(pair).unwrap(),
+        ))),
+        Rule::struct_expr => Ok(Expr::new(ExprKind::Struct(
+            buil_ast_from_struct_expr(pair).unwrap(),
         ))),
         Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
             build_ast_from_comp_expr(pair).unwrap(),
@@ -311,6 +314,21 @@ fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
         }
     }
     Ok(while_expr)
+}
+
+fn buil_ast_from_struct_expr(pair: Pair<Rule>) -> IResult<Struct> {
+    println!("pair{:#?}", pair);
+    let mut struct_expr = Struct::place_holder();
+    for st in pair.into_inner() {
+        match st.as_rule() {
+            Rule::struct_name => {
+                struct_expr.add_name(build_ast_from_ident(st.into_inner().next().unwrap()).unwrap())
+            }
+            Rule::ident_typed => struct_expr.add_item(build_ast_from_ident_typed(st).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(struct_expr)
 }
 
 fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
