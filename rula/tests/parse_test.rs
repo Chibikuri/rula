@@ -1,8 +1,8 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    AstNode, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let, Lit, LitKind, PathKind,
-    Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
+    Array, AstNode, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let, Lit, LitKind,
+    NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind, StringLit, TypeDef,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -927,6 +927,149 @@ mod for_expr_test {
                                                     "range",
                                                     None
                                                 )
+                                            )
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "hello",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_multi_arg_for_expr() {
+        // divition is tricky a little
+        let term_expr = "for (a, b, c) in generator{hello}";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::For(
+                                For::new(
+                                    vec![
+                                        Ident::new(
+                                            "a",
+                                            None
+                                        ),
+                                        Ident::new(
+                                            "b",
+                                            None
+                                        ),
+                                        Ident::new(
+                                            "c",
+                                            None
+                                        )
+                                    ],
+                                    Expr::new(
+                                        ExprKind::Lit(
+                                            Lit::new(
+                                                LitKind::Ident(
+                                                    Ident::new(
+                                                        "generator",
+                                                        None
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "hello",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_multi_arg_lists_for_expr() {
+        // divition is tricky a little
+        let term_expr = "for (i) in [1, 2, 3, 4, 5]{hello}";
+        let fn_def_asts = rula::parse(term_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::For(
+                                For::new(
+                                    vec![
+                                        Ident::new(
+                                            "i",
+                                            None
+                                        ),
+                                    ],
+                                    Expr::new(
+                                        ExprKind::Array(
+                                            Array::new(
+                                                vec![
+                                                    Lit::new(
+                                                        LitKind::NumberLit(
+                                                            NumberLit::new("1")
+                                                        )
+                                                    ),
+                                                    Lit::new(
+                                                        LitKind::NumberLit(
+                                                            NumberLit::new("2")
+                                                        )
+                                                    ), 
+                                                    Lit::new(
+                                                        LitKind::NumberLit(
+                                                            NumberLit::new("3")
+                                                        )
+                                                    ), 
+                                                    Lit::new(
+                                                        LitKind::NumberLit(
+                                                            NumberLit::new("4")
+                                                        )
+                                                    ), 
+                                                    Lit::new(
+                                                        LitKind::NumberLit(
+                                                            NumberLit::new("5")
+                                                        )
+                                                    )
+                                                    ]   
                                             )
                                         )
                                     ),

@@ -11,11 +11,10 @@ use ast::{Program, ProgramKind};
 // Statements
 use ast::{Let, Stmt, StmtKind};
 // Expressions
-use ast::{
-    Array, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind, PathKind, StringLit,
-};
+use ast::{Array, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind, PathKind};
 // Literals
 use ast::TypeDef;
+use ast::{NumberLit, StringLit};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -186,6 +185,7 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
             build_ast_from_ident(pair).unwrap(),
         ))),
         Rule::raw_string => Ok(Lit::new(LitKind::StringLit(StringLit::new(pair.as_str())))),
+        Rule::number => Ok(Lit::new(LitKind::NumberLit(NumberLit::new(pair.as_str())))),
         Rule::bool => match pair.as_str() {
             "true" => Ok(Lit::new(LitKind::BooleanLit(true))),
             "false" => Ok(Lit::new(LitKind::BooleanLit(false))),
@@ -259,7 +259,9 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
                         let mut arr = Array::place_holder();
                         // braket_expr could be list of literals
                         for lit in gen_expression.into_inner() {
-                            arr.add_item(build_ast_from_literals(lit).unwrap())
+                            arr.add_item(
+                                build_ast_from_literals(lit.into_inner().next().unwrap()).unwrap(),
+                            )
                         }
                         Expr::new(ExprKind::Array(arr))
                     }
@@ -272,7 +274,8 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
                     Rule::literal_expr => {
                         // Only identifier can go here
                         Expr::new(ExprKind::Lit(
-                            build_ast_from_literals(gen_expression).unwrap(),
+                            build_ast_from_literals(gen_expression.into_inner().next().unwrap())
+                                .unwrap(),
                         ))
                     }
                     _ => unreachable!(),
@@ -344,7 +347,6 @@ fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
 
 fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
     let mut fnc_call = FnCall::place_holder();
-    // println!("fnc call {:#?}", &pair);
     let fnc_name = pair.into_inner().next().unwrap();
     match fnc_name.as_rule() {
         Rule::ident => {

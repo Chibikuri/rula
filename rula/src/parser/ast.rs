@@ -400,7 +400,7 @@ pub struct Array {
 }
 
 impl Array {
-    pub fn new(type_val: TypeDef, item_vec: Vec<Lit>) -> Self {
+    pub fn new(item_vec: Vec<Lit>) -> Self {
         Array {
             // type_hint: Box::new(type_val),
             items: item_vec,
@@ -442,6 +442,7 @@ pub enum LitKind {
     BooleanLit(bool),
     Ident(Ident),
     StringLit(StringLit),
+    NumberLit(NumberLit),
     PlaceHolder,
 }
 
@@ -454,6 +455,19 @@ impl StringLit {
     pub fn new(strs: &str) -> StringLit {
         StringLit {
             string: Box::new(String::from(strs)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NumberLit {
+    value: Box<String>, // At this point, number type cannot be determined
+}
+
+impl NumberLit {
+    pub fn new(val: &str) -> Self {
+        NumberLit {
+            value: Box::new(String::from(val)),
         }
     }
 }
