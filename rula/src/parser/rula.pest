@@ -91,7 +91,7 @@ comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!="}
 braket_expr = _{"[" ~ literal_list? ~ "]"}
 
 // Expression with angle brakets
-angle_expr = _{"<" ~ ( expr | arguments )? ~ ">"}
+angle_expr = _{"<" ~ ( ( ident_typed? ~ ( "," ~ ident_typed )* ) )? ~ ">"}
 
 // Expression with parenthesis
 paren_expr = _{ "(" ~ ( expr )?  ~ ")" }

@@ -13,7 +13,7 @@ use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{
     Array, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind,
-    PathKind, Struct, While,
+    PathKind, RuleExpr, Struct, While,
 };
 // Literals
 use ast::TypeDef;
@@ -157,6 +157,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         ))),
         Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
             build_ast_from_comp_expr(pair).unwrap(),
+        ))),
+        Rule::rule_expr => Ok(Expr::new(ExprKind::RuleExpr(
+            build_ast_from_rule_expr(pair).unwrap(),
         ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
@@ -361,6 +364,27 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     comp_expr.add_comp_op(comp_op);
     comp_expr.add_rhs(expressions[1].clone());
     Ok(comp_expr)
+}
+
+fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
+    let mut rule_expr = RuleExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident_typed => {
+                rule_expr.add_target_res(build_ast_from_ident_typed(block).unwrap())
+            }
+            Rule::arguments => {
+                for arg in block.into_inner() {
+                    rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                }
+            }
+            Rule::stmt => {
+                rule_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(rule_expr)
 }
 
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {

@@ -2,8 +2,8 @@ extern crate rula;
 
 use rula::parser::ast::{
     Array, AstNode, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let,
-    Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, Stmt, StmtKind,
-    StringLit, Struct, TypeDef, While,
+    Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, RuLa, RuLaKind, RuleExpr, Stmt,
+    StmtKind, StringLit, Struct, TypeDef, While,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1328,6 +1328,63 @@ mod test_struct_expr {
                 )
             )
             ];
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+}
+
+mod test_rule_expr {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_rule_expr() {
+
+        let rule_expr = "rule<q: qubit>(q2: qubit, q3: qubit){expression}";
+        let fn_def_asts = rula::parse(rule_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::RuleExpr(
+                                RuleExpr::new(
+                                    Ident::new(
+                                        "q",
+                                        Some(TypeDef::Qubit),
+                                    ),
+                                vec![
+                                    Ident::new(
+                                        "q2",
+                                        Some(TypeDef::Qubit)
+                                    ),
+                                    Ident::new(
+                                        "q3",
+                                        Some(TypeDef::Qubit),
+                                    )
+                                ],
+                                Stmt::new(
+                                    StmtKind::Expr(
+                                        Expr::new(
+                                            ExprKind::Lit(
+                                                Lit::new(
+                                                    LitKind::Ident(
+                                                        Ident::new(
+                                                            "expression",
+                                                            None
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        ];
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }

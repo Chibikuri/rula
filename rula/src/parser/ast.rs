@@ -175,6 +175,7 @@ pub enum ExprKind {
     FnCall(FnCall),
     Struct(Struct),
     Comp(Comp),
+    RuleExpr(RuleExpr),
     Array(Array), // [..]
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
@@ -481,6 +482,40 @@ impl Comp {
     }
     pub fn add_comp_op(&mut self, op: CompOpKind) {
         self.comp_op = Box::new(op)
+    }
+}
+
+// rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleExpr {
+    target_res: Box<Ident>,
+    args: Vec<Ident>,
+    stmt: Box<Stmt>,
+}
+
+impl RuleExpr {
+    pub fn new(res: Ident, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
+        RuleExpr {
+            target_res: Box::new(res),
+            args: arg_vec,
+            stmt: Box::new(stmt),
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleExpr {
+            target_res: Box::new(Ident::place_holder()),
+            args: vec![],
+            stmt: Box::new(Stmt::place_holder()),
+        }
+    }
+    pub fn add_target_res(&mut self, resource: Ident) {
+        self.target_res = Box::new(resource);
+    }
+    pub fn add_arg(&mut self, arg: Ident) {
+        self.args.push(arg);
+    }
+    pub fn add_stmt(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt)
     }
 }
 
