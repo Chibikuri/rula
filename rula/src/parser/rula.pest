@@ -124,14 +124,16 @@ number = @{ int ~ ( "." ~ ASCII_DIGIT* )? ~ ( ^"e" ~ int )? }
 // This will allow white space between digits (FIXME)
 int = { "-"? ~ ASCII_DIGIT+ ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? ~!( ASCII_ALPHA ) } 
 // Binary literals (e.g. b101100)
-binary = {"b" ~ ( "0" | "1" )*}
+binary = { "0b" ~ bin_num}
+bin_num = {( "0" | "1" )*}
 
 // Hex digit literals (e.g. x109ab2)
 // Should this be case sensitive?
-hex = {"x" ~ ( ASCII_DIGIT | "a" | "b" | "c" | "d" | "e" )*}
+hex = { "0x" ~ hex_num}
+hex_num = {( ASCII_DIGIT | "a" | "b" | "c" | "d" | "e" | "f" | "A" | "B" | "C" | "D" | "E" | "F" )*}
 
 // Unicord
-unicord = { "u" ~ hex }
+unicord = { "0u" ~  hex_num }
 
 // String literals (escape should be added later)
 string = _{ "\"" ~ ( raw_string )* ~ "\"" }

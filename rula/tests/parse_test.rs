@@ -1,9 +1,10 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    Array, AstNode, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If,
-    Import, Let, Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, Return, RuLa, RuLaKind,
-    RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, While, ActExpr
+    ActExpr, Array, AstNode, BinaryLit, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef,
+    For, HexLit, Ident, If, Import, Let, Lit, LitKind, NumberLit, PathKind, Program, ProgramKind,
+    Return, RuLa, RuLaKind, RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, UnicordLit,
+    While,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1637,6 +1638,40 @@ mod test_literals {
         let lit_expr = "let integer:qubit = val;";
         let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Qubit));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    // helper function
+    fn generate_lit_ast(literals: Lit) -> Vec<AstNode> {
+        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::Lit(literals),
+        ))))];
+        target_ast_nodes
+    }
+
+    #[test]
+    fn test_binary_literals() {
+        let lit_expr = "0b0100100";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
+        let target_ast_nodes =
+            generate_lit_ast(Lit::new(LitKind::BinaryLit(BinaryLit::new("0100100"))));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    fn test_hex_literals() {
+        let lit_expr = "0x0e8afc";
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
+        let target_ast_nodes = generate_lit_ast(Lit::new(LitKind::HexLit(HexLit::new("0e8afc"))));
+        assert_eq!(target_ast_nodes, fn_def_asts);
+    }
+
+    #[test]
+    fn test_unicord_literals() {
+        let lit_expr = "0u1F680"; //🚀
+        let fn_def_asts = rula::parse(lit_expr).unwrap();
+        let target_ast_nodes =
+            generate_lit_ast(Lit::new(LitKind::UnicordLit(UnicordLit::new("1F680"))));
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }

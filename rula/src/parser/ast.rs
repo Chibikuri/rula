@@ -571,28 +571,28 @@ impl CondExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ActExpr{
+pub struct ActExpr {
     name: Box<Option<Ident>>,
-    operatable: Box<Stmt>
+    operatable: Box<Stmt>,
 }
 
-impl ActExpr{
-    pub fn new(name: Option<Ident>, operatable: Stmt) -> Self{
-        ActExpr{
+impl ActExpr {
+    pub fn new(name: Option<Ident>, operatable: Stmt) -> Self {
+        ActExpr {
             name: Box::new(name),
             operatable: Box::new(operatable),
         }
     }
-    pub fn place_holder() -> Self{
+    pub fn place_holder() -> Self {
         ActExpr {
             name: Box::new(None),
-            operatable: Box::new(Stmt::place_holder())
+            operatable: Box::new(Stmt::place_holder()),
         }
     }
-    pub fn add_name(&mut self, name: Option<Ident>){
+    pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
     }
-    pub fn add_operatable(&mut self, stmt: Stmt){
+    pub fn add_operatable(&mut self, stmt: Stmt) {
         self.operatable = Box::new(stmt);
     }
 }
@@ -658,6 +658,9 @@ pub enum LitKind {
     Ident(Ident),
     StringLit(StringLit),
     NumberLit(NumberLit),
+    HexLit(HexLit),
+    BinaryLit(BinaryLit),
+    UnicordLit(UnicordLit),
     PlaceHolder,
 }
 
@@ -682,6 +685,45 @@ pub struct NumberLit {
 impl NumberLit {
     pub fn new(val: &str) -> Self {
         NumberLit {
+            value: Box::new(String::from(val)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BinaryLit {
+    value: Box<String>,
+}
+
+impl BinaryLit {
+    pub fn new(val: &str) -> Self {
+        BinaryLit {
+            value: Box::new(String::from(val)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HexLit {
+    value: Box<String>,
+}
+
+impl HexLit {
+    pub fn new(val: &str) -> Self {
+        HexLit {
+            value: Box::new(String::from(val)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnicordLit {
+    value: Box<String>,
+}
+
+impl UnicordLit {
+    pub fn new(val: &str) -> Self {
+        UnicordLit {
             value: Box::new(String::from(val)),
         }
     }

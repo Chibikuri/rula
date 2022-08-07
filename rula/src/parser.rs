@@ -12,12 +12,12 @@ use ast::{Program, ProgramKind};
 use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{
-    Array, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit,
-    LitKind, PathKind, Return, RuleExpr, Struct, While, ActExpr
+    ActExpr, Array, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If,
+    Import, Lit, LitKind, PathKind, Return, RuleExpr, Struct, While,
 };
 // Literals
 use ast::TypeDef;
-use ast::{NumberLit, StringLit};
+use ast::{BinaryLit, HexLit, NumberLit, StringLit, UnicordLit};
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -203,6 +203,7 @@ fn eval_prec(pair: Pair<Rule>) -> f64 {
 
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
+    println!("par {:#?}", pair);
     match pair.as_rule() {
         // identifier
         Rule::ident => Ok(Lit::new(LitKind::Ident(
@@ -210,6 +211,15 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
         ))),
         Rule::raw_string => Ok(Lit::new(LitKind::StringLit(StringLit::new(pair.as_str())))),
         Rule::number => Ok(Lit::new(LitKind::NumberLit(NumberLit::new(pair.as_str())))),
+        Rule::binary => Ok(Lit::new(LitKind::BinaryLit(BinaryLit::new(
+            pair.into_inner().next().unwrap().as_str(),
+        )))),
+        Rule::hex => Ok(Lit::new(LitKind::HexLit(HexLit::new(
+            pair.into_inner().next().unwrap().as_str(),
+        )))),
+        Rule::unicord => Ok(Lit::new(LitKind::UnicordLit(UnicordLit::new(
+            pair.into_inner().next().unwrap().as_str(),
+        )))),
         Rule::bool => match pair.as_str() {
             "true" => Ok(Lit::new(LitKind::BooleanLit(true))),
             "false" => Ok(Lit::new(LitKind::BooleanLit(false))),
@@ -316,7 +326,6 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
 fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
     let mut while_expr = While::place_holder();
     for blocks in pair.into_inner() {
-        // println!("block{:#?}", &blocks);
         match blocks.as_rule() {
             Rule::expr => while_expr
                 .add_block(build_ast_from_expr(blocks.into_inner().next().unwrap()).unwrap()),
@@ -360,7 +369,6 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     let mut comp_expr = Comp::place_holder();
     let mut expressions = vec![];
     for block in pair.into_inner() {
-        println!("comps{:#?}", &block);
         match block.as_rule() {
             Rule::comparable => {
                 expressions.push(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap());
@@ -413,26 +421,22 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            Rule::stmt => {
-                cond_expr.add_awaitable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
-            }
+            Rule::stmt => cond_expr
+                .add_awaitable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(cond_expr)
 }
 
-fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr>{
+fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr> {
     let mut act_expr = ActExpr::place_holder();
-    for block in pair.into_inner(){
-        match block.as_rule(){
-            Rule::ident => {
-                act_expr.add_name(Some(build_ast_from_ident(block).unwrap()))
-            },
-            Rule::stmt =>{
-                act_expr.add_operatable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError)
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => act_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
+            Rule::stmt => act_expr
+                .add_operatable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(act_expr)
