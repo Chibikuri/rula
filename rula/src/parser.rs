@@ -12,8 +12,8 @@ use ast::{Program, ProgramKind};
 use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{
-    Array, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit, LitKind,
-    PathKind, Return, RuleExpr, Struct, While,
+    Array, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit,
+    LitKind, PathKind, Return, RuleExpr, Struct, While,
 };
 // Literals
 use ast::TypeDef;
@@ -163,6 +163,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         ))),
         Rule::rule_expr => Ok(Expr::new(ExprKind::RuleExpr(
             build_ast_from_rule_expr(pair).unwrap(),
+        ))),
+        Rule::cond_expr => Ok(Expr::new(ExprKind::CondExpr(
+            build_ast_from_cond_expr(pair).unwrap(),
         ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
@@ -323,7 +326,6 @@ fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
 }
 
 fn buil_ast_from_struct_expr(pair: Pair<Rule>) -> IResult<Struct> {
-    println!("pair{:#?}", pair);
     let mut struct_expr = Struct::place_holder();
     for st in pair.into_inner() {
         match st.as_rule() {
@@ -401,6 +403,21 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
         }
     }
     Ok(rule_expr)
+}
+
+fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
+    println!("pair {:#?}", &pair);
+    let mut cond_expr = CondExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
+            Rule::stmt => {
+                cond_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(cond_expr)
 }
 
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {

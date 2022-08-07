@@ -177,6 +177,7 @@ pub enum ExprKind {
     Return(Return),
     Comp(Comp),
     RuleExpr(RuleExpr),
+    CondExpr(CondExpr),
     Array(Array), // [..]
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
@@ -538,6 +539,33 @@ impl RuleExpr {
     }
     pub fn add_stmt(&mut self, stmt: Stmt) {
         self.stmt = Box::new(stmt)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CondExpr {
+    pub name: Box<Option<Ident>>,
+    pub stmt: Box<Stmt>,
+}
+
+impl CondExpr {
+    pub fn new(name: Option<Ident>, stmt: Stmt) -> Self {
+        CondExpr {
+            name: Box::new(name),
+            stmt: Box::new(stmt),
+        }
+    }
+    pub fn place_holder() -> Self {
+        CondExpr {
+            name: Box::new(Some(Ident::place_holder())),
+            stmt: Box::new(Stmt::place_holder()),
+        }
+    }
+    pub fn add_name(&mut self, name: Option<Ident>) {
+        self.name = Box::new(name);
+    }
+    pub fn add_stmt(&mut self, stmt: Stmt) {
+        self.stmt = Box::new(stmt);
     }
 }
 

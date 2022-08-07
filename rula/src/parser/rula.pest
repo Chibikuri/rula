@@ -19,6 +19,7 @@ expr = { ( import_expr
            | struct_expr
            | return_expr
            | rule_expr
+           | cond_expr
            | comp_expr
            | braket_expr
            | fn_call_expr
@@ -63,8 +64,9 @@ tuple = {"(" ~ literal_list? ~ ")"}
 rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
 
 // Condition expression for qubit to wait until all meet
-cond_expr = {^"cond" ~ ident? ~ "{" ~ awaitable ~ "}"}
-awaitable = _{ident} // for now, awaitable could be expression?
+// brace_stmt is a little vague?
+cond_expr = { ^"cond" ~ ident? ~ brace_stmt }
+// awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations
 act_expr = {^"act" ~ ident? ~ "{" ~ operatable ~ "}"}

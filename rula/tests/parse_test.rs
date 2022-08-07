@@ -1,9 +1,9 @@
 extern crate rula;
 
 use rula::parser::ast::{
-    Array, AstNode, Comp, CompOpKind, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Let,
-    Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, Return, RuLa, RuLaKind, RuleExpr,
-    Stmt, StmtKind, StringLit, Struct, TypeDef, While,
+    Array, AstNode, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If,
+    Import, Let, Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, Return, RuLa, RuLaKind,
+    RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, While,
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1427,6 +1427,55 @@ mod test_rule_expr {
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
+
+mod test_condition_expr {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_cond_expr() {
+        let cond_expr = "cond condition1 {awaitables}";
+        let fn_def_asts = rula::parse(cond_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::CondExpr(
+                                CondExpr::new(
+                                    Some(
+                                        Ident::new(
+                                            "condition1",
+                                            None,
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "awaitables",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts); 
+    }
+}
+
 mod test_literals {
     use super::*;
 
