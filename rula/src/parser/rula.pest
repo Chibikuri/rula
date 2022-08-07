@@ -20,6 +20,7 @@ expr = { ( import_expr
            | return_expr
            | rule_expr
            | cond_expr
+           | act_expr
            | comp_expr
            | braket_expr
            | fn_call_expr
@@ -69,8 +70,8 @@ cond_expr = { ^"cond" ~ ident? ~ brace_stmt }
 // awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations
-act_expr = {^"act" ~ ident? ~ "{" ~ operatable ~ "}"}
-operatable = _{ident}
+act_expr = {^"act" ~ ident? ~ brace_stmt}
+// operatable = _{ident}
 
 // Term expr without any operator recedence
 term_expr = { inner_term ~ ( op ~ inner_term )* }

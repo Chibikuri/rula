@@ -13,7 +13,7 @@ use ast::{Let, Stmt, StmtKind};
 // Expressions
 use ast::{
     Array, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If, Import, Lit,
-    LitKind, PathKind, Return, RuleExpr, Struct, While,
+    LitKind, PathKind, Return, RuleExpr, Struct, While, ActExpr
 };
 // Literals
 use ast::TypeDef;
@@ -166,6 +166,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         ))),
         Rule::cond_expr => Ok(Expr::new(ExprKind::CondExpr(
             build_ast_from_cond_expr(pair).unwrap(),
+        ))),
+        Rule::act_expr => Ok(Expr::new(ExprKind::ActExpr(
+            build_ast_from_act_expr(pair).unwrap(),
         ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
@@ -406,13 +409,12 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
 }
 
 fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
-    println!("pair {:#?}", &pair);
     let mut cond_expr = CondExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
             Rule::stmt => {
-                cond_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
+                cond_expr.add_awaitable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
@@ -420,6 +422,21 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     Ok(cond_expr)
 }
 
+fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr>{
+    let mut act_expr = ActExpr::place_holder();
+    for block in pair.into_inner(){
+        match block.as_rule(){
+            Rule::ident => {
+                act_expr.add_name(Some(build_ast_from_ident(block).unwrap()))
+            },
+            Rule::stmt =>{
+                act_expr.add_operatable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError)
+        }
+    }
+    Ok(act_expr)
+}
 fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
     let mut path_list: Vec<PathBuf> = vec![];
     let mut end_paths: Vec<&str> = vec![];

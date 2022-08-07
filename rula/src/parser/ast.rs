@@ -178,6 +178,7 @@ pub enum ExprKind {
     Comp(Comp),
     RuleExpr(RuleExpr),
     CondExpr(CondExpr),
+    ActExpr(ActExpr),
     Array(Array), // [..]
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
@@ -545,27 +546,54 @@ impl RuleExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
-    pub stmt: Box<Stmt>,
+    pub awaitable: Box<Stmt>,
 }
 
 impl CondExpr {
     pub fn new(name: Option<Ident>, stmt: Stmt) -> Self {
         CondExpr {
             name: Box::new(name),
-            stmt: Box::new(stmt),
+            awaitable: Box::new(stmt),
         }
     }
     pub fn place_holder() -> Self {
         CondExpr {
-            name: Box::new(Some(Ident::place_holder())),
-            stmt: Box::new(Stmt::place_holder()),
+            name: Box::new(None),
+            awaitable: Box::new(Stmt::place_holder()),
         }
     }
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
     }
-    pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt);
+    pub fn add_awaitable(&mut self, stmt: Stmt) {
+        self.awaitable = Box::new(stmt);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActExpr{
+    name: Box<Option<Ident>>,
+    operatable: Box<Stmt>
+}
+
+impl ActExpr{
+    pub fn new(name: Option<Ident>, operatable: Stmt) -> Self{
+        ActExpr{
+            name: Box::new(name),
+            operatable: Box::new(operatable),
+        }
+    }
+    pub fn place_holder() -> Self{
+        ActExpr {
+            name: Box::new(None),
+            operatable: Box::new(Stmt::place_holder())
+        }
+    }
+    pub fn add_name(&mut self, name: Option<Ident>){
+        self.name = Box::new(name);
+    }
+    pub fn add_operatable(&mut self, stmt: Stmt){
+        self.operatable = Box::new(stmt);
     }
 }
 

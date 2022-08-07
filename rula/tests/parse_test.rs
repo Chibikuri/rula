@@ -3,7 +3,7 @@ extern crate rula;
 use rula::parser::ast::{
     Array, AstNode, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If,
     Import, Let, Lit, LitKind, NumberLit, PathKind, Program, ProgramKind, Return, RuLa, RuLaKind,
-    RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, While,
+    RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, While, ActExpr
 };
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
@@ -1457,6 +1457,54 @@ mod test_condition_expr {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "awaitables",
+                                                                None
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            ];
+        assert_eq!(target_ast_nodes, fn_def_asts); 
+    }
+}
+
+mod test_action_expr {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_act_expr() {
+        let act_expr = "act act1 {operatable}";
+        let fn_def_asts = rula::parse(act_expr).unwrap();
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::ActExpr(
+                                ActExpr::new(
+                                    Some(
+                                        Ident::new(
+                                            "act1",
+                                            None,
+                                        )
+                                    ),
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "operatable",
                                                                 None
                                                             )
                                                         )
