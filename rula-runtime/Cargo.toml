@@ -6,4 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rula = {path = "../rula"}
+rula = { path = "../rula" }
+tokio = {version = "1.20.1", features = ["rt", "rt-multi-thread", "net", "time", "io-std", "io-util"]}
+
+[dev-dependencies]
+tokio = {version = "1.20.1", features = ["test-util"]}
