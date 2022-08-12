@@ -1,12 +1,6 @@
 extern crate rula;
 
-use rula::parser::ast::{
-    ActExpr, Array, AstNode, BinaryLit, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef,
-    For, HexLit, Ident, If, Import, Let, Lit, LitKind, NumberLit, PathKind, Program, ProgramKind,
-    Return, RuLa, RuLaKind, RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, UnicordLit,
-    While,
-};
-
+use rula::parser::ast::*;
 fn build_stmt_ast(statement: Stmt) -> AstNode {
     AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
         ProgramKind::Stmt(statement),

@@ -8,20 +8,26 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
     RuLa(RuLa),
-    Test, // Debug use
+    PlaceHolder, // Debug use
 }
 
 // This doesn't do much, but could be used for preprocessing or something later.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuLa {
-    rula: Box<RuLaKind>,
+    pub rula: Box<RuLaKind>,
 }
 
 impl RuLa {
     // This way could be updated when we have more than two RuLaKind
-    pub fn new(rula: RuLaKind) -> RuLa {
+    pub fn new(rula: RuLaKind) -> Self {
         RuLa {
             rula: Box::new(rula),
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        RuLa {
+            rula: Box::new(RuLaKind::PlaceHolder),
         }
     }
 
@@ -43,6 +49,7 @@ impl RuLa {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuLaKind {
     Program(Program),
+    PlaceHolder,
     Ignore, // ignore symbol such as comment
     Eoi,
 }

@@ -5,19 +5,7 @@ mod util;
 
 use crate::Rule;
 // RuLa
-use ast::{RuLa, RuLaKind};
-// Program
-use ast::{Program, ProgramKind};
-// Statements
-use ast::{Let, Stmt, StmtKind};
-// Expressions
-use ast::{
-    ActExpr, Array, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If,
-    Import, Lit, LitKind, PathKind, Return, RuleExpr, Struct, While,
-};
-// Literals
-use ast::TypeDef;
-use ast::{BinaryLit, HexLit, NumberLit, StringLit, UnicordLit};
+use ast::*;
 use error::RuLaError;
 use std::path::PathBuf;
 
