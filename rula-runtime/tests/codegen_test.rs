@@ -1,9 +1,8 @@
 use rula::parser::ast::*;
 use rula_runtime::codegen::generator::*;
+use std::env;
 use std::fs;
 use std::io::Write;
-use std::env;
-
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
     AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
@@ -17,7 +16,6 @@ pub fn generate_file(program: RustProgram, file_name: &str) {
     file_path.push("tests");
     file_path.push("generated");
     file_path.push(file_name);
-    println!("{:#?}", file_path);
     let mut file = fs::File::create(file_path).unwrap();
     file.write_all(program.program.as_bytes()).unwrap();
 }
