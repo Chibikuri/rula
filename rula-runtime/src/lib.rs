@@ -1,5 +1,6 @@
 pub mod codegen {
     mod error;
+    mod program;
     pub mod generator;
 }
 
