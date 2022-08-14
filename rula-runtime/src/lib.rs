@@ -1,7 +1,7 @@
 pub mod codegen {
     mod error;
-    mod program;
     pub mod generator;
+    mod program;
 }
 
 #[cfg(test)]

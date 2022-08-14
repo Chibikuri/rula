@@ -14,9 +14,7 @@ pub fn generate(ast_tree: Vec<AstNode>) -> RustProgram {
     let mut rula_program = RuLaProgram::new();
     for ast_node in ast_tree {
         match ast_node {
-            AstNode::RuLa(rula) => {
-                rula_program = RuLaProgram::from(generate_rula(rula).unwrap())
-            }
+            AstNode::RuLa(rula) => rula_program = RuLaProgram::from(generate_rula(rula).unwrap()),
             AstNode::PlaceHolder => {
                 // return Box::mew(Err(RuLaCompileError::RuLaGenerationError))
                 // panic!("Value not properly set");
@@ -50,21 +48,18 @@ impl RuLaProgram {
             // phantom: PhantomData
         }
     }
-    pub fn get_str(&self) -> String{
+    pub fn get_str(&self) -> String {
         String::from("//Auto generated Rust code\n")
     }
 }
 
 impl GenRust for RuLaProgram {
     fn gen_rust(&self) -> RustProgram {
-        let prog = match &*self.program{
-            Some(rula_program) => { rula_program.gen_rust() }
-            None => { RustProgram::from(None, "") }
+        let prog = match &*self.program {
+            Some(rula_program) => rula_program.gen_rust(),
+            None => RustProgram::from(None, ""),
         };
-        RustProgram::new(
-            None, 
-            RuLaProgram::get_str(self) + prog.program.as_str(),
-        )
+        RustProgram::new(None, RuLaProgram::get_str(self) + prog.program.as_str())
     }
 }
 
