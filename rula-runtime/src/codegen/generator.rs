@@ -4,8 +4,6 @@ use super::program::generate_program;
 use rula::parser::ast::*;
 use std::collections::HashMap;
 use std::error::Error;
-use std::hash::Hash;
-use std::marker::PhantomData;
 
 pub type IResult<T> = std::result::Result<T, Box<dyn Error>>;
 

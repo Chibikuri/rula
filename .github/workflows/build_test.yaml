@@ -17,5 +17,5 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --features ci
-      - run: cargo test
+          args: --release --all-features
+      - run: cargo test --features ci
