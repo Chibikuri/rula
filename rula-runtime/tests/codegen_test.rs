@@ -30,7 +30,7 @@ mod simple_ast_to_rust_tests {
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
         let generated_rust = generate(target_ast);
-        // generate_file(generated_rust, "/Users/ryosukesatoh/Projects/rula/rula-runtime/tests/generated/test.rs")
+        #[cfg(not(ci))]
         generate_file(generated_rust, "test1.rs")
     }
 }
