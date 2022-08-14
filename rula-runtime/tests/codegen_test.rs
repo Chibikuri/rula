@@ -29,7 +29,7 @@ mod simple_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
-        let generated_rust = generate(target_ast);
+        let generated_rust = generate(target_ast).unwrap();
         #[cfg(not(feature = "ci"))]
         generate_file(generated_rust, "test1.rs")
     }
