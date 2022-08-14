@@ -11,3 +11,6 @@ tokio = {version = "1.20.1", features = ["rt", "rt-multi-thread", "net", "time",
 
 [dev-dependencies]
 tokio = {version = "1.20.1", features = ["test-util"]}
+
+[features]
+ci = []
