@@ -5,7 +5,9 @@ extern crate syn;
 pub mod codegen {
     mod error;
     pub mod generator;
-    mod program;
+
+    use error::RuLaCompileError;
+    pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 }
 
 #[cfg(test)]

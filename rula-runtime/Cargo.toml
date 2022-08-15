@@ -19,3 +19,4 @@ tokio = {version = "1.20.1", features = ["test-util"]}
 [features]
 # If this is ci run, omit file generation
 ci = []
+no-format = []
