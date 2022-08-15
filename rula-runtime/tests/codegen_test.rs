@@ -30,7 +30,7 @@ mod simple_ast_to_rust_tests {
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
         let generated_rust = generate(target_ast).unwrap();
-        #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, "test1.rs")
+        // #[cfg(not(feature = "ci"))]
+        // generate_file(generated_rust, "test1.rs")
     }
 }

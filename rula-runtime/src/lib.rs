@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate quote;
+
 pub mod codegen {
     mod error;
     pub mod generator;

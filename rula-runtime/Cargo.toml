@@ -7,10 +7,14 @@ edition = "2021"
 
 [dependencies]
 rula = { path = "../rula" }
+# (rula_ast -> rula_program(rust syntax tree) -> quote -> rust_source)
+quote = "1.0"
+proc-macro2 = "1.0"
 tokio = {version = "1.20.1", features = ["rt", "rt-multi-thread", "net", "time", "io-std", "io-util"]}
 
 [dev-dependencies]
 tokio = {version = "1.20.1", features = ["test-util"]}
 
 [features]
+# If this is ci run, omit file generation
 ci = []

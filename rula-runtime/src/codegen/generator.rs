@@ -1,52 +1,47 @@
 // This is entory point to generate code from AST
 use super::error::*;
-use super::program::generate_program;
+// use super::program::generate_program;
+use proc_macro2::TokenStream;
 use rula::parser::ast::*;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 
-trait RuLaTrait: GenRust + Default {}
-
 // generate corresponding rust code from ast
-pub fn generate<T>(ast_tree: Vec<AstNode>) -> IResult<RustProgram>
-where
-    T: RuLaTrait + ?Sized,
-{
-    // type mytype = <T: GenRust + ?Sized + Default>
-    let mut rula_program = RuLaProgram::<InnerProgram<T>>::new();
-    for ast_node in ast_tree {
-        match ast_node {
-            AstNode::RuLa(rula) => rula_program = RuLaProgram::from(generate_rula(rula).unwrap()),
-            AstNode::PlaceHolder => {
-                return Err(RuLaCompileError::RuLaInitializationError(
-                    InitializationError::new("at generate function"),
-                ))
-            }
-        }
-    }
-    Ok(rula_program.gen_rust())
+pub fn generate(ast_tree: Vec<AstNode>) -> IResult<TokenStream> {
+    // let mut rula_program = RuLaProgram::new();
+    // for ast_node in ast_tree {
+    //     match ast_node {
+    //         AstNode::RuLa(rula) => rula_program = RuLaProgram::from(generate_rula(rula).unwrap()),
+    //         AstNode::PlaceHolder => {
+    //             return Err(RuLaCompileError::RuLaInitializationError(
+    //                 InitializationError::new("at generate function"),
+    //             ))
+    //         }
+    //     }
+    // }
+    // Ok(rula_program.gen_rust())
+    Ok(quote!())
 }
 
 // trait generates rust code
-pub trait GenRust: Default {
+pub trait GenRust {
     fn gen_rust(&self) -> RustProgram;
 }
 
-#[derive(Default)]
-pub struct RuLaProgram<T: GenRust + ?Sized> {
-    pub program: Box<T>,
+pub struct RuLaProgram {
+    pub program: Box<Program>,
 }
 
-impl<'a, T: GenRust + ?Sized + Default> RuLaProgram<T> {
-    pub fn new() -> Self {
-        RuLaProgram {
-            program: Box::new(T::default()),
-            // phantom: PhantomData
-        }
-    }
-    pub fn from(rula_program: Box<T>) -> Self {
+impl RuLaProgram {
+    // pub fn new() -> Self {
+    // RuLaProgram {
+    //     program: Box::new(Program::place_holder()),
+    //     // phantom: PhantomData
+    // }
+    // }
+    pub fn from(rula_program: Box<Program>) -> Self {
         RuLaProgram {
             program: rula_program,
             // phantom: PhantomData
@@ -58,9 +53,55 @@ impl<'a, T: GenRust + ?Sized + Default> RuLaProgram<T> {
 }
 
 // Gen rust called in nested way
-impl<'a, T: GenRust + ?Sized> GenRust for RuLaProgram<T> {
+impl GenRust for RuLaProgram {
     fn gen_rust(&self) -> RustProgram {
         RustProgram::new(None, RuLaProgram::get_str(self))
+    }
+}
+
+fn generate_rula<T: GenRust + ?Sized>(rula: RuLa) -> IResult<Box<T>> {
+    match *rula.rula {
+        // RuLaKind::Program(program) => {
+        //     // return Ok(generate_program(program).unwrap());
+        // }
+        // RuLaKind::Ignore => return Ok(Some()),
+        // RuLaKind::Eoi => return Ok(Some(RuLaProgram::new())),
+        RuLaKind::PlaceHolder => {
+            panic!("Error: value not properly set")
+        }
+        _ => todo!(),
+    }
+}
+
+// #[derive(Default)]
+pub struct RProgram {
+    pub program: Box<RuLaProgram>, // descendant　programs
+    pub additional_comments: String,
+}
+impl RProgram {}
+
+impl GenRust for Program {
+    fn gen_rust(&self) -> RustProgram {
+        RustProgram::new(None, String::from(""))
+    }
+}
+
+#[derive(Default)]
+pub struct RuLaEoi<T: GenRust + ?Sized> {
+    pub phantom: PhantomData<T>,
+}
+
+impl<'a, T: GenRust + ?Sized> RuLaEoi<T> {
+    pub fn new() -> Self {
+        RuLaEoi {
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T: GenRust + ?Sized> GenRust for RuLaEoi<T> {
+    fn gen_rust(&self) -> RustProgram {
+        RustProgram::new(None, String::from("//End of Input"))
     }
 }
 
@@ -87,51 +128,6 @@ impl RustProgram {
     }
 }
 
-fn generate_rula<T: GenRust + ?Sized>(rula: RuLa) -> IResult<Box<T>> {
-    match *rula.rula {
-        RuLaKind::Program(program) => {
-            return Ok(generate_program(program).unwrap());
-        }
-        // RuLaKind::Ignore => return Ok(Some()),
-        // RuLaKind::Eoi => return Ok(Some(RuLaProgram::new())),
-        RuLaKind::PlaceHolder => {
-            panic!("Error: value not properly set")
-        }
-        _ => todo!(),
-    }
-}
-
-#[derive(Default)]
-pub struct InnerProgram<T: GenRust + ?Sized> {
-    pub program: Box<T>, // descendant　programs
-    pub additional_comments: String,
-}
-
-impl<T: GenRust + ?Sized> GenRust for InnerProgram<T> {
-    fn gen_rust(&self) -> RustProgram {
-        RustProgram::new(None, String::from(""))
-    }
-}
-
-#[derive(Default)]
-pub struct RuLaEoi<T: GenRust + ?Sized> {
-    pub phantom: PhantomData<T>,
-}
-
-impl<'a, T: GenRust + ?Sized> RuLaEoi<T> {
-    pub fn new() -> Self {
-        RuLaEoi {
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<T: GenRust + ?Sized> GenRust for RuLaEoi<T> {
-    fn gen_rust(&self) -> RustProgram {
-        RustProgram::new(None, String::from("//End of Input"))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,7 +136,7 @@ mod tests {
     fn test_simple_generation() {
         let target_ast = vec![AstNode::RuLa(RuLa::place_holder())];
         // let rula_program = RuLaProgram::<dyn GenRust + ?Sized>::new();
-        // let result = generate::<dyn RuLaTrait>(target_ast).unwrap();
+        // let result = generate(target_ast).unwrap();
         // println!("Result{:#?}", result);
     }
 }
