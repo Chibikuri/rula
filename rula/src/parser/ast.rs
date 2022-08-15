@@ -110,32 +110,32 @@ pub enum StmtKind {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<LitKind>, // ExprKind::Ident
-    pub expr: Box<StmtKind>,
+    pub ident: Box<Ident>, // ExprKind::Ident
+    pub expr: Box<Expr>,
 }
 
 impl Let {
     // Constructor with kind check
     pub fn new(identifier: Ident, expr: Expr) -> Let {
         Let {
-            ident: Box::new(LitKind::Ident(identifier)),
-            expr: Box::new(StmtKind::Expr(expr)),
+            ident: Box::new(identifier),
+            expr: Box::new(expr),
         }
     }
 
     pub fn place_holder() -> Let {
         Let {
-            ident: Box::new(LitKind::PlaceHolder),
-            expr: Box::new(StmtKind::PlaceHolder),
+            ident: Box::new(Ident::place_holder()),
+            expr: Box::new(Expr::place_holder()),
         }
     }
 
     pub fn add_ident(&mut self, identifier: Ident) {
-        self.ident = Box::new(LitKind::Ident(identifier));
+        self.ident = Box::new(identifier);
     }
 
     pub fn add_expr(&mut self, expr: Expr) {
-        self.expr = Box::new(StmtKind::Expr(expr));
+        self.expr = Box::new(expr);
     }
 }
 
