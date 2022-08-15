@@ -1,28 +1,49 @@
 // This is entory point to generate code from AST
 use super::error::*;
-// use super::program::generate_program;
-use proc_macro2::TokenStream;
+use super::program::generate_program;
+use proc_macro2::{Ident, Span, TokenStream};
 use rula::parser::ast::*;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use syn::Attribute;
 
 pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 
-// generate corresponding rust code from ast
+/// Generate corresponding rust code from ast
+/// Every nested generators returns piece of TokenStream
 pub fn generate(ast_tree: Vec<AstNode>) -> IResult<TokenStream> {
-    // let mut rula_program = RuLaProgram::new();
-    // for ast_node in ast_tree {
-    //     match ast_node {
-    //         AstNode::RuLa(rula) => rula_program = RuLaProgram::from(generate_rula(rula).unwrap()),
-    //         AstNode::PlaceHolder => {
-    //             return Err(RuLaCompileError::RuLaInitializationError(
-    //                 InitializationError::new("at generate function"),
-    //             ))
-    //         }
-    //     }
-    // }
-    // Ok(rula_program.gen_rust())
-    Ok(quote!())
+    let mut rula_program = quote!();
+    for ast_node in ast_tree {
+        match ast_node {
+            AstNode::RuLa(rula) => rula_program = generate_rula(rula).unwrap(),
+            AstNode::PlaceHolder => {
+                return Err(RuLaCompileError::RuLaInitializationError(
+                    InitializationError::new("at generate function"),
+                ))
+            }
+        }
+    }
+    let rula_token_stream = quote!(
+        #[doc = r"RuLa Module"]
+
+        mod rula{
+            #rula_program
+        }
+    );
+    Ok(rula_token_stream)
+}
+
+fn generate_rula(rula: RuLa) -> IResult<TokenStream> {
+    match *rula.rula {
+        RuLaKind::Program(program) => {
+            return Ok(generate_program(program).unwrap());
+        }
+        RuLaKind::Ignore => return Ok(quote!()),
+        RuLaKind::Eoi => return Ok(quote!()),
+        RuLaKind::PlaceHolder => {
+            panic!("Error: value not properly set")
+        }
+    }
 }
 
 // trait generates rust code
@@ -56,20 +77,6 @@ impl RuLaProgram {
 impl GenRust for RuLaProgram {
     fn gen_rust(&self) -> RustProgram {
         RustProgram::new(None, RuLaProgram::get_str(self))
-    }
-}
-
-fn generate_rula<T: GenRust + ?Sized>(rula: RuLa) -> IResult<Box<T>> {
-    match *rula.rula {
-        // RuLaKind::Program(program) => {
-        //     // return Ok(generate_program(program).unwrap());
-        // }
-        // RuLaKind::Ignore => return Ok(Some()),
-        // RuLaKind::Eoi => return Ok(Some(RuLaProgram::new())),
-        RuLaKind::PlaceHolder => {
-            panic!("Error: value not properly set")
-        }
-        _ => todo!(),
     }
 }
 
