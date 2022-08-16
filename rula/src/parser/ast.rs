@@ -146,19 +146,19 @@ impl Let {
 */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
-    pub expr: Box<ExprKind>,
+    pub kind: Box<ExprKind>,
 }
 
 impl Expr {
     pub fn new(exp_kind: ExprKind) -> Expr {
         Expr {
-            expr: Box::new(exp_kind),
+            kind: Box::new(exp_kind),
         }
     }
 
     pub fn place_holder() -> Expr {
         Expr {
-            expr: Box::new(ExprKind::PlaceHolder),
+            kind: Box::new(ExprKind::PlaceHolder),
         }
     }
 }
@@ -212,7 +212,7 @@ impl Import {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PathKind {
-    paths: Vec<PathBuf>,
+    pub paths: Vec<PathBuf>,
     index: u32, // for iterator (should have better way)
 }
 
@@ -237,6 +237,18 @@ impl PathKind {
 
     pub fn size_hint(&self) -> usize {
         self.paths.len()
+    }
+
+    pub fn convert_to_ident(&self) -> Vec<Ident> {
+        let mut ident_vec = vec![];
+        for p in self.paths.iter(){
+            ident_vec.push(
+                Ident::new(
+                    p.clone().into_os_string().to_str().unwrap(), 
+                    None
+                ))
+        }
+        ident_vec
     }
 }
 
