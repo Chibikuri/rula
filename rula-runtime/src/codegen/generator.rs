@@ -3,7 +3,7 @@ use super::error::*;
 use super::IResult;
 use rula::parser::ast::*;
 
-use proc_macro2::{TokenStream, Span};
+use proc_macro2::{Span, TokenStream};
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns piece of TokenStream
@@ -75,21 +75,35 @@ fn generate_statement(stmt: Stmt) -> IResult<TokenStream> {
 pub fn generate_expr(expr: Expr) -> IResult<TokenStream> {
     match *expr.kind {
         ExprKind::Import(import_expr) => {
-            // let path = import_expr.path.convert_to_ident();
-            let path = import_expr.path.paths;
-            // let paths = quote_spanned!(span=> path);
+            // Convert a set of paths into a set of identifiers
+            let path = import_expr.path.convert_to_ident();
+            // Vector to store all paths
+            // e.g. [hello::world, good::evening::Yall]
             let mut paths = vec![];
-            for p in path.iter() {
-                // let formed = format_ident!("{}::", sp);
-                // if p.name.contains("/"){
-                //     let splitted = p.name.split("/");
-                //     for sp in splitted.into_iter(){
-                //     }
-                // }
-                paths.push(generate_ident(&Ident::new("hello", None)).unwrap())
+            for path_ident in path.iter() {
+                let mut single_path = vec![];
+                let quoted_path = if path_ident.name.contains("/") {
+                    let splitted = path_ident.name.split("/");
+                    // This is not clean
+                    for sp in splitted.into_iter() {
+                        let new_ident = Ident::new(sp, None);
+                        let path_fragment = generate_ident(&new_ident).unwrap();
+                        single_path.push(path_fragment)
+                    }
+                    let path_head = &single_path[0];
+                    let path_left = &single_path[1..];
+                    quote!(
+                        #path_head #(::#path_left)*
+                    )
+                } else {
+                    let path_ident = generate_ident(path_ident).unwrap();
+                    quote!(#path_ident)
+                };
+                // paths.push(generate_ident(&Ident::new("hello", None)).unwrap())
+                paths.push(quoted_path);
             }
             Ok(quote!(
-                // #(use #paths; )*
+                #(use #paths; )*
             ))
         }
         ExprKind::If(if_expr) => Ok(quote!()),

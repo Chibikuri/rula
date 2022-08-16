@@ -241,12 +241,11 @@ impl PathKind {
 
     pub fn convert_to_ident(&self) -> Vec<Ident> {
         let mut ident_vec = vec![];
-        for p in self.paths.iter(){
-            ident_vec.push(
-                Ident::new(
-                    p.clone().into_os_string().to_str().unwrap(), 
-                    None
-                ))
+        for p in self.paths.iter() {
+            ident_vec.push(Ident::new(
+                p.clone().into_os_string().to_str().unwrap(),
+                None,
+            ))
         }
         ident_vec
     }

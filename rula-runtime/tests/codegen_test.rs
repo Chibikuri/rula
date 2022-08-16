@@ -6,6 +6,21 @@ use std::fs;
 use std::io::Write;
 use std::process::Command;
 
+// Helper macro to return function name
+macro_rules! test_name {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+                .split("::")
+                .into_iter()
+                .nth(2)
+                .unwrap()
+        }
+        &(String::from(type_name_of(f)) + ".rs")
+    }};
+}
+
 fn build_stmt_ast(statement: Stmt) -> AstNode {
     AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
         ProgramKind::Stmt(statement),
@@ -41,7 +56,7 @@ mod simple_ast_to_rust_tests {
         ))))];
         let generated_rust = generate(target_ast).unwrap();
         #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, "test1.rs")
+        generate_file(generated_rust, test_name!())
     }
 
     #[test]
@@ -55,6 +70,6 @@ mod simple_ast_to_rust_tests {
         ))))];
         let generated_rust = generate(target_ast).unwrap();
         #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, "test2.rs")
+        generate_file(generated_rust, test_name!())
     }
 }
