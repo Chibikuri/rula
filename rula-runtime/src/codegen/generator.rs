@@ -76,19 +76,19 @@ pub fn generate_expr(expr: &Expr) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
         ExprKind::If(if_expr) => Ok(generate_if(&if_expr).unwrap()),
-        ExprKind::For(for_expr) => Ok(quote!()),
-        ExprKind::While(while_expr) => Ok(quote!()),
-        ExprKind::FnDef(fn_def_expr) => Ok(quote!()),
-        ExprKind::FnCall(fn_call_expr) => Ok(quote!()),
-        ExprKind::Struct(struct_expr) => Ok(quote!()),
-        ExprKind::Return(return_expr) => Ok(quote!()),
-        ExprKind::Comp(comp_expr) => Ok(quote!()),
-        ExprKind::RuleExpr(rule_expr) => Ok(quote!()),
-        ExprKind::CondExpr(cond_expr) => Ok(quote!()),
-        ExprKind::ActExpr(act_expr) => Ok(quote!()),
-        ExprKind::Array(array_expr) => Ok(quote!()),
+        ExprKind::For(for_expr) => Ok(generate_for(&for_expr).unwrap()),
+        ExprKind::While(while_expr) => Ok(generate_while(&while_expr).unwrap()),
+        ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(&fn_def_expr).unwrap()),
+        ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(&fn_call_expr).unwrap()),
+        ExprKind::Struct(struct_expr) => Ok(generate_struct(&struct_expr).unwrap()),
+        ExprKind::Return(return_expr) => Ok(generate_return(&return_expr).unwrap()),
+        ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr).unwrap()),
+        ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(&rule_expr).unwrap()),
+        ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr).unwrap()),
+        ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr).unwrap()),
+        ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
-        ExprKind::Term(term_expr) => Ok(quote!()),
+        ExprKind::Term(term_expr) => Ok(generate_term(*term_expr).unwrap()),
         ExprKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generating expression"),
         )),
@@ -195,7 +195,39 @@ fn generate_if(if_expr: &If) -> IResult<TokenStream> {
     }
 }
 
+fn generate_for(for_expr: &For) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+
+fn generate_while(while_expr: &While) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_fn_call(fn_call_expr: &FnCall) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_struct(struct_expr: &Struct) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
+    Ok(quote!())
+}
 fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_cond(cond_expr: &CondExpr) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+
+fn generate_act(act_expr: &ActExpr) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+fn generate_array(array_expr: &Array) -> IResult<TokenStream> {
     Ok(quote!())
 }
 
@@ -204,6 +236,11 @@ fn generate_lit(lit: &Lit) -> IResult<TokenStream> {
         LitKind::Ident(ident_lit) => Ok(generate_ident(ident_lit).unwrap()),
         _ => todo!(),
     }
+}
+
+fn generate_term(term_expr: f64) -> IResult<TokenStream> {
+    // We could make Term struct instead of direct calc
+    Ok(quote!())
 }
 // Generate identifier token from Ident ast
 fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
