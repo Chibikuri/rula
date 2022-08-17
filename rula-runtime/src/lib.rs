@@ -3,7 +3,9 @@ extern crate quote;
 extern crate syn;
 
 pub mod codegen {
+    #[cfg(not(tarpaulin_include))]
     mod error;
+
     pub mod generator;
 
     use error::RuLaCompileError;

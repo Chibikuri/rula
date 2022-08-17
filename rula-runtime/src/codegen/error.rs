@@ -25,3 +25,8 @@ impl Debug for InitializationError {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+}
