@@ -264,7 +264,10 @@ fn generate_struct(struct_expr: &Struct) -> IResult<TokenStream> {
     ))
 }
 fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
-    Ok(quote!())
+    let expr = generate_expr(&return_expr.target).unwrap();
+    Ok(quote!(
+        return #expr;
+    ))
 }
 fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
     Ok(quote!())
@@ -524,5 +527,16 @@ mod tests {
         );
         let test_stream = generate_struct(&simple_struct).unwrap();
         assert_eq!("struct Test { flag : bool }", test_stream.to_string());
+    }
+
+    // Return test
+    #[test]
+    fn test_simple_return() {
+        // return hello
+        let simple_return = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
+            Ident::new("hello", None),
+        )))));
+        let test_stream = generate_return(&simple_return).unwrap();
+        assert_eq!("return hello ;", test_stream.to_string());
     }
 }

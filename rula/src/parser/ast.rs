@@ -475,7 +475,7 @@ impl Struct {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Return {
-    target: Box<Expr>,
+    pub target: Box<Expr>,
 }
 
 impl Return {
