@@ -653,12 +653,10 @@ mod fn_def_test {
                             ExprKind::FnDef(
                                 FnDef::new(
                                     vec![
-                                        LitKind::Ident(
-                                            Ident::new(
-                                                "block",
-                                                Some(TypeDef::Integer32)
-                                            ) 
-                                        )
+                                        Ident::new(
+                                            "block",
+                                            Some(TypeDef::Integer32)
+                                        ) 
                                         ],
                                         Stmt::new(
                                             StmtKind::Expr(
@@ -699,17 +697,13 @@ mod fn_def_test {
                             ExprKind::FnDef(
                                 FnDef::new(
                                     vec![
-                                        LitKind::Ident(
-                                            Ident::new(
-                                                "block",
-                                                Some(TypeDef::Integer32)
-                                            ) 
+                                        Ident::new(
+                                            "block",
+                                            Some(TypeDef::Integer32)
                                         ),
-                                        LitKind::Ident(
-                                            Ident::new(
-                                                "hello",
-                                                Some(TypeDef::Str)
-                                            ) 
+                                        Ident::new(
+                                            "hello",
+                                            Some(TypeDef::Str)
                                         ),
                                         ],
                                         Stmt::new(
@@ -728,7 +722,7 @@ mod fn_def_test {
                                                 ),
                                             )
                                         )
-                                    ),
+                                    )
                                 )
                             )
                         )

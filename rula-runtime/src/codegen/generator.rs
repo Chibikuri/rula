@@ -231,11 +231,25 @@ fn generate_while(while_expr: &While) -> IResult<TokenStream> {
         }
     ))
 }
+
 fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
-    Ok(quote!())
+    let mut arguments = vec![];
+    for ident in fn_def_expr.arguments.iter() {
+        arguments.push(generate_ident(ident).unwrap());
+    }
+    let stmt = generate_stmt(&fn_def_expr.stmt).unwrap();
+    // Here could have generics in the future
+    Ok(quote!(
+        fn ( #(#arguments),* ) {
+            #stmt
+        }
+    ))
 }
 fn generate_fn_call(fn_call_expr: &FnCall) -> IResult<TokenStream> {
-    Ok(quote!())
+    let fn_name = generate_ident(&fn_call_expr.func_name).unwrap();
+    Ok(quote!(
+        #fn_name ()
+    ))
 }
 fn generate_struct(struct_expr: &Struct) -> IResult<TokenStream> {
     Ok(quote!())
@@ -286,6 +300,9 @@ fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
 fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
     match type_hint {
         TypeDef::Boolean => Ok(quote!(bool)),
+        TypeDef::Integer32 => Ok(quote!(i32)),
+        TypeDef::Integer64 => Ok(quote!(i64)),
+        TypeDef::Str => Ok(quote!(String)),
         _ => todo!(),
     }
 }
@@ -444,7 +461,7 @@ mod tests {
             test_stream.to_string()
         );
     }
-
+    // While test
     #[test]
     fn test_simple_while() {
         let simple_while = While::new(
@@ -457,5 +474,34 @@ mod tests {
         );
         let test_stream = generate_while(&simple_while).unwrap();
         assert_eq!("while count { expression }", test_stream.to_string());
+    }
+
+    // FnDef test
+    #[test]
+    fn test_simple_fn_def() {
+        // fn(block:i32, hello:str){expression}
+        let simple_fn_def = FnDef::new(
+            vec![
+                Ident::new("block", Some(TypeDef::Integer32)),
+                Ident::new("hello", Some(TypeDef::Str)),
+            ],
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("expression", None)),
+            ))))),
+        );
+        let test_stream = generate_fn_def(&simple_fn_def).unwrap();
+        assert_eq!(
+            "fn (block : i32 , hello : String) { expression }",
+            test_stream.to_string()
+        );
+    }
+
+    // FnCall Test
+    #[test]
+    fn test_simple_fn_call() {
+        // range()
+        let simple_fn_call = FnCall::new(Ident::new("range", None));
+        let test_stream = generate_fn_call(&simple_fn_call).unwrap();
+        assert_eq!("range ()", test_stream.to_string());
     }
 }

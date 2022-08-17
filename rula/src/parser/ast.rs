@@ -395,12 +395,12 @@ impl While {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
-    pub arguments: Vec<LitKind>, // LitKind::Ident
+    pub arguments: Vec<Ident>, // LitKind::Ident
     pub stmt: Box<Stmt>,
 }
 
 impl FnDef {
-    pub fn new(args: Vec<LitKind>, stmt: Stmt) -> FnDef {
+    pub fn new(args: Vec<Ident>, stmt: Stmt) -> FnDef {
         FnDef {
             arguments: args,
             stmt: Box::new(stmt),
@@ -414,7 +414,7 @@ impl FnDef {
     }
 
     pub fn add_arg(&mut self, argument: Ident) {
-        self.arguments.push(LitKind::Ident(argument));
+        self.arguments.push(argument);
     }
 
     pub fn add_expr(&mut self, stmt: Stmt) {
