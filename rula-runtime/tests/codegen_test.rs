@@ -10,14 +10,23 @@ use std::process::Command;
 macro_rules! test_name {
     () => {{
         fn f() {}
-        fn type_name_of<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
+        fn type_name_of<T>(_: T) -> String {
+            let mut mod_name = std::any::type_name::<T>()
+                .split("::")
+                .into_iter()
+                .nth(1)
+                .unwrap()
+                .to_owned();
+            let file_name = std::any::type_name::<T>()
                 .split("::")
                 .into_iter()
                 .nth(2)
-                .unwrap()
+                .unwrap();
+            mod_name.push_str("::");
+            mod_name.push_str(file_name);
+            mod_name
         }
-        &(String::from(type_name_of(f)) + ".rs")
+        &(type_name_of(f) + ".rs")
     }};
 }
 
@@ -45,30 +54,80 @@ pub fn generate_file(program: TokenStream, file_name: &str) {
         .expect("Command failed");
 }
 
-mod simple_ast_to_rust_tests {
+mod import_ast_to_rust_tests {
     use super::*;
 
     #[test]
-    fn test_simple() {
-        let expected_path = vec![["hello", "world"].iter().collect()];
+    fn test_simple_import_single() {
+        // import hello;
+        let expected_path = vec![["hello"].iter().collect()];
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
         let generated_rust = generate(target_ast).unwrap();
+        let target_rust = "mod rula { fn main () { use hello ; } }";
+        assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
         generate_file(generated_rust, test_name!())
     }
 
     #[test]
-    fn test_simple_let() {
-        // let hello = world;
-        let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Let(Let::new(
-            Ident::new("hello", None),
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "world", None,
-            ))))),
+    fn test_simple_import() {
+        // import hello::world;
+        let expected_path = vec![["hello", "world"].iter().collect()];
+        let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
         let generated_rust = generate(target_ast).unwrap();
+        let target_rust = "mod rula { fn main () { use hello :: world ; } }";
+        assert_eq!(generated_rust.to_string(), target_rust);
+        #[cfg(not(feature = "ci"))]
+        generate_file(generated_rust, test_name!())
+    }
+
+    #[test]
+    fn test_multi_import() {
+        // import hello::{world, there};
+        let expected_path_hello_world = ["hello", "world"].iter().collect();
+        let expected_path_hello_there = ["hello", "there"].iter().collect();
+
+        let expected_paths = vec![expected_path_hello_world, expected_path_hello_there];
+        let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::Import(Import::new(PathKind::from(expected_paths))),
+        ))))];
+        let generated_rust = generate(target_ast).unwrap();
+        let target_rust = "mod rula { fn main () { use hello :: world ; use hello :: there ; } }";
+        assert_eq!(generated_rust.to_string(), target_rust);
+        #[cfg(not(feature = "ci"))]
+        generate_file(generated_rust, test_name!())
+    }
+}
+
+mod if_ast_to_rust_tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_if_expr() {
+        // if(block){expression}"
+        let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::If(If::new(
+                // (block)
+                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                    "block", None,
+                ))))),
+                // {expression}
+                Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                    LitKind::Ident(Ident::new("expression", None)),
+                ))))),
+                // elif ~
+                None,
+                // else ~
+                None,
+            )),
+        ))))];
+        let generated_rust = generate(target_ast).unwrap();
+        let target_rust = "mod rula { fn main () { if block { expression } } }";
+        assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
         generate_file(generated_rust, test_name!())
     }

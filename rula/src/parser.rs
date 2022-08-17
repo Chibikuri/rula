@@ -191,7 +191,6 @@ fn eval_prec(pair: Pair<Rule>) -> f64 {
 
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
-    println!("par {:#?}", pair);
     match pair.as_rule() {
         // identifier
         Rule::ident => Ok(Lit::new(LitKind::Ident(
