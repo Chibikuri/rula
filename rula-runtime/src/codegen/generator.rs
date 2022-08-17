@@ -196,7 +196,30 @@ fn generate_if(if_expr: &If) -> IResult<TokenStream> {
 }
 
 fn generate_for(for_expr: &For) -> IResult<TokenStream> {
-    Ok(quote!())
+    let mut ident_list = vec![];
+    for ident in for_expr.pattern.iter() {
+        ident_list.push(generate_ident(ident).unwrap());
+    }
+    let generator = generate_expr(&for_expr.generator).unwrap();
+    let stmt = generate_stmt(&for_expr.stmt).unwrap();
+    if ident_list.len() == 1 {
+        let var = &ident_list[0];
+        Ok(quote!(
+            for #var in #generator {
+                #stmt
+            }
+        ))
+    } else if ident_list.len() > 1 {
+        Ok(quote!(
+            for (#(#ident_list),* ) in generator {
+                #stmt
+            }
+        ))
+    } else {
+        Err(RuLaCompileError::RuLaInitializationError(
+            InitializationError::new("at generating for expression"),
+        ))
+    }
 }
 
 fn generate_while(while_expr: &While) -> IResult<TokenStream> {
@@ -370,6 +393,48 @@ mod tests {
         let test_stream = generate_if(&if_elif_else).unwrap();
         assert_eq!(
             "if block { expression } else if block2 { expression2 } else { expression3 }",
+            test_stream.to_string()
+        );
+    }
+
+    // for test
+    #[test]
+    fn test_simple_for_generation() {
+        // for (i) in generator {hello}
+        let simple_for = For::new(
+            vec![Ident::new("i", None)],
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "generator",
+                None,
+            ))))),
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("hello", None)),
+            ))))),
+        );
+        let test_stream = generate_for(&simple_for).unwrap();
+        assert_eq!("for i in generator { hello }", test_stream.to_string());
+    }
+
+    #[test]
+    fn test_multi_arg_for_generation() {
+        // for (a, b, c) in generator{hello}
+        let multi_for = For::new(
+            vec![
+                Ident::new("a", None),
+                Ident::new("b", None),
+                Ident::new("c", None),
+            ],
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "generator",
+                None,
+            ))))),
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("hello", None)),
+            ))))),
+        );
+        let test_stream = generate_for(&multi_for).unwrap();
+        assert_eq!(
+            "for (a , b , c) in generator { hello }",
             test_stream.to_string()
         );
     }
