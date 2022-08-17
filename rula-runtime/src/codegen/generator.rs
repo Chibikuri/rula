@@ -129,18 +129,7 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
 
 #[allow(unused)]
 fn generate_if(if_expr: &If) -> IResult<TokenStream> {
-    // match &*if_expr.block.kind {
-    //     // At this point, if block cannot be limited
-    //     ExprKind::Comp(comp_expr) => {
-    //         block_quote = generate_comp(&comp_expr).unwrap();
-    //     }
-    //     _ => {
-    //         return Err(RuLaCompileError::RuLaInitializationError(
-    //             InitializationError::new("at generate if"),
-    //         ))
-    //     }
-    // }
-    // We could limit the available expression
+    // block could have invalid expression here.
     let block_quote = generate_expr(&*if_expr.block).unwrap();
     let stmt_quote = generate_stmt(&*if_expr.stmt).unwrap();
     if if_expr.elif.len() > 0 {
@@ -186,7 +175,7 @@ fn generate_if(if_expr: &If) -> IResult<TokenStream> {
                     Ok(quote!(
                         if #block_quote {
                             #stmt_quote
-                        }#(elif #elif_quotes)*
+                        }#(else #elif_quotes)*
 
                         else{
                             #els_stmt_quote
@@ -283,5 +272,68 @@ mod tests {
         );
         let test_stream = generate_if(&simple_if).unwrap();
         assert_eq!("if block { expression }", test_stream.to_string());
+    }
+
+    #[test]
+    fn test_if_else() {
+        // if (block) {expression} else {expression2}
+        let if_else = If::new(
+            // (block)
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "block", None,
+            ))))),
+            // {expression}
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("expression", None)),
+            ))))),
+            // elif ~
+            None,
+            // else ~
+            Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                Lit::new(LitKind::Ident(Ident::new("expression2", None))),
+            ))))),
+        );
+        let test_stream = generate_if(&if_else).unwrap();
+        assert_eq!(
+            "if block { expression } else { expression2 }",
+            test_stream.to_string()
+        );
+    }
+
+    #[test]
+    fn test_if_elif_else() {
+        // if(block){expression} else if (block2){expression2} else {expression3}
+        let if_elif_else = If::new(
+            // (block)
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "block", None,
+            ))))),
+            // {expression}
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("expression", None)),
+            ))))),
+            // elif ~
+            Some(If::new(
+                // else if (block)
+                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                    "block2", None,
+                ))))),
+                // else if () {statement2;};
+                Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                    LitKind::Ident(Ident::new("expression2", None)),
+                ))))),
+                None,
+                None,
+            )),
+            // else ~
+            Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                Lit::new(LitKind::Ident(Ident::new("expression3", None))),
+            ))))),
+        );
+        let test_stream = generate_if(&if_elif_else).unwrap();
+        assert_eq!(
+            "if block { expression } else if block2 { expression2 } else { expression3 }",
+            test_stream.to_string()
+        );
     }
 }
