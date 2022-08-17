@@ -223,7 +223,13 @@ fn generate_for(for_expr: &For) -> IResult<TokenStream> {
 }
 
 fn generate_while(while_expr: &While) -> IResult<TokenStream> {
-    Ok(quote!())
+    let block = generate_expr(&while_expr.block).unwrap();
+    let stmt = generate_stmt(&while_expr.stmt).unwrap();
+    Ok(quote!(
+        while #block{
+            #stmt
+        }
+    ))
 }
 fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
     Ok(quote!())
@@ -437,5 +443,19 @@ mod tests {
             "for (a , b , c) in generator { hello }",
             test_stream.to_string()
         );
+    }
+
+    #[test]
+    fn test_simple_while() {
+        let simple_while = While::new(
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "count", None,
+            ))))),
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("expression", None)),
+            ))))),
+        );
+        let test_stream = generate_while(&simple_while).unwrap();
+        assert_eq!("while count { expression }", test_stream.to_string());
     }
 }
