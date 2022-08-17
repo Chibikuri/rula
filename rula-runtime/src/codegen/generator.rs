@@ -252,7 +252,16 @@ fn generate_fn_call(fn_call_expr: &FnCall) -> IResult<TokenStream> {
     ))
 }
 fn generate_struct(struct_expr: &Struct) -> IResult<TokenStream> {
-    Ok(quote!())
+    let struct_name = generate_ident(&struct_expr.name).unwrap();
+    let mut struct_items = vec![];
+    for ident in struct_expr.items.iter() {
+        struct_items.push(generate_ident(ident).unwrap());
+    }
+    Ok(quote!(
+        struct #struct_name{
+            #(#struct_items),*
+        }
+    ))
 }
 fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
     Ok(quote!())
@@ -496,12 +505,24 @@ mod tests {
         );
     }
 
-    // FnCall Test
+    // FnCall test
     #[test]
     fn test_simple_fn_call() {
         // range()
         let simple_fn_call = FnCall::new(Ident::new("range", None));
         let test_stream = generate_fn_call(&simple_fn_call).unwrap();
         assert_eq!("range ()", test_stream.to_string());
+    }
+
+    // Struct test
+    #[test]
+    fn test_simple_struct() {
+        // struct Test{flag: bool}
+        let simple_struct = Struct::new(
+            Ident::new("Test", None),
+            vec![Ident::new("flag", Some(TypeDef::Boolean))],
+        );
+        let test_stream = generate_struct(&simple_struct).unwrap();
+        assert_eq!("struct Test { flag : bool }", test_stream.to_string());
     }
 }

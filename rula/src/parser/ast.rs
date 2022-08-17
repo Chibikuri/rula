@@ -447,8 +447,8 @@ impl FnCall {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Struct {
-    name: Box<Ident>,
-    items: Vec<Ident>,
+    pub name: Box<Ident>,
+    pub items: Vec<Ident>,
 }
 
 impl Struct {
