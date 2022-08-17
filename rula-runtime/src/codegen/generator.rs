@@ -270,7 +270,22 @@ fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
     ))
 }
 fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
-    Ok(quote!())
+    let lhs = generate_expr(&comp_expr.lhs).unwrap();
+    let rhs = generate_expr(&comp_expr.rhs).unwrap();
+    let op = match *comp_expr.comp_op {
+        CompOpKind::Lt => quote!(<),
+        CompOpKind::Gt => quote!(>),
+        CompOpKind::LtE => quote!(<=),
+        CompOpKind::GtE => quote!(>=),
+        CompOpKind::Eq => quote!(==),
+        CompOpKind::Nq => quote!(!=),
+        CompOpKind::PlaceHolder => {
+            return Err(RuLaCompileError::RuLaInitializationError(
+                InitializationError::new("at generating comp expression"),
+            ))
+        }
+    };
+    Ok(quote!(#lhs #op #rhs))
 }
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     Ok(quote!())
@@ -538,5 +553,23 @@ mod tests {
         )))));
         let test_stream = generate_return(&simple_return).unwrap();
         assert_eq!("return hello ;", test_stream.to_string());
+    }
+
+    // Comp expr test
+    #[test]
+    fn test_simple_comp() {
+        // count > prev_count
+        let comp_expr = Comp::new(
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "count", None,
+            ))))),
+            CompOpKind::Gt,
+            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
+                "prev_count",
+                None,
+            ))))),
+        );
+        let test_stream = generate_comp(&comp_expr).unwrap();
+        assert_eq!("count > prev_count", test_stream.to_string());
     }
 }

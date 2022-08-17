@@ -496,9 +496,9 @@ impl Return {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comp {
-    lhs: Box<Expr>, // comparable expression (should be traited later)
-    comp_op: Box<CompOpKind>,
-    rhs: Box<Expr>,
+    pub lhs: Box<Expr>, // comparable expression (should be traited later)
+    pub comp_op: Box<CompOpKind>,
+    pub rhs: Box<Expr>,
 }
 
 impl Comp {
