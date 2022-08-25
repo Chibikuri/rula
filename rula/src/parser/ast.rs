@@ -697,13 +697,13 @@ impl StringLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLit {
-    value: Box<String>, // At this point, number type cannot be determined
+    pub value: Box<Ident>, // At this point, number type cannot be determined
 }
 
 impl NumberLit {
     pub fn new(val: &str) -> Self {
         NumberLit {
-            value: Box::new(String::from(val)),
+            value: Box::new(Ident::new(val, None)),
         }
     }
 }

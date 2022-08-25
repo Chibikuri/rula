@@ -4,6 +4,7 @@ use super::IResult;
 use rula::parser::ast::*;
 
 use proc_macro2::{Span, TokenStream};
+use syn::LitFloat;
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns piece of TokenStream
@@ -298,12 +299,20 @@ fn generate_act(act_expr: &ActExpr) -> IResult<TokenStream> {
     Ok(quote!())
 }
 fn generate_array(array_expr: &Array) -> IResult<TokenStream> {
-    Ok(quote!())
+    let mut items = vec![];
+    for lits in array_expr.items.iter() {
+        items.push(generate_lit(lits).unwrap());
+    }
+    Ok(quote!(vec![#(#items),*]))
 }
 
 fn generate_lit(lit: &Lit) -> IResult<TokenStream> {
     match &*lit.kind {
         LitKind::Ident(ident_lit) => Ok(generate_ident(ident_lit).unwrap()),
+        LitKind::NumberLit(number_lit) => {
+            let val = LitFloat::new(&*number_lit.value.name, Span::call_site());
+            Ok(quote!(#val))
+        }
         _ => todo!(),
     }
 }
@@ -571,5 +580,19 @@ mod tests {
         );
         let test_stream = generate_comp(&comp_expr).unwrap();
         assert_eq!("count > prev_count", test_stream.to_string());
+    }
+
+    #[test]
+    fn test_simple_array() {
+        // [1, 2, 3, 4, 5]
+        let array_expr = Array::new(vec![
+            Lit::new(LitKind::NumberLit(NumberLit::new("1"))),
+            Lit::new(LitKind::NumberLit(NumberLit::new("2"))),
+            Lit::new(LitKind::NumberLit(NumberLit::new("3"))),
+            Lit::new(LitKind::NumberLit(NumberLit::new("4"))),
+            Lit::new(LitKind::NumberLit(NumberLit::new("5"))),
+        ]);
+        let test_stream = generate_array(&array_expr).unwrap();
+        assert_eq!("vec ! [1 , 2 , 3 , 4 , 5]", test_stream.to_string());
     }
 }
