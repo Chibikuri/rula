@@ -12,6 +12,10 @@ pub mod codegen {
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 }
 
+pub mod rulep {
+    pub mod ruleset_gen;
+}
+
 #[cfg(test)]
 mod tests {
     use rula::parser::ast::{AstNode, RuLa, RuLaKind};

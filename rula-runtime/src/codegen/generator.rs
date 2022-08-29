@@ -319,7 +319,9 @@ fn generate_lit(lit: &Lit) -> IResult<TokenStream> {
 
 fn generate_term(term_expr: f64) -> IResult<TokenStream> {
     // We could make Term struct instead of direct calc
-    Ok(quote!())
+    // For now, this function just returns calc result as f64
+    let val = LitFloat::new(&term_expr.to_string(), Span::call_site());
+    Ok(quote!(#val))
 }
 // Generate identifier token from Ident ast
 fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
