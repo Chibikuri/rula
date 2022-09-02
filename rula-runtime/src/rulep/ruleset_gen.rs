@@ -10,6 +10,7 @@ pub struct RuleSet {
     pub id: String,
     /// Host address of this RuleSet
     pub host_ip: IpAddr,
+    /// List of rules stored in this RuleSet
     pub rules: Vec<Rule>,
 }
 
@@ -27,9 +28,15 @@ pub struct Condition {
     pub awaitables: Vec<Awaitable>,
 }
 
+// Awaitable conditions that can be met in the future
 #[derive(Serialize, Deserialize)]
 pub enum Awaitable {
-    Test,
+    /// Fidelity of the resource
+    Fidelity,
+    /// The number of available resources in the QNIC
+    Count,
+    /// Trigger timer message
+    Time,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,8 +47,50 @@ pub struct Action {
 
 #[derive(Serialize, Deserialize)]
 pub enum Operatable {
-    Test,
+    /// Gate operations that can be applied immediately
+    Gate(QGate),
+    /// Measurement operations that takes calssical information from qubits
+    Measure(MeasBasis),
+    /// Send classical message from one place to another
+    Send(Message),
+    /// Update the status of qubit
+    Update(Qubit),
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct QGate {
+    pub kind: GateType,
+    pub target: Qubit,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum GateType {
+    X,
+    Y,
+    Z,
+    H,
+    Cx,
+    Cz,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum MeasBasis{
+    X,
+    Y, 
+    Z,
+    U(f64, f64, f64),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Message{
+    pub kind: String,
+    pub src: IpAddr,
+    pub dst: IpAddr,
+    pub res: Box<Option<String>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Qubit {}
 
 impl RuleSet {
     pub fn new() {}
