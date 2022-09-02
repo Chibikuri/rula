@@ -14,6 +14,7 @@ pub mod codegen {
 
 pub mod rulep {
     pub mod ruleset_gen;
+    pub mod ruleset;
 }
 
 #[cfg(test)]
