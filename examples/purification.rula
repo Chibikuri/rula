@@ -1,5 +1,5 @@
 import std::{get_qubit_status, borrow_qubit};
-import std::operation::{cnot, pau_x, pau_z} // remote cnot
+import std::operation::{cnot, pauli_x, pauli_z}; // remote cnot
 
 // predefined conf
 #def CONF = conf!{
@@ -18,7 +18,7 @@ rule <CONF> local_operation<q1: Qubit>() -> (Result, Qubit) {
 	let q2_pid: PId = get_free_qubit_pid();
 	
 	let result;
-	await cond {
+	cond (q1, status_q1, q2_pid){
 		// qubit 1 is ready and locked for this rule process
 		status_q1.ready(); 
 		request(q2_pid).connect();
@@ -33,5 +33,7 @@ rule <CONF> parity_check<q1: Qubit> (q3: Qubit) -> (Result) {
 
 }
 
-
+rule <CONF> purification<q1: Qubit> (q2: Qubit) -> (bool) {
+	local_operation()
+}
 

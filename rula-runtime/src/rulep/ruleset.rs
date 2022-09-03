@@ -1,6 +1,6 @@
-use uuid::Uuid;
-use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
 pub struct RuleSet {
@@ -33,14 +33,14 @@ pub struct Condition {
 
 #[derive(Serialize, Deserialize)]
 pub struct Action {
-    // 
+    //
     pub name: String,
     pub clauses: Vec<ActionClauses>,
 }
 
-trait ClauseTrait{
+trait ClauseTrait {
     // activate clause and check the status
-    fn activate(){}
+    fn activate() {}
 }
 
 // Awaitable conditions that can be met in the future
@@ -66,7 +66,6 @@ pub enum ActionClauses {
     Update(Qubit),
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct QGate {
     pub kind: GateType,
@@ -84,15 +83,15 @@ pub enum GateType {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum MeasBasis{
+pub enum MeasBasis {
     X,
-    Y, 
+    Y,
     Z,
     U(f64, f64, f64),
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Message{
+pub struct Message {
     pub kind: String,
     pub src: IpAddr,
     pub dst: IpAddr,

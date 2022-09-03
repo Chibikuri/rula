@@ -1,0 +1,21 @@
+import std::{gen_qubit_status, borrow_qubit};
+import std::operation::{cnot, pauli_x, pauli_z};
+import std::operation::compound::bsm;
+
+rule entanglement_swapping<q1: Qubit> () -> bool {
+    // 0. Prepare two qubits entangled with proper partner
+    let q2: Qubit = get_free_qubit();
+    q2.generate_entanglement(q1.interface);
+
+    cond {
+        q1.ready(),
+        q2.ready(),
+    } => act{
+        result = bsm(q1, q2),
+    }
+    if result == ""{
+        return True;
+    }else{
+        return False;
+    }
+}

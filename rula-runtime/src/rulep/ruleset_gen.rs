@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
 use serde_json::json;
-
-
+use std::net::IpAddr;
 
 pub fn generate_ruleset() {}
 
