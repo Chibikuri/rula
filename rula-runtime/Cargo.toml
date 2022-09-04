@@ -25,6 +25,10 @@ cargo-tarpaulin = "0.20.1"
 # If this is ci run, omit file generation
 ci = []
 no-format = []
+gen-ruleset = []
+
+[env]
+RULESET_OUT_PATH = "./out/"
 
 [dependencies.uuid]
 version = "1.1.2"
@@ -34,3 +38,4 @@ features = [
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
     "serde",             # For serialization
 ]
+

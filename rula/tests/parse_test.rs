@@ -7,6 +7,22 @@ fn build_stmt_ast(statement: Stmt) -> AstNode {
     ))))
 }
 
+mod interface_tests {
+    use super::*;
+    #[test]
+    fn test_interface_def() {
+        let interface_def = "#interface: {qn0, qn1};";
+        let interface_def_ast = rula::parse(interface_def).unwrap();
+        let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+            ProgramKind::Interface(Interface::new(
+                vec![Ident::new("qn0", None), Ident::new("qn1", None)],
+                None,
+            )),
+        ))))];
+        assert_eq!(interface_def_ast, target_ast_nodes);
+    }
+}
+
 mod import_tests {
     use super::*;
     #[test]
@@ -656,7 +672,7 @@ mod fn_def_test {
                                         Ident::new(
                                             "block",
                                             Some(TypeDef::Integer32)
-                                        ) 
+                                        )
                                         ],
                                         Stmt::new(
                                             StmtKind::Expr(

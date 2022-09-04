@@ -2,7 +2,10 @@
 rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 
 // Program endpoing
-program = { ( stmt )* }
+program = { interface_def? ~ ( stmt )* }
+
+// Interface_def 
+interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 
 // Statement includes {let, braced statement, expression}
 stmt = { let_stmt | brace_stmt | expr }
@@ -101,7 +104,6 @@ paren_expr = _{ "(" ~ ( expr )?  ~ ")" }
 
 // Statement srrounded by curly brace
 brace_stmt = _{ "{" ~ stmt? ~ "}" }
-
 
 // Identifiers
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }

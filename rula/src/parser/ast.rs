@@ -71,7 +71,35 @@ impl Program {
 // Not program can only include a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProgramKind {
+    Interface(Interface),
     Stmt(Stmt),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Interface {
+    pub interface: Vec<Ident>,
+    pub group_name: Box<Option<Ident>>,
+}
+
+impl Interface {
+    pub fn new(interfaces: Vec<Ident>, group_name: Option<Ident>) -> Self {
+        Interface {
+            interface: interfaces,
+            group_name: Box::new(group_name),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Interface {
+            interface: vec![],
+            group_name: Box::new(None),
+        }
+    }
+    pub fn add_interface(&mut self, interface: Ident) {
+        self.interface.push(interface);
+    }
+    pub fn add_name(&mut self, name: Option<Ident>) {
+        self.group_name = Box::new(name);
+    }
 }
 
 // Statement AST could be the top level AST in user writable for now
@@ -530,10 +558,10 @@ impl Comp {
 // rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleExpr {
-    name: Box<Ident>,
-    interface: Vec<Ident>,
-    args: Vec<Ident>,
-    stmt: Box<Stmt>,
+    pub name: Box<Ident>,
+    pub interface: Vec<Ident>,
+    pub args: Vec<Ident>,
+    pub stmt: Box<Stmt>,
 }
 
 impl RuleExpr {

@@ -1,6 +1,8 @@
 // This is entory point to generate code from AST
 use super::error::*;
 use super::IResult;
+use crate::rulep::ruleset_gen;
+use crate::rulep::ruleset_gen::generate_ruleset;
 use rula::parser::ast::*;
 
 use proc_macro2::{Span, TokenStream};
@@ -54,6 +56,7 @@ fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
 fn generate_program(program: &Program) -> IResult<TokenStream> {
     match &*program.kind {
         ProgramKind::Stmt(stmt) => Ok(generate_stmt(&stmt).unwrap()),
+        ProgramKind::Interface(interface) => Ok(quote!()),
     }
 }
 
@@ -289,7 +292,17 @@ fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
     Ok(quote!(#lhs #op #rhs))
 }
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
-    Ok(quote!())
+    println!("{:#?}", rule_expr);
+    let rule_name = generate_ident(&rule_expr.name).unwrap();
+    // Generate RuleSet
+    if cfg!(feature = "gen_ruleset") {
+        generate_ruleset()
+    }
+
+    Ok(quote!(
+        struct #rule_name{
+        }
+    ))
 }
 fn generate_cond(cond_expr: &CondExpr) -> IResult<TokenStream> {
     Ok(quote!())
