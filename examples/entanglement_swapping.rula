@@ -13,10 +13,9 @@ rule default<qn0>() {
 	} => act{
 		free(q);
 	}
-
 }
 
-rule entanglement_swapping<qn0, qn1>() {
+rule swapping<qn0, qn1>() {
     // 0. Prepare two qubits entangled with proper partner
     let q1: Qubit = get_qubit(#qn0, 1);
     // need lookup table for qubit entanglement relationship
@@ -30,12 +29,14 @@ rule entanglement_swapping<qn0, qn1>() {
     } => act{
         result = bsm(q1, q2),
     }
+    // This could be more detailed
     send(result, q1_entangled);
-    send(result, q2_entangled);
+    return q1_entangled;
 }
 
-rule pauli_correction<qnall>(){
-    let message = queue(#qnall).pop()
+rule pauli_correction<qnall>(q: QubitInfo){
+    // Should this be qubit address?
+    let message = queue(#qnall).lookup(q);
     cond {
         message.ready(),
     } => act{
@@ -44,18 +45,29 @@ rule pauli_correction<qnall>(){
         match result: message.content["meas_result"]{
             (result == "00") => {
                 // do nothing
-            }
+            },
             (result == "01") => {
                 // do z
                 pauli_z(target_qubit);
-            }
+            },
             (result == "10") => {
                 pauli_x(target_qubit);
-            }
+            },
             (result == "11") => {
                 pauli_z(target_qubit);
                 pauli_x(target_qubit);
+            },
+            _ => {
+                // otherwise, assume something wrong and discard.
+                free(target_qubit);
             }
         }
     }
+}
+
+
+rule entanglement_swapping<qnall>(){
+    default: default(),
+    let q1_entangled = swapping(),
+    pauli_correction(q1_entangled),
 }

@@ -1,11 +1,6 @@
 import std::{get_qubit, free};
 import std::operation::{cnot, pauli_x, pauli_z}; // remote cnot
 
-// predefined conf
-#def CONF = conf!{
-	
-}
-
 // rule for purification<CONF>
 //...config for measurement timing, swapping order, etc
 // Nested Rule
@@ -26,25 +21,52 @@ rule default<qn0>() {
 rule local_operation<qn0>() {
 	// define future for qubit status
 	let (q0, q1) = get_qubit(#qn0, 2);
+	let q1_entangled = get_partner_qubit_info(q1);
 
 	cond {
 		// qubit 1 is ready and locked for this rule process
 		q0.ready(),
 		q1.ready(),
-		q0.expected_fidelity() > 0.8 && q0.expected_fidelity() < 0.95,
-
+		OR(
+			q0.expected_fidelity() > 0.8 && q0.expected_fidelity() < 0.95,
+			time() - qubit.initiated() > 0.0001,
+		),
 	} => act {
 		cnot(q1, q2_pid);
 		result = measure(q2_pid);
 	}
-	return (result, q1);
+	// This could be more detailed.
+	send(result, q1_entangled);
+	// entangled qubit information and self result
+	return (q1_entangled, result);
 }
 
-rule <CONF> parity_check<q1: Qubit> (q3: Qubit) -> (Result) {
-
+rule parity_check<qn0> (q: QubitInfo, self_result: message){
+	let message = queue(#qnall).lookup(q);
+	cond {
+		message.ready(),
+	} => act{
+		let qubit_index = message.content["qubit_index"];
+		let target_qubit = lookup_by_index(#qn0, qubit_index);
+		let self_content = self_result.content["meas_result"];
+		match result: message.content["meas_result"]{
+			(self_result == result) => {
+				if self_result == "0" {
+					// do nothing
+				}else{
+					pauli_x(target_qubit);
+				}
+			}
+			(self_result != result) => {
+				free(target_qubit);
+			}
+		}
+	}
 }
 
-rule <CONF> purification<q1: Qubit> (q2: Qubit) -> (bool) {
-	local_operation()
+rule purification<qn0>() {
+	default: default(),
+	let (q1_entangled, self_result) = local_operation();
+	parity_check(q1_entangled, self_result);
 }
 
