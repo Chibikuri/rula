@@ -62,7 +62,7 @@ return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
 tuple = {"(" ~ literal_list? ~ ")"}
 
 // Rule expression to define RuLa rule
-rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
+rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt }
 
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
@@ -70,7 +70,7 @@ cond_expr = { ^"cond" ~ ident? ~ brace_stmt }
 // awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations
-act_expr = {^"act" ~ ident? ~ brace_stmt}
+act_expr = { ^"act" ~ ident? ~ brace_stmt }
 // operatable = _{ident}
 
 // Term expr without any operator recedence

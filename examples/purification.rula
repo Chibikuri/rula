@@ -1,4 +1,4 @@
-import std::{get_qubit_status, borrow_qubit};
+import std::{get_qubit, free};
 import std::operation::{cnot, pauli_x, pauli_z}; // remote cnot
 
 // predefined conf
@@ -12,20 +12,31 @@ import std::operation::{cnot, pauli_x, pauli_z}; // remote cnot
 // 1. Default qubit (q1)
 // 2. 
 
-rule <CONF> local_operation<q1: Qubit>() -> (Result, Qubit) {
+#interface: {qn0};
+
+rule default<qn0>() {
+	cond{
+		time() - qubit.initiated() > 0.0003,
+	} => act{
+		free(q);
+	}
+
+}
+
+rule local_operation<qn0>() {
 	// define future for qubit status
-	let status_q1 = get_qubit_status(q1);
-	let q2_pid: PId = get_free_qubit_pid();
-	
-	let result;
-	cond (q1, status_q1, q2_pid){
+	let (q0, q1) = get_qubit(#qn0, 2);
+
+	cond {
 		// qubit 1 is ready and locked for this rule process
-		status_q1.ready(); 
-		request(q2_pid).connect();
+		q0.ready(),
+		q1.ready(),
+		q0.expected_fidelity() > 0.8 && q0.expected_fidelity() < 0.95,
+
 	} => act {
 		cnot(q1, q2_pid);
 		result = measure(q2_pid);
-	};
+	}
 	return (result, q1);
 }
 
