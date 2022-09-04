@@ -530,28 +530,34 @@ impl Comp {
 // rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleExpr {
-    target_res: Box<Ident>,
+    name: Box<Ident>,
+    interface: Vec<Ident>,
     args: Vec<Ident>,
     stmt: Box<Stmt>,
 }
 
 impl RuleExpr {
-    pub fn new(res: Ident, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
+    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
         RuleExpr {
-            target_res: Box::new(res),
+            name: Box::new(name),
+            interface: interfaces,
             args: arg_vec,
             stmt: Box::new(stmt),
         }
     }
     pub fn place_holder() -> Self {
         RuleExpr {
-            target_res: Box::new(Ident::place_holder()),
+            name: Box::new(Ident::place_holder()),
+            interface: vec![],
             args: vec![],
             stmt: Box::new(Stmt::place_holder()),
         }
     }
-    pub fn add_target_res(&mut self, resource: Ident) {
-        self.target_res = Box::new(resource);
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+    pub fn add_interface(&mut self, interface_name: Ident) {
+        self.interface.push(interface_name);
     }
     pub fn add_arg(&mut self, arg: Ident) {
         self.args.push(arg);

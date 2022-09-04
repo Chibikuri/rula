@@ -1366,7 +1366,7 @@ mod test_rule_expr {
     #[rustfmt::skip]
     fn test_simple_rule_expr() {
 
-        let rule_expr = "rule<q: qubit>(q2: qubit, q3: qubit){expression}";
+        let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){expression}";
         let fn_def_asts = rula::parse(rule_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
@@ -1376,13 +1376,19 @@ mod test_rule_expr {
                             ExprKind::RuleExpr(
                                 RuleExpr::new(
                                     Ident::new(
-                                        "q",
-                                        Some(TypeDef::Qubit),
+                                        "hello",
+                                        None,
                                     ),
                                 vec![
                                     Ident::new(
+                                        "qn0",
+                                        None
+                                    ),
+                                ],
+                                vec![
+                                    Ident::new(
                                         "q2",
-                                        Some(TypeDef::Qubit)
+                                        Some(TypeDef::Qubit),
                                     ),
                                     Ident::new(
                                         "q3",
@@ -1622,7 +1628,7 @@ mod test_literals {
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Str));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:qubit = val;";
+        let lit_expr = "let integer:Qubit = val;";
         let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Qubit));
         assert_eq!(target_ast_nodes, fn_def_asts);

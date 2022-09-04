@@ -62,7 +62,7 @@ return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
 tuple = {"(" ~ literal_list? ~ ")"}
 
 // Rule expression to define RuLa rule
-rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt }
+rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ brace_stmt }
 
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
@@ -154,7 +154,7 @@ float_type = { ( "f32" | "f64" ) }
 complex_type = { ( "c64" | "c128" ) }
 boolean_type = { "bool" }
 string_type = { "str" }
-qubit_type = { "qubit" }
+qubit_type = { "Qubit" }
  
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" ) }

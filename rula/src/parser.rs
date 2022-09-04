@@ -386,8 +386,15 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
     let mut rule_expr = RuleExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ident_typed => {
-                rule_expr.add_target_res(build_ast_from_ident_typed(block).unwrap())
+            Rule::ident => {
+                // rule_name
+                rule_expr.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::ident_list => {
+                for interface in block.into_inner() {
+                    // Interface names
+                    rule_expr.add_interface(build_ast_from_ident(interface).unwrap());
+                }
             }
             Rule::arguments => {
                 for arg in block.into_inner() {
@@ -524,7 +531,7 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::qubit_type => match pair.as_str() {
-            "qubit" => return Ok(TypeDef::Qubit),
+            "Qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         _ => todo!("Should be unknown type error here"),
