@@ -31,6 +31,9 @@ impl RuleSet {
             rules: vec![],
         }
     }
+    pub fn add_rule(&mut self, rule: Rule) {
+        self.rules.push(rule);
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -68,11 +71,35 @@ pub struct Condition {
     pub clauses: Vec<ConditionClauses>,
 }
 
+impl Condition {
+    pub fn new(condition_name: Option<String>) -> Self {
+        Condition {
+            name: condition_name,
+            clauses: vec![],
+        }
+    }
+
+    pub fn add_condition_clause(&mut self, condition_clause: ConditionClauses) {
+        self.clauses.push(condition_clause);
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Action {
-    //
-    pub name: String,
+    pub name: Option<String>,
     pub clauses: Vec<ActionClauses>,
+}
+
+impl Action {
+    pub fn new(action_name: Option<String>) -> Self {
+        Action {
+            name: action_name,
+            clauses: vec![],
+        }
+    }
+    pub fn add_action_clause(&mut self, action_clause: ActionClauses) {
+        self.clauses.push(action_clause);
+    }
 }
 
 trait ClauseTrait {
@@ -155,4 +182,39 @@ pub mod tests {
         assert_eq!(ruleset.owner, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
         assert_eq!(ruleset.rules.len(), 0);
     }
+
+    #[test]
+    fn test_ruleset_add_rule() {
+        let mut ruleset = RuleSet::new("test", IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
+        let rule = Rule::new("rule1");
+        ruleset.add_rule(rule);
+        assert_eq!(ruleset.rules.len(), 1);
+        assert_eq!(ruleset.rules[0].name, "rule1");
+        let rule2 = Rule::new("rule2");
+        ruleset.add_rule(rule2);
+        assert_eq!(ruleset.rules.len(), 2);
+        assert_eq!(ruleset.rules[1].name, "rule2");
+    }
+
+    #[test]
+    fn test_rule_new() {
+        let rule = Rule::new("test");
+        assert_eq!(rule.name, String::from("test"));
+        assert_eq!(rule.id.to_string(), "67e55044-10b1-426f-9247-bb680e5fe0c8");
+        assert_eq!(rule.conditions.len(), 0);
+        assert_eq!(rule.actions.len(), 0);
+    }
+
+    #[test]
+    fn test_rule_add_condition_and_action() {
+        let mut rule = Rule::new("test");
+        let condition = Condition::new(None);
+        let action = Action::new(None);
+        rule.add_condition(condition);
+        rule.add_action(action);
+        assert_eq!(rule.conditions.len(), 1);
+        assert_eq!(rule.actions.len(), 1);
+    }
+
+    // #[test]
 }
