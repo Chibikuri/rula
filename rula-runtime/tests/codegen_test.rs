@@ -1,6 +1,7 @@
-use proc_macro2::TokenStream;
 use rula::parser::ast::*;
 use rula_runtime::codegen::generator::*;
+
+use proc_macro2::TokenStream;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -30,14 +31,8 @@ macro_rules! test_name {
     }};
 }
 
-fn build_stmt_ast(statement: Stmt) -> AstNode {
-    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-        ProgramKind::Stmt(statement),
-    ))))
-}
-
-// Helper function to generate
-pub fn generate_file(program: TokenStream, file_name: &str) {
+// Helper function to generate file
+pub fn generate_token_stream_file(program: TokenStream, file_name: &str) {
     let mut file_path = env::current_dir().unwrap();
     file_path.push("tests");
     file_path.push("generated");
@@ -54,6 +49,12 @@ pub fn generate_file(program: TokenStream, file_name: &str) {
         .expect("Command failed");
 }
 
+fn build_stmt_ast(statement: Stmt) -> AstNode {
+    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+        ProgramKind::Stmt(statement),
+    ))))
+}
+
 mod import_ast_to_rust_tests {
     use super::*;
 
@@ -68,7 +69,7 @@ mod import_ast_to_rust_tests {
         let target_rust = "mod rula { fn main () { use hello ; } }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, test_name!())
+        generate_token_stream_file(generated_rust, test_name!())
     }
 
     #[test]
@@ -82,7 +83,7 @@ mod import_ast_to_rust_tests {
         let target_rust = "mod rula { fn main () { use hello :: world ; } }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, test_name!())
+        generate_token_stream_file(generated_rust, test_name!())
     }
 
     #[test]
@@ -99,7 +100,7 @@ mod import_ast_to_rust_tests {
         let target_rust = "mod rula { fn main () { use hello :: world ; use hello :: there ; } }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, test_name!())
+        generate_token_stream_file(generated_rust, test_name!())
     }
 }
 
@@ -129,6 +130,6 @@ mod if_ast_to_rust_tests {
         let target_rust = "mod rula { fn main () { if block { expression } } }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
-        generate_file(generated_rust, test_name!())
+        generate_token_stream_file(generated_rust, test_name!())
     }
 }

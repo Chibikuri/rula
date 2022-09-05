@@ -47,11 +47,9 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
 // Parse program <-> statement
 fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
     match pair.as_rule() {
-        Rule::interface_def => {
-            Ok(Program::new(ProgramKind::Interface(
+        Rule::interface_def => Ok(Program::new(ProgramKind::Interface(
             build_ast_from_interface(pair.into_inner().next().unwrap()).unwrap(),
-        )))
-    },
+        ))),
         Rule::stmt => Ok(Program::new(ProgramKind::Stmt(
             build_ast_from_stmt(pair.into_inner().next().unwrap()).unwrap(),
         ))),
@@ -65,7 +63,6 @@ fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
         Rule::ident_list => {
             // interface list
             for interface_name in pair.into_inner() {
-                
                 interface.add_interface(build_ast_from_ident(interface_name).unwrap());
             }
         }

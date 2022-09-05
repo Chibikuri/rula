@@ -3,6 +3,7 @@ use super::error::*;
 use super::IResult;
 use crate::rulep::ruleset_gen;
 use crate::rulep::ruleset_gen::generate_ruleset;
+// use crate::utils::file_gen::generate_token_stream_file;
 use rula::parser::ast::*;
 
 use proc_macro2::{Span, TokenStream};
@@ -292,12 +293,12 @@ fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
     Ok(quote!(#lhs #op #rhs))
 }
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
-    println!("{:#?}", rule_expr);
-    let rule_name = generate_ident(&rule_expr.name).unwrap();
     // Generate RuleSet
-    if cfg!(feature = "gen_ruleset") {
-        generate_ruleset()
+    if cfg!(feature = "gen-ruleset") {
+        generate_ruleset(rule_expr.clone())
     }
+
+    let rule_name = generate_ident(&rule_expr.name).unwrap();
 
     Ok(quote!(
         struct #rule_name{
@@ -609,5 +610,23 @@ mod tests {
         ]);
         let test_stream = generate_array(&array_expr).unwrap();
         assert_eq!("vec ! [1 , 2 , 3 , 4 , 5]", test_stream.to_string());
+    }
+
+    #[test]
+    fn test_simple_rule() {
+        // rule hello<qn0>(q2: Qubit){expression}
+        let rule_expr = RuleExpr::new(
+            Ident::new("hello", None),
+            vec![Ident::new("qn0", None)],
+            vec![Ident::new("q2", Some(TypeDef::Qubit))],
+            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("expression", None)),
+            ))))),
+        );
+        let test_stream = generate_rule(&rule_expr).unwrap();
+        // assert_eq!(
+        //     "rule hello<qn0>(q2: Qubit){expression}",
+        //     test_stream.to_string()
+        // );
     }
 }

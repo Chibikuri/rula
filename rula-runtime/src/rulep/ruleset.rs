@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
-use uuid::Uuid;
+use uuid::{uuid, Uuid};
+
+fn generate_id() -> Uuid {
+    if cfg!(test) {
+        uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
+    } else {
+        Uuid::new_v4()
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct RuleSet {
@@ -9,9 +17,20 @@ pub struct RuleSet {
     /// Unique identifier for thie RuleSet. (This could be kept in private)
     pub id: Uuid,
     /// Host address of this RuleSet
-    pub host_ip: IpAddr,
+    pub owner: IpAddr,
     /// List of rules stored in this RuleSet
     pub rules: Vec<Rule>,
+}
+
+impl RuleSet {
+    pub fn new(name: &str, host_ip: IpAddr) -> Self {
+        RuleSet {
+            name: String::from(name),
+            id: generate_id(),
+            owner: host_ip,
+            rules: vec![],
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -25,6 +44,24 @@ pub struct Rule {
     /// A list of actions to be acted
     pub actions: Vec<Action>,
 }
+
+impl Rule {
+    pub fn new(name: &str) -> Self {
+        Rule {
+            name: String::from(name),
+            id: generate_id(),
+            conditions: vec![],
+            actions: vec![],
+        }
+    }
+    pub fn add_condition(&mut self, condition: Condition) {
+        self.conditions.push(condition);
+    }
+    pub fn add_action(&mut self, action: Action) {
+        self.actions.push(action);
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Condition {
     pub name: Option<String>,
@@ -100,3 +137,22 @@ pub struct Message {
 
 #[derive(Serialize, Deserialize)]
 pub struct Qubit {}
+
+#[cfg(test)]
+pub mod tests {
+    use std::net::Ipv4Addr;
+
+    use super::*;
+
+    #[test]
+    fn test_ruleset_new() {
+        let ruleset = RuleSet::new("test", IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
+        assert_eq!(ruleset.name, String::from("test"));
+        assert_eq!(
+            ruleset.id.to_string(),
+            "67e55044-10b1-426f-9247-bb680e5fe0c8"
+        );
+        assert_eq!(ruleset.owner, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
+        assert_eq!(ruleset.rules.len(), 0);
+    }
+}
