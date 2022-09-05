@@ -10,7 +10,7 @@ fn generate_id() -> Uuid {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RuleSet {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
@@ -36,7 +36,7 @@ impl RuleSet {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Rule {
     /// Name of this rule
     pub name: String,
@@ -65,7 +65,7 @@ impl Rule {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Condition {
     pub name: Option<String>,
     pub clauses: Vec<ConditionClauses>,
@@ -84,7 +84,7 @@ impl Condition {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Action {
     pub name: Option<String>,
     pub clauses: Vec<ActionClauses>,
@@ -108,7 +108,7 @@ trait ClauseTrait {
 }
 
 // Awaitable conditions that can be met in the future
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ConditionClauses {
     /// Fidelity of the resource
     Fidelity(f64),
@@ -118,7 +118,7 @@ pub enum ConditionClauses {
     Time(f64),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ActionClauses {
     /// Gate operations that can be applied immediately
     Gate(QGate),
@@ -130,13 +130,22 @@ pub enum ActionClauses {
     Update(Qubit),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct QGate {
     pub kind: GateType,
     pub target: Qubit,
 }
 
-#[derive(Serialize, Deserialize)]
+impl QGate {
+    pub fn new(gate_kind: GateType, target_qubit: Qubit) -> Self {
+        QGate {
+            kind: gate_kind,
+            target: target_qubit,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum GateType {
     X,
     Y,
@@ -146,7 +155,7 @@ pub enum GateType {
     Cz,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum MeasBasis {
     X,
     Y,
@@ -154,7 +163,7 @@ pub enum MeasBasis {
     U(f64, f64, f64),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Message {
     pub kind: String,
     pub src: IpAddr,
@@ -162,8 +171,14 @@ pub struct Message {
     pub res: Box<Option<String>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Qubit {}
+
+impl Qubit {
+    pub fn new() -> Self {
+        Qubit {}
+    }
+}
 
 #[cfg(test)]
 pub mod tests {
@@ -214,6 +229,27 @@ pub mod tests {
         rule.add_action(action);
         assert_eq!(rule.conditions.len(), 1);
         assert_eq!(rule.actions.len(), 1);
+    }
+
+    #[test]
+    fn test_action_clause() {
+        let mut action = Action::new(None);
+        let qgate = QGate::new(GateType::H, Qubit::new());
+        let clause = ActionClauses::Gate(qgate.clone());
+        action.add_action_clause(clause);
+        assert_eq!(action.name, None);
+        assert_eq!(action.clauses.len(), 1);
+        assert_eq!(action.clauses[0], ActionClauses::Gate(qgate));
+    }
+
+    #[test]
+    fn test_condition_clause() {
+        let mut condition = Condition::new(None);
+        let fidelity_clause = ConditionClauses::Fidelity(0.95);
+        condition.add_condition_clause(fidelity_clause);
+        assert_eq!(condition.name, None);
+        assert_eq!(condition.clauses.len(), 1);
+        assert_eq!(condition.clauses[0], ConditionClauses::Fidelity(0.95));
     }
 
     // #[test]
