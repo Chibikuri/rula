@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use uuid::{uuid, Uuid};
 
 fn generate_id() -> Uuid {
@@ -42,6 +42,8 @@ pub struct Rule {
     pub name: String,
     /// Identifier of this Rule
     pub id: Uuid,
+    /// Interface information
+    pub interface: Interface,
     /// A list of conditions to be met
     pub conditions: Vec<Condition>,
     /// A list of actions to be acted
@@ -52,6 +54,7 @@ impl Rule {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
+            interface: Interface::place_holder(),
             id: generate_id(),
             conditions: vec![],
             actions: vec![],
@@ -63,6 +66,35 @@ impl Rule {
     pub fn add_action(&mut self, action: Action) {
         self.actions.push(action);
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Interface{
+    pub partner_address: IpAddr,
+    pub qnic_type: QnicType,
+    pub qnic_id: Uuid,
+    pub qnic_address: IpAddr,
+}
+
+
+impl Interface{
+    pub fn place_holder() -> Self{
+        Interface {
+            partner_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            qnic_type: QnicType::QnicN,
+            qnic_id: generate_id(),
+            qnic_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum QnicType{
+    QnicE,
+    QnicP,
+    QnicRp,
+    QnicN, // place holder
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -102,10 +134,10 @@ impl Action {
     }
 }
 
-trait ClauseTrait {
-    // activate clause and check the status
-    fn activate() {}
-}
+// trait ConditionClauseTrait {
+//     // activate clause and check the status
+//     fn activate() -> bool;
+// }
 
 // Awaitable conditions that can be met in the future
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -113,9 +145,10 @@ pub enum ConditionClauses {
     /// Fidelity of the resource
     Fidelity(f64),
     /// The number of available resources in the QNIC
-    Count,
+    EnoughResource(u32),
     /// Trigger timer message
     Time(f64),
+    // Comp,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -172,7 +205,9 @@ pub struct Message {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Qubit {}
+pub struct Qubit {
+    // address: QubitAddress,
+}
 
 impl Qubit {
     pub fn new() -> Self {

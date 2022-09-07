@@ -21,6 +21,7 @@ expr = { ( import_expr
            | while_expr
            | struct_expr
            | return_expr
+           | ruleset_expr
            | rule_expr
            | cond_expr
            | act_expr
@@ -63,6 +64,10 @@ struct_name = {ident} // for parser use
 // Return expression to return variables
 return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
 tuple = {"(" ~ literal_list? ~ ")"}
+
+// RuleSet expression that holds multiple rules
+ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ rules? ~ "}" }
+rules = {"default:"? ~ (fn_call_expr)? ~ (stmt)*}
 
 // Rule expression to define RuLa rule
 rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ brace_stmt }

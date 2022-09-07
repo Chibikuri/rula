@@ -66,8 +66,8 @@ rule pauli_correction<qnall>(q: QubitInfo){
 }
 
 
-rule entanglement_swapping<qnall>(){
-    default: default(),
-    let q1_entangled = swapping(),
-    pauli_correction(q1_entangled),
+ruleset entanglement_swapping{
+    default: default()
+    let q1_entangled = swapping();
+    pauli_correction(q1_entangled)
 }

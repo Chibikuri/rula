@@ -57,8 +57,14 @@ fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
 fn generate_program(program: &Program) -> IResult<TokenStream> {
     match &*program.kind {
         ProgramKind::Stmt(stmt) => Ok(generate_stmt(&stmt).unwrap()),
-        ProgramKind::Interface(interface) => Ok(quote!()),
+        ProgramKind::Interface(interface) => Ok(generate_interface(interface).unwrap()),
     }
+}
+
+
+fn generate_interface(interface: &Interface) -> IResult<TokenStream>{
+    // Here, the qnic interface can be mocked out
+    Ok(quote!())
 }
 
 fn generate_stmt(stmt: &Stmt) -> IResult<TokenStream> {
