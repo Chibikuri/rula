@@ -18,4 +18,4 @@ jobs:
         with:
           command: build
           args: --release --all-features
-      - run: cargo test
+      - run: cargo test --features ci

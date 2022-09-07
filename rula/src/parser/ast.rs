@@ -8,20 +8,26 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstNode {
     RuLa(RuLa),
-    Test, // Debug use
+    PlaceHolder, // Debug use
 }
 
 // This doesn't do much, but could be used for preprocessing or something later.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuLa {
-    rula: Box<RuLaKind>,
+    pub rula: Box<RuLaKind>,
 }
 
 impl RuLa {
     // This way could be updated when we have more than two RuLaKind
-    pub fn new(rula: RuLaKind) -> RuLa {
+    pub fn new(rula: RuLaKind) -> Self {
         RuLa {
             rula: Box::new(rula),
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        RuLa {
+            rula: Box::new(RuLaKind::PlaceHolder),
         }
     }
 
@@ -43,6 +49,7 @@ impl RuLa {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuLaKind {
     Program(Program),
+    PlaceHolder,
     Ignore, // ignore symbol such as comment
     Eoi,
 }
@@ -64,7 +71,35 @@ impl Program {
 // Not program can only include a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProgramKind {
+    Interface(Interface),
     Stmt(Stmt),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Interface {
+    pub interface: Vec<Ident>,
+    pub group_name: Box<Option<Ident>>,
+}
+
+impl Interface {
+    pub fn new(interfaces: Vec<Ident>, group_name: Option<Ident>) -> Self {
+        Interface {
+            interface: interfaces,
+            group_name: Box::new(group_name),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Interface {
+            interface: vec![],
+            group_name: Box::new(None),
+        }
+    }
+    pub fn add_interface(&mut self, interface: Ident) {
+        self.interface.push(interface);
+    }
+    pub fn add_name(&mut self, name: Option<Ident>) {
+        self.group_name = Box::new(name);
+    }
 }
 
 // Statement AST could be the top level AST in user writable for now
@@ -103,32 +138,32 @@ pub enum StmtKind {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<LitKind>, // ExprKind::Ident
-    pub expr: Box<StmtKind>,
+    pub ident: Box<Ident>, // ExprKind::Ident
+    pub expr: Box<Expr>,
 }
 
 impl Let {
     // Constructor with kind check
     pub fn new(identifier: Ident, expr: Expr) -> Let {
         Let {
-            ident: Box::new(LitKind::Ident(identifier)),
-            expr: Box::new(StmtKind::Expr(expr)),
+            ident: Box::new(identifier),
+            expr: Box::new(expr),
         }
     }
 
     pub fn place_holder() -> Let {
         Let {
-            ident: Box::new(LitKind::PlaceHolder),
-            expr: Box::new(StmtKind::PlaceHolder),
+            ident: Box::new(Ident::place_holder()),
+            expr: Box::new(Expr::place_holder()),
         }
     }
 
     pub fn add_ident(&mut self, identifier: Ident) {
-        self.ident = Box::new(LitKind::Ident(identifier));
+        self.ident = Box::new(identifier);
     }
 
     pub fn add_expr(&mut self, expr: Expr) {
-        self.expr = Box::new(StmtKind::Expr(expr));
+        self.expr = Box::new(expr);
     }
 }
 
@@ -139,19 +174,19 @@ impl Let {
 */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
-    pub expr: Box<ExprKind>,
+    pub kind: Box<ExprKind>,
 }
 
 impl Expr {
     pub fn new(exp_kind: ExprKind) -> Expr {
         Expr {
-            expr: Box::new(exp_kind),
+            kind: Box::new(exp_kind),
         }
     }
 
     pub fn place_holder() -> Expr {
         Expr {
-            expr: Box::new(ExprKind::PlaceHolder),
+            kind: Box::new(ExprKind::PlaceHolder),
         }
     }
 }
@@ -205,7 +240,7 @@ impl Import {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PathKind {
-    paths: Vec<PathBuf>,
+    pub paths: Vec<PathBuf>,
     index: u32, // for iterator (should have better way)
 }
 
@@ -230,6 +265,17 @@ impl PathKind {
 
     pub fn size_hint(&self) -> usize {
         self.paths.len()
+    }
+
+    pub fn convert_to_ident(&self) -> Vec<Ident> {
+        let mut ident_vec = vec![];
+        for p in self.paths.iter() {
+            ident_vec.push(Ident::new(
+                p.clone().into_os_string().to_str().unwrap(),
+                None,
+            ))
+        }
+        ident_vec
     }
 }
 
@@ -377,12 +423,12 @@ impl While {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
-    pub arguments: Vec<LitKind>, // LitKind::Ident
+    pub arguments: Vec<Ident>, // LitKind::Ident
     pub stmt: Box<Stmt>,
 }
 
 impl FnDef {
-    pub fn new(args: Vec<LitKind>, stmt: Stmt) -> FnDef {
+    pub fn new(args: Vec<Ident>, stmt: Stmt) -> FnDef {
         FnDef {
             arguments: args,
             stmt: Box::new(stmt),
@@ -396,7 +442,7 @@ impl FnDef {
     }
 
     pub fn add_arg(&mut self, argument: Ident) {
-        self.arguments.push(LitKind::Ident(argument));
+        self.arguments.push(argument);
     }
 
     pub fn add_expr(&mut self, stmt: Stmt) {
@@ -429,8 +475,8 @@ impl FnCall {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Struct {
-    name: Box<Ident>,
-    items: Vec<Ident>,
+    pub name: Box<Ident>,
+    pub items: Vec<Ident>,
 }
 
 impl Struct {
@@ -457,7 +503,7 @@ impl Struct {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Return {
-    target: Box<Expr>,
+    pub target: Box<Expr>,
 }
 
 impl Return {
@@ -478,9 +524,9 @@ impl Return {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comp {
-    lhs: Box<Expr>, // comparable expression (should be traited later)
-    comp_op: Box<CompOpKind>,
-    rhs: Box<Expr>,
+    pub lhs: Box<Expr>, // comparable expression (should be traited later)
+    pub comp_op: Box<CompOpKind>,
+    pub rhs: Box<Expr>,
 }
 
 impl Comp {
@@ -512,28 +558,34 @@ impl Comp {
 // rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleExpr {
-    target_res: Box<Ident>,
-    args: Vec<Ident>,
-    stmt: Box<Stmt>,
+    pub name: Box<Ident>,
+    pub interface: Vec<Ident>,
+    pub args: Vec<Ident>,
+    pub stmt: Box<Stmt>,
 }
 
 impl RuleExpr {
-    pub fn new(res: Ident, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
+    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
         RuleExpr {
-            target_res: Box::new(res),
+            name: Box::new(name),
+            interface: interfaces,
             args: arg_vec,
             stmt: Box::new(stmt),
         }
     }
     pub fn place_holder() -> Self {
         RuleExpr {
-            target_res: Box::new(Ident::place_holder()),
+            name: Box::new(Ident::place_holder()),
+            interface: vec![],
             args: vec![],
             stmt: Box::new(Stmt::place_holder()),
         }
     }
-    pub fn add_target_res(&mut self, resource: Ident) {
-        self.target_res = Box::new(resource);
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+    pub fn add_interface(&mut self, interface_name: Ident) {
+        self.interface.push(interface_name);
     }
     pub fn add_arg(&mut self, arg: Ident) {
         self.args.push(arg);
@@ -679,13 +731,13 @@ impl StringLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLit {
-    value: Box<String>, // At this point, number type cannot be determined
+    pub value: Box<Ident>, // At this point, number type cannot be determined
 }
 
 impl NumberLit {
     pub fn new(val: &str) -> Self {
         NumberLit {
-            value: Box::new(String::from(val)),
+            value: Box::new(Ident::new(val, None)),
         }
     }
 }

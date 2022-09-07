@@ -1,0 +1,73 @@
+import std::{gen_qubit_status, borrow_qubit};
+import std::operation::{cnot, pauli_x, pauli_z};
+import std::operation::compound::bsm;
+import std::messages;
+import std::time::time;
+
+// automatic assignment for qnic interfaces
+#interface: {qn0, qn1} => qnall;
+
+rule default<qn0>() {
+	cond{
+		time() - qubit.initiated() > 0.0003,
+	} => act{
+		free(q);
+	}
+}
+
+rule swapping<qn0, qn1>() {
+    // 0. Prepare two qubits entangled with proper partner
+    let q1: Qubit = get_qubit(#qn0, 1);
+    // need lookup table for qubit entanglement relationship
+    let q1_entangled = get_partner_qubit_info(q1);
+    let q2: Qubit = get_qubit(#qn1, 1);
+    let q2_entangled = get_partner_qubit_info(q2);
+
+    cond {
+        q1.ready(),
+        q2.ready(),
+    } => act{
+        result = bsm(q1, q2),
+    }
+    // This could be more detailed
+    send(result, q1_entangled);
+    return q1_entangled;
+}
+
+rule pauli_correction<qnall>(q: QubitInfo){
+    // Should this be qubit address?
+    let message = queue(#qnall).lookup(q);
+    cond {
+        message.ready(),
+    } => act{
+        let qubit_index = message.content["qubit_index"];
+        let target_qubit = lookup_by_index(#qnall, qubit_index);
+        match result: message.content["meas_result"]{
+            (result == "00") => {
+                // do nothing
+            },
+            (result == "01") => {
+                // do z
+                pauli_z(target_qubit);
+            },
+            (result == "10") => {
+                pauli_x(target_qubit);
+            },
+            (result == "11") => {
+                pauli_z(target_qubit);
+                pauli_x(target_qubit);
+            },
+            _ => {
+                // otherwise, assume something wrong and discard.
+                free(target_qubit);
+            }
+        }
+    }
+}
+
+
+ruleset entanglement_swapping{
+    default: default()
+    let q1_entangled = swapping();
+    pauli_correction(q1_entangled)
+}

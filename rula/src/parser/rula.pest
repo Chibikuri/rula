@@ -2,7 +2,10 @@
 rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 
 // Program endpoing
-program = { ( stmt )* }
+program = { interface_def? ~ ( stmt )* }
+
+// Interface_def 
+interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 
 // Statement includes {let, braced statement, expression}
 stmt = { let_stmt | brace_stmt | expr }
@@ -18,6 +21,7 @@ expr = { ( import_expr
            | while_expr
            | struct_expr
            | return_expr
+           | ruleset_expr
            | rule_expr
            | cond_expr
            | act_expr
@@ -61,8 +65,12 @@ struct_name = {ident} // for parser use
 return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
 tuple = {"(" ~ literal_list? ~ ")"}
 
+// RuleSet expression that holds multiple rules
+ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ rules? ~ "}" }
+rules = {"default:"? ~ (fn_call_expr)? ~ (stmt)*}
+
 // Rule expression to define RuLa rule
-rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
+rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ brace_stmt }
 
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
@@ -70,7 +78,7 @@ cond_expr = { ^"cond" ~ ident? ~ brace_stmt }
 // awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations
-act_expr = {^"act" ~ ident? ~ brace_stmt}
+act_expr = { ^"act" ~ ident? ~ brace_stmt }
 // operatable = _{ident}
 
 // Term expr without any operator recedence
@@ -101,7 +109,6 @@ paren_expr = _{ "(" ~ ( expr )?  ~ ")" }
 
 // Statement srrounded by curly brace
 brace_stmt = _{ "{" ~ stmt? ~ "}" }
-
 
 // Identifiers
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }
@@ -154,7 +161,7 @@ float_type = { ( "f32" | "f64" ) }
 complex_type = { ( "c64" | "c128" ) }
 boolean_type = { "bool" }
 string_type = { "str" }
-qubit_type = { "qubit" }
+qubit_type = { "Qubit" }
  
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" ) }

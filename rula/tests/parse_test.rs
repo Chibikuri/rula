@@ -1,16 +1,26 @@
 extern crate rula;
 
-use rula::parser::ast::{
-    ActExpr, Array, AstNode, BinaryLit, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef,
-    For, HexLit, Ident, If, Import, Let, Lit, LitKind, NumberLit, PathKind, Program, ProgramKind,
-    Return, RuLa, RuLaKind, RuleExpr, Stmt, StmtKind, StringLit, Struct, TypeDef, UnicordLit,
-    While,
-};
-
+use rula::parser::ast::*;
 fn build_stmt_ast(statement: Stmt) -> AstNode {
     AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
         ProgramKind::Stmt(statement),
     ))))
+}
+
+mod interface_tests {
+    use super::*;
+    #[test]
+    fn test_interface_def() {
+        let interface_def = "#interface: {qn0, qn1};";
+        let interface_def_ast = rula::parse(interface_def).unwrap();
+        let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+            ProgramKind::Interface(Interface::new(
+                vec![Ident::new("qn0", None), Ident::new("qn1", None)],
+                None,
+            )),
+        ))))];
+        assert_eq!(interface_def_ast, target_ast_nodes);
+    }
 }
 
 mod import_tests {
@@ -633,7 +643,6 @@ mod if_tests {
                                     )
                                 )
                             )
-
                         )
                     )
                 )
@@ -660,11 +669,9 @@ mod fn_def_test {
                             ExprKind::FnDef(
                                 FnDef::new(
                                     vec![
-                                        LitKind::Ident(
-                                            Ident::new(
-                                                "block",
-                                                Some(TypeDef::Integer32)
-                                            ) 
+                                        Ident::new(
+                                            "block",
+                                            Some(TypeDef::Integer32)
                                         )
                                         ],
                                         Stmt::new(
@@ -706,17 +713,13 @@ mod fn_def_test {
                             ExprKind::FnDef(
                                 FnDef::new(
                                     vec![
-                                        LitKind::Ident(
-                                            Ident::new(
-                                                "block",
-                                                Some(TypeDef::Integer32)
-                                            ) 
+                                        Ident::new(
+                                            "block",
+                                            Some(TypeDef::Integer32)
                                         ),
-                                        LitKind::Ident(
-                                            Ident::new(
-                                                "hello",
-                                                Some(TypeDef::Str)
-                                            ) 
+                                        Ident::new(
+                                            "hello",
+                                            Some(TypeDef::Str)
                                         ),
                                         ],
                                         Stmt::new(
@@ -735,7 +738,7 @@ mod fn_def_test {
                                                 ),
                                             )
                                         )
-                                    ),
+                                    )
                                 )
                             )
                         )
@@ -1379,7 +1382,7 @@ mod test_rule_expr {
     #[rustfmt::skip]
     fn test_simple_rule_expr() {
 
-        let rule_expr = "rule<q: qubit>(q2: qubit, q3: qubit){expression}";
+        let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){expression}";
         let fn_def_asts = rula::parse(rule_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
@@ -1389,13 +1392,19 @@ mod test_rule_expr {
                             ExprKind::RuleExpr(
                                 RuleExpr::new(
                                     Ident::new(
-                                        "q",
-                                        Some(TypeDef::Qubit),
+                                        "hello",
+                                        None,
                                     ),
                                 vec![
                                     Ident::new(
+                                        "qn0",
+                                        None
+                                    ),
+                                ],
+                                vec![
+                                    Ident::new(
                                         "q2",
-                                        Some(TypeDef::Qubit)
+                                        Some(TypeDef::Qubit),
                                     ),
                                     Ident::new(
                                         "q3",
@@ -1635,7 +1644,7 @@ mod test_literals {
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Str));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:qubit = val;";
+        let lit_expr = "let integer:Qubit = val;";
         let fn_def_asts = rula::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Qubit));
         assert_eq!(target_ast_nodes, fn_def_asts);

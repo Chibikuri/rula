@@ -1,3 +1,6 @@
 [workspace]
 
-members = ["rula"]
+members = [
+    "rula",
+    "rula-runtime"
+]

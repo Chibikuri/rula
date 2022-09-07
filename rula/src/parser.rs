@@ -5,19 +5,7 @@ mod util;
 
 use crate::Rule;
 // RuLa
-use ast::{RuLa, RuLaKind};
-// Program
-use ast::{Program, ProgramKind};
-// Statements
-use ast::{Let, Stmt, StmtKind};
-// Expressions
-use ast::{
-    ActExpr, Array, Comp, CompOpKind, CondExpr, Expr, ExprKind, FnCall, FnDef, For, Ident, If,
-    Import, Lit, LitKind, PathKind, Return, RuleExpr, Struct, While,
-};
-// Literals
-use ast::TypeDef;
-use ast::{BinaryLit, HexLit, NumberLit, StringLit, UnicordLit};
+use ast::*;
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -59,11 +47,34 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
 // Parse program <-> statement
 fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
     match pair.as_rule() {
+        Rule::interface_def => Ok(Program::new(ProgramKind::Interface(
+            build_ast_from_interface(pair.into_inner().next().unwrap()).unwrap(),
+        ))),
         Rule::stmt => Ok(Program::new(ProgramKind::Stmt(
             build_ast_from_stmt(pair.into_inner().next().unwrap()).unwrap(),
         ))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
+}
+
+fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
+    let mut interface = Interface::place_holder();
+    match pair.as_rule() {
+        Rule::ident_list => {
+            // interface list
+            for interface_name in pair.into_inner() {
+                interface.add_interface(build_ast_from_ident(interface_name).unwrap());
+            }
+        }
+        Rule::ident => {
+            // group name
+            interface.add_name(Some(
+                build_ast_from_ident(pair.into_inner().next().unwrap()).unwrap(),
+            ))
+        }
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
+    Ok(interface)
 }
 
 // Parse statement <--> {Let statement | expression}
@@ -203,7 +214,6 @@ fn eval_prec(pair: Pair<Rule>) -> f64 {
 
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
-    println!("par {:#?}", pair);
     match pair.as_rule() {
         // identifier
         Rule::ident => Ok(Lit::new(LitKind::Ident(
@@ -399,8 +409,15 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
     let mut rule_expr = RuleExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ident_typed => {
-                rule_expr.add_target_res(build_ast_from_ident_typed(block).unwrap())
+            Rule::ident => {
+                // rule_name
+                rule_expr.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::ident_list => {
+                for interface in block.into_inner() {
+                    // Interface names
+                    rule_expr.add_interface(build_ast_from_ident(interface).unwrap());
+                }
             }
             Rule::arguments => {
                 for arg in block.into_inner() {
@@ -537,7 +554,7 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::qubit_type => match pair.as_str() {
-            "qubit" => return Ok(TypeDef::Qubit),
+            "Qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         _ => todo!("Should be unknown type error here"),
