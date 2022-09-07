@@ -211,6 +211,7 @@ pub enum ExprKind {
     Struct(Struct),
     Return(Return),
     Comp(Comp),
+    RuleSetExpr(RuleSetExpr),
     RuleExpr(RuleExpr),
     CondExpr(CondExpr),
     ActExpr(ActExpr),
@@ -552,6 +553,38 @@ impl Comp {
     }
     pub fn add_comp_op(&mut self, op: CompOpKind) {
         self.comp_op = Box::new(op)
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleSetExpr {
+    pub name: Box<Ident>,
+    pub default: Box<Option<FnCall>>,
+    pub rules: Box<Stmt>, // This could be the vector of Rules
+}
+
+impl RuleSetExpr {
+    pub fn new(name: Ident, default: Option<FnCall>, rules: Stmt) -> Self {
+        RuleSetExpr {
+            name: Box::new(name),
+            default: Box::new(default),
+            rules: Box::new(rules),
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleSetExpr {
+            name: Box::new(Ident::place_holder()),
+            default: Box::new(None),
+            rules: Box::new(Stmt::place_holder()),
+        }
+    }
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+    pub fn add_default(&mut self, default: Option<FnCall>) {
+        self.default = Box::new(default);
+    }
+    pub fn add_rules(&mut self, rules: Stmt) {
+        self.rules = Box::new(rules);
     }
 }
 

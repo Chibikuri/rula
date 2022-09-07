@@ -69,16 +69,16 @@ impl Rule {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Interface{
+pub struct Interface {
     pub partner_address: IpAddr,
     pub qnic_type: QnicType,
     pub qnic_id: Uuid,
     pub qnic_address: IpAddr,
 }
 
-
-impl Interface{
-    pub fn place_holder() -> Self{
+/// This should be a wrapper of actual QNIC interface
+impl Interface {
+    pub fn place_holder() -> Self {
         Interface {
             partner_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             qnic_type: QnicType::QnicN,
@@ -88,9 +88,8 @@ impl Interface{
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum QnicType{
+pub enum QnicType {
     QnicE,
     QnicP,
     QnicRp,
@@ -133,11 +132,6 @@ impl Action {
         self.clauses.push(action_clause);
     }
 }
-
-// trait ConditionClauseTrait {
-//     // activate clause and check the status
-//     fn activate() -> bool;
-// }
 
 // Awaitable conditions that can be met in the future
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -186,6 +180,9 @@ pub enum GateType {
     H,
     Cx,
     Cz,
+    Rx(f64),
+    Ry(f64),
+    Rz(f64),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -285,6 +282,19 @@ pub mod tests {
         assert_eq!(condition.name, None);
         assert_eq!(condition.clauses.len(), 1);
         assert_eq!(condition.clauses[0], ConditionClauses::Fidelity(0.95));
+    }
+
+    #[test]
+    fn test_interface_place_holder() {
+        let interface = Interface::place_holder();
+        assert_eq!(interface.partner_address, Ipv4Addr::new(0, 0, 0, 0));
+        assert_eq!(interface.qnic_type, QnicType::QnicN);
+        // This can be just an integer
+        assert_eq!(
+            interface.qnic_id.to_string(),
+            "67e55044-10b1-426f-9247-bb680e5fe0c8"
+        );
+        assert_eq!(interface.qnic_address, Ipv4Addr::new(0, 0, 0, 0));
     }
 
     // #[test]

@@ -61,8 +61,7 @@ fn generate_program(program: &Program) -> IResult<TokenStream> {
     }
 }
 
-
-fn generate_interface(interface: &Interface) -> IResult<TokenStream>{
+fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     // Here, the qnic interface can be mocked out
     Ok(quote!())
 }
@@ -94,6 +93,7 @@ pub fn generate_expr(expr: &Expr) -> IResult<TokenStream> {
         ExprKind::Struct(struct_expr) => Ok(generate_struct(&struct_expr).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(&return_expr).unwrap()),
         ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr).unwrap()),
+        ExprKind::RuleSetExpr(ruleset_expr) => Ok(generate_ruleset_expr(&ruleset_expr).unwrap()),
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(&rule_expr).unwrap()),
         ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr).unwrap()),
         ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr).unwrap()),
@@ -298,6 +298,11 @@ fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
     };
     Ok(quote!(#lhs #op #rhs))
 }
+
+fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // Generate RuleSet
     if cfg!(feature = "gen-ruleset") {
