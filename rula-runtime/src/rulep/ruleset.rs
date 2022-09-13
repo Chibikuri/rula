@@ -26,7 +26,7 @@ pub struct RuleSet {
 }
 
 impl RuleSet {
-    pub fn new(name: &str, host_name: &str) -> Self {
+    pub fn new(name: &str) -> Self {
         RuleSet {
             name: String::from(name),
             id: generate_id(),
@@ -173,7 +173,6 @@ pub enum ConditionClauses {
     Wait,
     /// Trigger timer message (Not implemented on quisp)
     Time(f64),
-    // Comp,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -251,7 +250,7 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_new() {
-        let ruleset = RuleSet::new("test", "test_host");
+        let ruleset = RuleSet::new("test");
         assert_eq!(ruleset.name, String::from("test"));
         assert_eq!(
             ruleset.id.to_string(),
@@ -262,7 +261,7 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_add_rule() {
-        let mut ruleset = RuleSet::new("test", "test_host");
+        let mut ruleset = RuleSet::new("test");
         let rule = Rule::new("rule1");
         ruleset.add_rule(rule);
         assert_eq!(ruleset.rules.len(), 1);
