@@ -103,26 +103,6 @@ impl Rule {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Interface {
-    // pub partner_address: IpAddr,
-    pub qnic_type: QnicType,
-    pub qnic_id: u32,
-    pub qnic_address: IpAddr,
-}
-
-/// This should be a wrapper of actual QNIC interface
-impl Interface {
-    pub fn place_holder() -> Self {
-        Interface {
-            // partner_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-            qnic_type: QnicType::QnicN,
-            qnic_id: 0,
-            qnic_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
     use std::net::Ipv4Addr;
@@ -174,27 +154,6 @@ pub mod tests {
         rule.add_action(action);
         assert_eq!(rule.conditions.len(), 1);
         assert_eq!(rule.actions.len(), 1);
-    }
-
-    #[test]
-    fn test_action_clause() {
-        let mut action = ActionV2::new(None);
-        let qgate = QGate::new(GateType::H, Qubit::new());
-        let clause = ActionClauses::Gate(qgate.clone());
-        action.add_action_clause(clause);
-        assert_eq!(action.name, None);
-        assert_eq!(action.clauses.len(), 1);
-        assert_eq!(action.clauses[0], ActionClauses::Gate(qgate));
-    }
-
-    #[test]
-    fn test_condition_clause() {
-        let mut condition = Condition::new(None);
-        let fidelity_clause = ConditionClauses::Fidelity(0.95);
-        condition.add_condition_clause(fidelity_clause);
-        assert_eq!(condition.name, None);
-        assert_eq!(condition.clauses.len(), 1);
-        assert_eq!(condition.clauses[0], ConditionClauses::Fidelity(0.95));
     }
 
     #[test]

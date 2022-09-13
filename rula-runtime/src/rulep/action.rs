@@ -1,3 +1,4 @@
+use crate::network::qnic::Interface;
 use crate::network::qubit::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
@@ -32,11 +33,107 @@ pub mod v1 {
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Purification();
+    pub struct Purification {
+        pub purification_type: PurType,
+        pub qnic_interface: Interface,
+    }
+
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct EntanglementSwapping();
+    pub enum PurType {
+        ///< Invalid purification type
+        Invalid,
+        ///< Single purification for X error
+        SingleX,
+        ///< Single purification for Z error
+        SingleZ,
+        ///< Double purification both for X and Z errors
+        Double,
+        ///< Double inverse purification both for X and Z errors
+        DoubleInv,
+        ///< Double selection XZ and single action (DoubleSelectionAction) for X error
+        DsSa,
+        ///< Inverse Double selection XZ and single action(DoubleSelectionAction) for X error
+        DsSaInv,
+        ///< Double Selection and Dual Action for both X and Z errors
+        DsDa,
+        ///< Inverse Double Selection and Dual Action for both X and Z errors
+        DsDaInv,
+        ///< Different type of Double Selection and Dual Action for both X and Z errors
+        DsDaSecond,
+        ///< Different type of Inverse Double Selection and Dual Action for both X and Z errors
+        DsDaSecondInv,
+    }
+
+    impl Purification {
+        pub fn from(pur_type: PurType, interface: Interface) -> Self {
+            Purification {
+                purification_type: pur_type,
+                qnic_interface: interface,
+            }
+        }
+    }
+
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Tomography();
+    pub struct EntanglementSwapping {
+        pub self_qnic_interfaces: Vec<Interface>,
+        pub remote_qnic_interfaces: Vec<Interface>,
+    }
+
+    impl EntanglementSwapping {
+        pub fn new() -> Self {
+            EntanglementSwapping {
+                self_qnic_interfaces: vec![],
+                remote_qnic_interfaces: vec![],
+            }
+        }
+        pub fn from(
+            qnic_interfaces: Vec<Interface>,
+            remote_qnic_interfaces: Vec<Interface>,
+        ) -> Self {
+            EntanglementSwapping {
+                self_qnic_interfaces: qnic_interfaces,
+                remote_qnic_interfaces: remote_qnic_interfaces,
+            }
+        }
+
+        pub fn add_qnic_interface(&mut self, qnic_interface: Interface) {
+            self.self_qnic_interfaces.push(qnic_interface);
+        }
+
+        pub fn add_remote_qnic_interface(&mut self, qnic_interface: Interface) {
+            self.remote_qnic_interfaces.push(qnic_interface);
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Tomography {
+        pub num_measure: u32,
+        /// Should be deprecated in the near future
+        pub owner_address: u32,
+    }
+
+    impl Tomography {
+        pub fn new() -> Self {
+            Tomography {
+                num_measure: 0,
+                owner_address: 0,
+            }
+        }
+
+        pub fn from(num_measure: u32, owner_address: u32) -> Self {
+            Tomography {
+                num_measure: num_measure,
+                owner_address: owner_address,
+            }
+        }
+
+        pub fn add_num_measure(&mut self, num_measure: u32) {
+            self.num_measure = num_measure;
+        }
+        pub fn add_owner_address(&mut self, owner_addr: u32) {
+            self.owner_address = owner_addr;
+        }
+    }
 }
 
 pub mod v2 {
@@ -114,5 +211,21 @@ pub mod v2 {
         pub src: IpAddr,
         pub dst: IpAddr,
         pub res: Box<Option<String>>,
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_action_clause() {
+            let mut action = Action::new(None);
+            let qgate = QGate::new(GateType::H, Qubit::new());
+            let clause = ActionClauses::Gate(qgate.clone());
+            action.add_action_clause(clause);
+            assert_eq!(action.name, None);
+            assert_eq!(action.clauses.len(), 1);
+            assert_eq!(action.clauses[0], ActionClauses::Gate(qgate));
+        }
     }
 }
