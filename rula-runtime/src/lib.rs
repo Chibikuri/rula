@@ -17,6 +17,10 @@ pub mod rulep {
     pub mod ruleset_gen;
 }
 
+pub mod utils {
+    pub mod qnic;
+}
+
 #[cfg(test)]
 mod tests {
     use rula::parser::ast::{AstNode, RuLa, RuLaKind};

@@ -10,29 +10,35 @@ fn generate_id() -> Uuid {
     }
 }
 
+// note: host addresses can only be filled in after
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RuleSet {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
     /// Unique identifier for thie RuleSet. (This could be kept in private)
     pub id: Uuid,
-    /// Host address of this RuleSet
-    pub owner: IpAddr,
+    /// Owner address can only be solved after the all network interface options are collected
+    pub owner_addr: Option<IpAddr>,
     /// List of rules stored in this RuleSet
     pub rules: Vec<Rule>,
+    /// To give index to the rules sequentially
+    rule_index: u32,
 }
 
 impl RuleSet {
-    pub fn new(name: &str, host_ip: IpAddr) -> Self {
+    pub fn new(name: &str, host_name: &str) -> Self {
         RuleSet {
             name: String::from(name),
             id: generate_id(),
-            owner: host_ip,
+            owner_addr: None,
             rules: vec![],
+            rule_index: 0,
         }
     }
-    pub fn add_rule(&mut self, rule: Rule) {
+    pub fn add_rule(&mut self, mut rule: Rule) {
+        rule.update_id(self.rule_index);
         self.rules.push(rule);
+        self.rule_index += 1;
     }
 }
 
@@ -41,23 +47,32 @@ pub struct Rule {
     /// Name of this rule
     pub name: String,
     /// Identifier of this Rule
-    pub id: Uuid,
+    pub id: u32,
+    /// Identifier for partner rules
+    pub shared_tag: u32,
     /// Interface information
-    pub interface: Interface,
+    pub qnic_interfaces: Option<Vec<Interface>>,
     /// A list of conditions to be met
     pub conditions: Vec<Condition>,
     /// A list of actions to be acted
     pub actions: Vec<Action>,
+    /// Next rule
+    pub next_rule_id: u32,
+    /// If this is the final rule or not
+    pub is_finalized: bool,
 }
 
 impl Rule {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
-            interface: Interface::place_holder(),
-            id: generate_id(),
+            qnic_interfaces: None,
+            id: 0,
+            shared_tag: 0,
             conditions: vec![],
             actions: vec![],
+            next_rule_id: 0,
+            is_finalized: false,
         }
     }
     pub fn add_condition(&mut self, condition: Condition) {
@@ -66,13 +81,25 @@ impl Rule {
     pub fn add_action(&mut self, action: Action) {
         self.actions.push(action);
     }
+    pub fn update_id(&mut self, new_id: u32) {
+        self.id = new_id;
+    }
+    pub fn update_shared_tag(&mut self, tag: u32) {
+        self.shared_tag = tag;
+    }
+    pub fn update_next_rule_id(&mut self, next_rule_id: u32) {
+        self.next_rule_id = next_rule_id;
+    }
+    pub fn update_finalized(&mut self, finalize: bool) {
+        self.is_finalized = finalize;
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Interface {
-    pub partner_address: IpAddr,
+    // pub partner_address: IpAddr,
     pub qnic_type: QnicType,
-    pub qnic_id: Uuid,
+    pub qnic_id: u32,
     pub qnic_address: IpAddr,
 }
 
@@ -80,9 +107,9 @@ pub struct Interface {
 impl Interface {
     pub fn place_holder() -> Self {
         Interface {
-            partner_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            // partner_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             qnic_type: QnicType::QnicN,
-            qnic_id: generate_id(),
+            qnic_id: 0,
             qnic_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
         }
     }
@@ -136,11 +163,15 @@ impl Action {
 // Awaitable conditions that can be met in the future
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ConditionClauses {
-    /// Fidelity of the resource
-    Fidelity(f64),
     /// The number of available resources in the QNIC
     EnoughResource(u32),
-    /// Trigger timer message
+    /// Define the number of total measurements for tomography
+    MeasureCount(u32),
+    /// Fidelity of the resource
+    Fidelity(f64),
+    /// Just wait,
+    Wait,
+    /// Trigger timer message (Not implemented on quisp)
     Time(f64),
     // Comp,
 }
@@ -220,19 +251,18 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_new() {
-        let ruleset = RuleSet::new("test", IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
+        let ruleset = RuleSet::new("test", "test_host");
         assert_eq!(ruleset.name, String::from("test"));
         assert_eq!(
             ruleset.id.to_string(),
             "67e55044-10b1-426f-9247-bb680e5fe0c8"
         );
-        assert_eq!(ruleset.owner, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
         assert_eq!(ruleset.rules.len(), 0);
     }
 
     #[test]
     fn test_ruleset_add_rule() {
-        let mut ruleset = RuleSet::new("test", IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
+        let mut ruleset = RuleSet::new("test", "test_host");
         let rule = Rule::new("rule1");
         ruleset.add_rule(rule);
         assert_eq!(ruleset.rules.len(), 1);
@@ -247,9 +277,12 @@ pub mod tests {
     fn test_rule_new() {
         let rule = Rule::new("test");
         assert_eq!(rule.name, String::from("test"));
-        assert_eq!(rule.id.to_string(), "67e55044-10b1-426f-9247-bb680e5fe0c8");
+        assert_eq!(rule.id, 0);
         assert_eq!(rule.conditions.len(), 0);
         assert_eq!(rule.actions.len(), 0);
+        assert_eq!(rule.next_rule_id, 0);
+        assert_eq!(rule.shared_tag, 0);
+        assert_eq!(rule.is_finalized, false);
     }
 
     #[test]
@@ -287,13 +320,8 @@ pub mod tests {
     #[test]
     fn test_interface_place_holder() {
         let interface = Interface::place_holder();
-        assert_eq!(interface.partner_address, Ipv4Addr::new(0, 0, 0, 0));
         assert_eq!(interface.qnic_type, QnicType::QnicN);
-        // This can be just an integer
-        assert_eq!(
-            interface.qnic_id.to_string(),
-            "67e55044-10b1-426f-9247-bb680e5fe0c8"
-        );
+        assert_eq!(interface.qnic_id, 0);
         assert_eq!(interface.qnic_address, Ipv4Addr::new(0, 0, 0, 0));
     }
 

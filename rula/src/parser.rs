@@ -421,11 +421,10 @@ fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
                 ruleset_expr.add_default(Some(build_ast_from_fn_call_expr(block).unwrap()));
             }
             Rule::stmt => {
-                // println!("{:#?}", &block.into_inner().next().unwrap());
                 ruleset_expr
                     .add_rules(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
             }
-            _ => todo!(),
+            _ => unreachable!(),
         }
     }
     Ok(ruleset_expr)

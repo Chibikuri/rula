@@ -300,15 +300,14 @@ fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
 }
 
 fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
+    // Generate RuleSet
+    if cfg!(feature = "gen-ruleset") {
+        generate_ruleset(ruleset_expr)
+    }
     Ok(quote!())
 }
 
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
-    // Generate RuleSet
-    if cfg!(feature = "gen-ruleset") {
-        generate_ruleset(rule_expr.clone())
-    }
-
     let rule_name = generate_ident(&rule_expr.name).unwrap();
 
     Ok(quote!(

@@ -1,14 +1,18 @@
 use std::env;
 use std::fs;
 use std::io::Write;
+use std::net::Ipv4Addr;
 use std::process::Command;
 
 use super::ruleset::RuleSet;
-use rula::parser::ast::RuleExpr;
+use rula::parser::ast::RuleSetExpr;
 
-pub fn generate_ruleset(rule: RuleExpr) {
+pub fn generate_ruleset(ruleset: &RuleSetExpr) {
     // generate ruleset from rule_expr
-    let rule_name = *rule.name;
+    let ruleset_name = &*ruleset.name.name;
+    // let ruleset = RuleSet::new(
+    //     ruleset_name,
+    // );
 }
 
 // Helper function to generate
