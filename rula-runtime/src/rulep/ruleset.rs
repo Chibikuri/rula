@@ -2,6 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::{uuid, Uuid};
 
+use super::action::v1::Action as ActionV1;
+
+use super::action::v2::Action as ActionV2;
+use super::action::v2::*;
+use super::condition::*;
+use crate::network::qnic::*;
+use crate::network::qubit::*;
+
 fn generate_id() -> Uuid {
     if cfg!(test) {
         uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
@@ -55,7 +63,7 @@ pub struct Rule {
     /// A list of conditions to be met
     pub conditions: Vec<Condition>,
     /// A list of actions to be acted
-    pub actions: Vec<Action>,
+    pub actions: Vec<ActionV1>,
     /// Next rule
     pub next_rule_id: u32,
     /// If this is the final rule or not
@@ -78,7 +86,7 @@ impl Rule {
     pub fn add_condition(&mut self, condition: Condition) {
         self.conditions.push(condition);
     }
-    pub fn add_action(&mut self, action: Action) {
+    pub fn add_action(&mut self, action: ActionV1) {
         self.actions.push(action);
     }
     pub fn update_id(&mut self, new_id: u32) {
@@ -112,133 +120,6 @@ impl Interface {
             qnic_id: 0,
             qnic_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
         }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum QnicType {
-    QnicE,
-    QnicP,
-    QnicRp,
-    QnicN, // place holder
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Condition {
-    pub name: Option<String>,
-    pub clauses: Vec<ConditionClauses>,
-}
-
-impl Condition {
-    pub fn new(condition_name: Option<String>) -> Self {
-        Condition {
-            name: condition_name,
-            clauses: vec![],
-        }
-    }
-
-    pub fn add_condition_clause(&mut self, condition_clause: ConditionClauses) {
-        self.clauses.push(condition_clause);
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Action {
-    pub name: Option<String>,
-    pub clauses: Vec<ActionClauses>,
-}
-
-impl Action {
-    pub fn new(action_name: Option<String>) -> Self {
-        Action {
-            name: action_name,
-            clauses: vec![],
-        }
-    }
-    pub fn add_action_clause(&mut self, action_clause: ActionClauses) {
-        self.clauses.push(action_clause);
-    }
-}
-
-// Awaitable conditions that can be met in the future
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum ConditionClauses {
-    /// The number of available resources in the QNIC
-    EnoughResource(u32),
-    /// Define the number of total measurements for tomography
-    MeasureCount(u32),
-    /// Fidelity of the resource
-    Fidelity(f64),
-    /// Just wait,
-    Wait,
-    /// Trigger timer message (Not implemented on quisp)
-    Time(f64),
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum ActionClauses {
-    /// Gate operations that can be applied immediately
-    Gate(QGate),
-    /// Measurement operations that takes calssical information from qubits
-    Measure(MeasBasis),
-    /// Send classical message from one place to another
-    Send(Message),
-    /// Update the status of qubit
-    Update(Qubit),
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct QGate {
-    pub kind: GateType,
-    pub target: Qubit,
-}
-
-impl QGate {
-    pub fn new(gate_kind: GateType, target_qubit: Qubit) -> Self {
-        QGate {
-            kind: gate_kind,
-            target: target_qubit,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum GateType {
-    X,
-    Y,
-    Z,
-    H,
-    Cx,
-    Cz,
-    Rx(f64),
-    Ry(f64),
-    Rz(f64),
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum MeasBasis {
-    X,
-    Y,
-    Z,
-    U(f64, f64, f64),
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Message {
-    pub kind: String,
-    pub src: IpAddr,
-    pub dst: IpAddr,
-    pub res: Box<Option<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Qubit {
-    // address: QubitAddress,
-}
-
-impl Qubit {
-    pub fn new() -> Self {
-        Qubit {}
     }
 }
 
@@ -288,7 +169,7 @@ pub mod tests {
     fn test_rule_add_condition_and_action() {
         let mut rule = Rule::new("test");
         let condition = Condition::new(None);
-        let action = Action::new(None);
+        let action = ActionV1::new(None);
         rule.add_condition(condition);
         rule.add_action(action);
         assert_eq!(rule.conditions.len(), 1);
@@ -297,7 +178,7 @@ pub mod tests {
 
     #[test]
     fn test_action_clause() {
-        let mut action = Action::new(None);
+        let mut action = ActionV2::new(None);
         let qgate = QGate::new(GateType::H, Qubit::new());
         let clause = ActionClauses::Gate(qgate.clone());
         action.add_action_clause(clause);
