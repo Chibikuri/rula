@@ -11,4 +11,4 @@ Cargo.lock
 
 
 # generated test rust files
-rula-runtime/tests/generated
+rula-exection/tests/generated
