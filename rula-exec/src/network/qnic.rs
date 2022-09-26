@@ -22,6 +22,14 @@ pub struct Interface {
 
 /// This should be a wrapper of actual QNIC interface
 impl Interface {
+    pub fn from(qnic_type: QnicType, qnic_id: u32, qnic_address: IpAddr) -> Self {
+        Interface {
+            qnic_type: qnic_type,
+            qnic_id: qnic_id,
+            qnic_address: qnic_address,
+        }
+    }
+
     pub fn place_holder() -> Self {
         Interface {
             // partner_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),

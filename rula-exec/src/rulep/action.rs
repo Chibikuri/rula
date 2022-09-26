@@ -1,9 +1,11 @@
-use crate::network::qnic::Interface;
+use crate::network::qnic::{Interface, QnicType};
 use crate::network::qubit::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 
 pub mod v1 {
+
+    /// Version 1 actions
     use super::*;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -28,10 +30,12 @@ pub mod v1 {
     pub enum ActionClausesV1 {
         Purification(Purification),
         EntanglementSwapping(EntanglementSwapping),
-        Wait,
+        Wait(Wait),
         Tomography(Tomography),
     }
 
+    /// `Purification action`
+    /// Specify the type of purifications and attach the qnic interface information to it.
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Purification {
         pub purification_type: PurType,
@@ -75,7 +79,9 @@ pub mod v1 {
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct EntanglementSwapping {
+        /// QNIC interface information placed inside the node
         pub self_qnic_interfaces: Vec<Interface>,
+        /// QNIC interface information of left and right nodes
         pub remote_qnic_interfaces: Vec<Interface>,
     }
 
@@ -109,32 +115,164 @@ pub mod v1 {
     pub struct Tomography {
         pub num_measure: u32,
         /// Should be deprecated in the near future
-        pub owner_address: u32,
+        pub qnic_interface: Interface,
     }
 
     impl Tomography {
         pub fn new() -> Self {
             Tomography {
                 num_measure: 0,
-                owner_address: 0,
+                qnic_interface: Interface::place_holder(),
             }
         }
 
-        pub fn from(num_measure: u32, owner_address: u32) -> Self {
+        pub fn from(num_measure: u32, qnic_interface: Interface) -> Self {
             Tomography {
                 num_measure: num_measure,
-                owner_address: owner_address,
+                qnic_interface: qnic_interface,
             }
         }
 
         pub fn add_num_measure(&mut self, num_measure: u32) {
             self.num_measure = num_measure;
         }
-        pub fn add_owner_address(&mut self, owner_addr: u32) {
-            self.owner_address = owner_addr;
+        // pub fn add_owner_address(&mut self, owner_addr: u32) {
+        //     self.owner_address = owner_addr;
+        // }
+        pub fn add_interface(&mut self, qnic_interface: Interface) {
+            self.qnic_interface = qnic_interface;
         }
     }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Wait {
+        pub qnic_interface: Interface,
+    }
+
+    impl Wait {
+        pub fn new(qnic_interface: Interface) -> Self {
+            Wait {
+                qnic_interface: qnic_interface,
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub mod tests {
+        use super::*;
+
+        #[test]
+        fn test_purification_action() {
+            let test_interface = Interface::from(
+                QnicType::QnicE,
+                2,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+            );
+            let pur_action = Purification::from(PurType::Double, test_interface);
+            assert_eq!(pur_action.purification_type, PurType::Double);
+            assert_eq!(pur_action.qnic_interface.qnic_type, QnicType::QnicE);
+            assert_eq!(pur_action.qnic_interface.qnic_id, 2);
+            assert_eq!(
+                pur_action.qnic_interface.qnic_address.to_string(),
+                "192.168.0.1"
+            );
+        }
+
+        #[test]
+        fn test_swapping_action() {
+            let test_self_interfaces = vec![
+                Interface::from(
+                    QnicType::QnicE,
+                    1,
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+                ),
+                Interface::from(
+                    QnicType::QnicP,
+                    2,
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)),
+                ),
+            ];
+            let test_remote_interfaces = vec![
+                Interface::from(
+                    QnicType::QnicE,
+                    0,
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                ),
+                Interface::from(
+                    QnicType::QnicP,
+                    0,
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)),
+                ),
+            ];
+            let swapping_action =
+                EntanglementSwapping::from(test_self_interfaces, test_remote_interfaces);
+            assert_eq!(
+                swapping_action.self_qnic_interfaces[0].qnic_type,
+                QnicType::QnicE
+            );
+            assert_eq!(swapping_action.self_qnic_interfaces[0].qnic_id, 1);
+            assert_eq!(
+                swapping_action.self_qnic_interfaces[0]
+                    .qnic_address
+                    .to_string(),
+                "192.168.0.1"
+            );
+            assert_eq!(
+                swapping_action.self_qnic_interfaces[1].qnic_type,
+                QnicType::QnicP
+            );
+            assert_eq!(swapping_action.self_qnic_interfaces[1].qnic_id, 2);
+            assert_eq!(
+                swapping_action.self_qnic_interfaces[1]
+                    .qnic_address
+                    .to_string(),
+                "192.168.0.2"
+            );
+
+            assert_eq!(
+                swapping_action.remote_qnic_interfaces[0].qnic_type,
+                QnicType::QnicE
+            );
+            assert_eq!(swapping_action.remote_qnic_interfaces[0].qnic_id, 0);
+            assert_eq!(
+                swapping_action.remote_qnic_interfaces[0]
+                    .qnic_address
+                    .to_string(),
+                "192.168.1.1"
+            );
+            assert_eq!(
+                swapping_action.remote_qnic_interfaces[1].qnic_type,
+                QnicType::QnicP
+            );
+            assert_eq!(swapping_action.remote_qnic_interfaces[1].qnic_id, 0);
+            assert_eq!(
+                swapping_action.remote_qnic_interfaces[1]
+                    .qnic_address
+                    .to_string(),
+                "192.168.2.1"
+            );
+        }
+    }
+
+    #[test]
+    fn test_tomography_action() {
+        let test_interface = Interface::from(
+            QnicType::QnicRp,
+            0,
+            IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+        );
+        let tomography = Tomography::from(8000, test_interface);
+        assert_eq!(tomography.num_measure, 8000);
+        assert_eq!(tomography.qnic_interface.qnic_type, QnicType::QnicRp);
+        assert_eq!(tomography.qnic_interface.qnic_id, 0);
+        assert_eq!(
+            tomography.qnic_interface.qnic_address.to_string(),
+            "192.168.0.1"
+        );
+    }
 }
+
+// Version 2 (Base actions)
 
 pub mod v2 {
 
