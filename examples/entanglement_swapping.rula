@@ -34,7 +34,7 @@ rule swapping<qn0, qn1>() {
     return q1_entangled;
 }
 
-rule pauli_correction<qnall>(q: QubitInfo){
+rule pauli_correction<qnall>(q: Qubit){
     // Should this be qubit address?
     let message = queue(#qnall).lookup(q);
     cond {

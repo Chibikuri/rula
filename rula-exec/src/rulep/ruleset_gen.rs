@@ -4,21 +4,27 @@ use std::io::Write;
 use std::net::Ipv4Addr;
 use std::process::Command;
 
-use super::action::v1::Action as ActionV1;
-use super::action::v2::Action as ActionV2;
 use super::ruleset::RuleSet;
-use rula::parser::ast::RuleSetExpr;
+use rula::parser::ast::*;
 
 pub fn generate_ruleset(ruleset: &RuleSetExpr) {
     // generate ruleset from rule_expr
     let ruleset_name = &*ruleset.name.name;
+    let default_rule = match &*ruleset.default {
+        Some(default_rule) => default_rule,
+        None => todo!("No default rule!"),
+    };
+    let rules = &*ruleset.rules;
+    println!("{:#?}", rules);
+    // let rule_table = vec![];
+
     // let ruleset = RuleSet::new(
     //     ruleset_name,
     // );
 }
 
 // Helper function to generate
-pub fn generate_file(program: RuleSet<ActionV1>, file_name: &str) {
+pub fn generate_ruleset_file<T>(program: RuleSet<T>, file_name: &str) {
     let mut file_path = env::current_dir().unwrap();
     file_path.push("tests");
     file_path.push("generated");
@@ -34,5 +40,31 @@ mod tests {
     #[test]
     fn test_make_json() {
         // let ruleset = generate_ruleset();
+    }
+
+    #[test]
+    fn test_generate_simple_ruleset() {
+        // ruleset entanglement_swapping{
+        //     default: default()
+        //     let q1_entangled = swapping();
+        //     pauli_correction(q1_entangled)
+        // }
+        let test_ruleset = RuleSetExpr::new(
+            Ident::new("entanglement_swapping", None),
+            Some(FnCall::new(Ident::new("default", None), vec![])),
+            vec![
+                Stmt::new(StmtKind::Let(Let::new(
+                    Ident::new("q1_entangled", None),
+                    Expr::new(ExprKind::FnCall(FnCall::new(
+                        Ident::new("swapping", None),
+                        vec![],
+                    ))),
+                ))),
+                Stmt::new(StmtKind::Expr(Expr::new(ExprKind::FnCall(FnCall::new(
+                    Ident::new("pauli_correction", None),
+                    vec![Ident::new("q1_entangled", None)],
+                ))))),
+            ],
+        );
     }
 }

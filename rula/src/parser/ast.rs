@@ -454,23 +454,29 @@ impl FnDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnCall {
     pub func_name: Box<Ident>,
+    pub arguments: Vec<Ident>,
 }
 
 impl FnCall {
-    pub fn new(name: Ident) -> Self {
+    pub fn new(name: Ident, arguments: Vec<Ident>) -> Self {
         FnCall {
             func_name: Box::new(name),
+            arguments: arguments,
         }
     }
 
     pub fn place_holder() -> Self {
         FnCall {
             func_name: Box::new(Ident::place_holder()),
+            arguments: vec![],
         }
     }
 
     pub fn add_name(&mut self, name: Ident) {
         self.func_name = Box::new(name);
+    }
+    pub fn add_argument(&mut self, arg: Ident) {
+        self.arguments.push(arg);
     }
 }
 
@@ -559,22 +565,22 @@ impl Comp {
 pub struct RuleSetExpr {
     pub name: Box<Ident>,
     pub default: Box<Option<FnCall>>,
-    pub rules: Box<Stmt>, // This could be the vector of Rules
+    pub rules: Vec<Stmt>, // This could be the vector of Rules
 }
 
 impl RuleSetExpr {
-    pub fn new(name: Ident, default: Option<FnCall>, rules: Stmt) -> Self {
+    pub fn new(name: Ident, default: Option<FnCall>, rules: Vec<Stmt>) -> Self {
         RuleSetExpr {
             name: Box::new(name),
             default: Box::new(default),
-            rules: Box::new(rules),
+            rules: rules,
         }
     }
     pub fn place_holder() -> Self {
         RuleSetExpr {
             name: Box::new(Ident::place_holder()),
             default: Box::new(None),
-            rules: Box::new(Stmt::place_holder()),
+            rules: vec![],
         }
     }
     pub fn add_name(&mut self, name: Ident) {
@@ -584,7 +590,7 @@ impl RuleSetExpr {
         self.default = Box::new(default);
     }
     pub fn add_rules(&mut self, rules: Stmt) {
-        self.rules = Box::new(rules);
+        self.rules.push(rules);
     }
 }
 

@@ -931,7 +931,8 @@ mod for_expr_test {
                                                 Ident::new(
                                                     "range",
                                                     None
-                                                )
+                                                ),
+                                                vec![]
                                             )
                                         )
                                     ),
@@ -1396,7 +1397,7 @@ mod test_ruleset_expr {
                                         None,
                                     ),
                                     None, 
-                                    Stmt::new(
+                                    vec![Stmt::new(
                                         StmtKind::Expr(
                                             Expr::new(
                                                 ExprKind::FnCall(
@@ -1404,12 +1405,13 @@ mod test_ruleset_expr {
                                                         Ident::new(
                                                             "rules",
                                                             None
-                                                        )
+                                                        ),
+                                                        vec![],
                                                     )
                                                 )
                                             )
                                         )
-                                    )
+                                    )]
                                 )
                             )
                         )
@@ -1442,23 +1444,27 @@ mod test_ruleset_expr {
                                             Ident::new(
                                                 "default",
                                                 None
-                                            )
+                                            ),
+                                            vec![]
                                         )
                                     ),
-                                    Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::FnCall(
-                                                    FnCall::new(
-                                                        Ident::new(
-                                                            "rules",
-                                                            None
+                                    vec![
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::FnCall(
+                                                        FnCall::new(
+                                                            Ident::new(
+                                                                "rules",
+                                                                None
+                                                            ),
+                                                            vec![]
                                                         )
                                                     )
                                                 )
                                             )
                                         )
-                                    )
+                                    ]
                                 )
                             )
                         )

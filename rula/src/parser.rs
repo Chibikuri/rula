@@ -82,12 +82,9 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
         Rule::let_stmt => Ok(Stmt::new(StmtKind::Let(
             build_ast_from_let_stmt(pair).unwrap(),
         ))),
-        Rule::expr => {
-            println!("EEE {:#?}", pair);
-            Ok(Stmt::new(StmtKind::Expr(
-                build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap(),
-            )))
-        }
+        Rule::expr => Ok(Stmt::new(StmtKind::Expr(
+            build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap(),
+        ))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -538,12 +535,18 @@ fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
 
 fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
     let mut fnc_call = FnCall::place_holder();
-    let fnc_name = pair.into_inner().next().unwrap();
-    match fnc_name.as_rule() {
-        Rule::ident => {
-            fnc_call.add_name(build_ast_from_ident(fnc_name).unwrap());
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                fnc_call.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::ident_list => {
+                for arg in block.into_inner() {
+                    fnc_call.add_argument(build_ast_from_ident(arg).unwrap());
+                }
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
         }
-        _ => return Err(RuLaError::RuLaSyntaxError),
     }
     Ok(fnc_call)
 }

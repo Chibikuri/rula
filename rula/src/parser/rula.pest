@@ -55,7 +55,7 @@ fn_def_expr = { ^"fn" ~ arguments ~ brace_stmt }
 arguments = { "(" ~ ( ident_typed? ~ ( "," ~ ident_typed )* ) ~ ")" }
 
 // Fnction call expression with parenthesis
-fn_call_expr = { ident ~ paren_expr }
+fn_call_expr = { ident ~ "(" ~ ident_list? ~ ")" }
 
 // Struct expression to define ordinary structure
 struct_expr = {^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}
@@ -113,7 +113,7 @@ brace_stmt = _{ "{" ~ stmt? ~ "}" }
 // Identifiers
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }
 ident_typed = { ident ~ ( ":" ~ typedef_lit ) }
-ident = @{ ASCII_ALPHA ~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
+ident = @{ "#"? ~ ASCII_ALPHA~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
 literal_expr = { ( bool | string | ident | number | binary | hex | unicord ) }

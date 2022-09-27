@@ -1,7 +1,6 @@
 // This is entory point to generate code from AST
 use super::error::*;
 use super::IResult;
-use crate::rulep::ruleset_gen;
 use crate::rulep::ruleset_gen::generate_ruleset;
 // use crate::utils::file_gen::generate_token_stream_file;
 use rula::parser::ast::*;
@@ -562,7 +561,7 @@ mod tests {
     #[test]
     fn test_simple_fn_call() {
         // range()
-        let simple_fn_call = FnCall::new(Ident::new("range", None));
+        let simple_fn_call = FnCall::new(Ident::new("range", None), vec![]);
         let test_stream = generate_fn_call(&simple_fn_call).unwrap();
         assert_eq!("range ()", test_stream.to_string());
     }
