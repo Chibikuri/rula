@@ -295,6 +295,7 @@ pub mod v2 {
             self.clauses.push(action_clause);
         }
     }
+
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum ActionClauses {
         /// Gate operations that can be applied immediately
@@ -304,7 +305,7 @@ pub mod v2 {
         /// Send classical message from one place to another
         Send(Message),
         /// Update the status of qubit
-        Update(Qubit),
+        Update(Update),
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -349,6 +350,11 @@ pub mod v2 {
         pub src: IpAddr,
         pub dst: IpAddr,
         pub res: Box<Option<String>>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Update {
+        pub target: Qubit,
     }
 
     #[cfg(test)]

@@ -4,6 +4,8 @@ use std::io::Write;
 use std::net::Ipv4Addr;
 use std::process::Command;
 
+use super::action::v1::Action as ActionV1;
+use super::action::v2::Action as ActionV2;
 use super::ruleset::RuleSet;
 use rula::parser::ast::RuleSetExpr;
 
@@ -16,7 +18,7 @@ pub fn generate_ruleset(ruleset: &RuleSetExpr) {
 }
 
 // Helper function to generate
-pub fn generate_file(program: RuleSet, file_name: &str) {
+pub fn generate_file(program: RuleSet<ActionV1>, file_name: &str) {
     let mut file_path = env::current_dir().unwrap();
     file_path.push("tests");
     file_path.push("generated");

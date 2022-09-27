@@ -3,12 +3,9 @@ use std::net::{IpAddr, Ipv4Addr};
 use uuid::{uuid, Uuid};
 
 use super::action::v1::Action as ActionV1;
-
 use super::action::v2::Action as ActionV2;
-use super::action::v2::*;
 use super::condition::*;
 use crate::network::qnic::*;
-use crate::network::qubit::*;
 
 fn generate_id() -> Uuid {
     if cfg!(test) {
@@ -20,7 +17,7 @@ fn generate_id() -> Uuid {
 
 // note: host addresses can only be filled in after
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct RuleSet {
+pub struct RuleSet<T> {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
     /// Unique identifier for thie RuleSet. (This could be kept in private)
@@ -28,12 +25,12 @@ pub struct RuleSet {
     /// Owner address can only be solved after the all network interface options are collected
     pub owner_addr: Option<IpAddr>,
     /// List of rules stored in this RuleSet
-    pub rules: Vec<Rule>,
+    pub rules: Vec<Rule<T>>,
     /// To give index to the rules sequentially
     rule_index: u32,
 }
 
-impl RuleSet {
+impl<T> RuleSet<T> {
     pub fn new(name: &str) -> Self {
         RuleSet {
             name: String::from(name),
@@ -43,7 +40,7 @@ impl RuleSet {
             rule_index: 0,
         }
     }
-    pub fn add_rule(&mut self, mut rule: Rule) {
+    pub fn add_rule(&mut self, mut rule: Rule<T>) {
         rule.update_id(self.rule_index);
         self.rules.push(rule);
         self.rule_index += 1;
@@ -51,7 +48,7 @@ impl RuleSet {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Rule {
+pub struct Rule<T> {
     /// Name of this rule
     pub name: String,
     /// Identifier of this Rule
@@ -63,14 +60,14 @@ pub struct Rule {
     /// A list of conditions to be met
     pub conditions: Vec<Condition>,
     /// A list of actions to be acted
-    pub actions: Vec<ActionV1>,
+    pub actions: Vec<T>,
     /// Next rule
     pub next_rule_id: u32,
     /// If this is the final rule or not
     pub is_finalized: bool,
 }
 
-impl Rule {
+impl<T> Rule<T> {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
@@ -86,7 +83,7 @@ impl Rule {
     pub fn add_condition(&mut self, condition: Condition) {
         self.conditions.push(condition);
     }
-    pub fn add_action(&mut self, action: ActionV1) {
+    pub fn add_action(&mut self, action: T) {
         self.actions.push(action);
     }
     pub fn update_id(&mut self, new_id: u32) {
@@ -105,13 +102,11 @@ impl Rule {
 
 #[cfg(test)]
 pub mod tests {
-    use std::net::Ipv4Addr;
-
     use super::*;
 
     #[test]
     fn test_ruleset_new() {
-        let ruleset = RuleSet::new("test");
+        let ruleset = RuleSet::<ActionV1>::new("test");
         assert_eq!(ruleset.name, String::from("test"));
         assert_eq!(
             ruleset.id.to_string(),
@@ -122,7 +117,7 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_add_rule() {
-        let mut ruleset = RuleSet::new("test");
+        let mut ruleset = RuleSet::<ActionV1>::new("test");
         let rule = Rule::new("rule1");
         ruleset.add_rule(rule);
         assert_eq!(ruleset.rules.len(), 1);
@@ -135,7 +130,7 @@ pub mod tests {
 
     #[test]
     fn test_rule_new() {
-        let rule = Rule::new("test");
+        let rule = Rule::<ActionV1>::new("test");
         assert_eq!(rule.name, String::from("test"));
         assert_eq!(rule.id, 0);
         assert_eq!(rule.conditions.len(), 0);
