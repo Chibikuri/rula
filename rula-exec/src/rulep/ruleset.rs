@@ -33,12 +33,16 @@ pub struct RuleSet<T> {
 impl<T> RuleSet<T> {
     pub fn new(name: &str) -> Self {
         RuleSet {
-            name: String::from(name),
+            name: name.to_string(),
             id: generate_id(),
             owner_addr: None,
             rules: vec![],
             rule_index: 0,
         }
+    }
+
+    pub fn update_name(&mut self, name: &str) {
+        self.name = name.to_string();
     }
     pub fn add_rule(&mut self, mut rule: Rule<T>) {
         rule.update_id(self.rule_index);

@@ -15,13 +15,27 @@ pub fn generate_ruleset(ruleset: &RuleSetExpr) {
         None => todo!("No default rule!"),
     };
     let rules = &*ruleset.rules;
-    println!("{:#?}", rules);
+    for stmt in rules {
+        // statement
+        // println!("Statement {:#?}", &stmt);
+        match &*stmt.kind {
+            StmtKind::Let(let_stmt) => {}
+            StmtKind::Expr(expr) => {}
+            _ => todo!("Here ruleset suppose to be a set of rules."),
+        }
+    }
     // let rule_table = vec![];
 
     // let ruleset = RuleSet::new(
     //     ruleset_name,
     // );
 }
+
+fn generate_rule(rule: &RuleExpr) {}
+
+fn generate_cond(cond: &CondExpr) {}
+
+fn generate_act(act: &ActExpr) {}
 
 // Helper function to generate
 pub fn generate_ruleset_file<T>(program: RuleSet<T>, file_name: &str) {
@@ -66,5 +80,6 @@ mod tests {
                 ))))),
             ],
         );
+        generate_ruleset(&test_ruleset);
     }
 }

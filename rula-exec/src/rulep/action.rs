@@ -276,7 +276,7 @@ pub mod v1 {
 
 pub mod v2 {
 
-    use super::*;
+    use super::{v1::Purification, *};
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Action {
@@ -301,9 +301,11 @@ pub mod v2 {
         /// Gate operations that can be applied immediately
         Gate(QGate),
         /// Measurement operations that takes calssical information from qubits
-        Measure(MeasBasis),
+        Measure(Measure),
         /// Send classical message from one place to another
         Send(Message),
+        /// Free consumed resource for later use
+        Free(Qubit),
         /// Update the status of qubit
         Update(Update),
     }
@@ -334,6 +336,22 @@ pub mod v2 {
         Rx(f64),
         Ry(f64),
         Rz(f64),
+        U(f64, f64, f64),
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Measure {
+        pub basis: MeasBasis,
+        pub target: Qubit,
+    }
+
+    impl Measure {
+        pub fn new(basis: MeasBasis, target: Qubit) -> Self {
+            Measure {
+                basis: basis,
+                target: target,
+            }
+        }
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -346,12 +364,38 @@ pub mod v2 {
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Message {
-        pub kind: String,
+        pub meta: MetaData,
+        pub kind: MessageKind,
+        pub result: MeasResult,
+    }
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct MetaData {
         pub src: IpAddr,
         pub dst: IpAddr,
-        pub res: Box<Option<String>>,
+        pub shared_id: u128,
     }
 
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum MessageKind {
+        /// Message for purification
+        PurificationResult,
+        SwappingResult,
+        MeasureResult,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct MeasResult {
+        pub basis: MeasBasis,
+        pub result: MeasOutput,
+        pub interface_info: Interface,
+        pub qubit_info: Qubit,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum MeasOutput {
+        Zero,
+        One,
+    }
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Update {
         pub target: Qubit,

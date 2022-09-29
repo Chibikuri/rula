@@ -47,3 +47,6 @@ pub enum QnicType {
     QnicRp,
     QnicN, // place holder
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum InstructionSet {}

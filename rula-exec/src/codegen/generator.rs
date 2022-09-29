@@ -1,12 +1,30 @@
 // This is entory point to generate code from AST
 use super::error::*;
 use super::IResult;
+
+use crate::rulep::action::v1::Action as ActionV1;
+use crate::rulep::action::v2::Action as ActionV2;
+
+use crate::rulep::ruleset::RuleSet;
 use crate::rulep::ruleset_gen::generate_ruleset;
 // use crate::utils::file_gen::generate_token_stream_file;
 use rula::parser::ast::*;
 
+use once_cell::sync::{Lazy, OnceCell};
 use proc_macro2::{Span, TokenStream};
+use std::sync::Mutex;
 use syn::LitFloat;
+
+// This could be generalized for two different actions
+#[cfg(feature = "gen-v1-ruleset")]
+static RULESET_FORMAT_V1: Lazy<RuleSet<ActionV1>> = Lazy::new(|| {});
+
+// #[cfg(feature = "gen-ruleset")]s
+// static RULESET_FORMAT: Lazy<RuleSet<ActionV2>> = Lazy::new(|| {
+//     RuleSet::<ActionV2>::new("empty_rule")
+// });
+
+static RULESET_FORMAT: OnceCell<Mutex<RuleSet<ActionV2>>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns piece of TokenStream
@@ -301,13 +319,23 @@ fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
 fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // Generate RuleSet
     if cfg!(feature = "gen-ruleset") {
-        generate_ruleset(ruleset_expr)
+        // generate portable format with rule information
+        let ruleset_name = &*ruleset_expr.name.name;
+        let glob_ruleset =
+            RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionV2>::new(ruleset_name)));
+        println!("{:#?}", RULESET_FORMAT);
+        // generate_ruleset(ruleset_expr)
     }
     Ok(quote!())
 }
 
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name = generate_ident(&rule_expr.name).unwrap();
+    // This might not be true. Rule could be parsed first
+    // let ruleset = RULESET_FORMAT
+    //     .get_or_init(|| Mutex::new(RuleSet::<ActionV2>))
+    // let mut rlset = ruleset.lock().unwrap();
+    // *rlset = RuleSet::<ActionV2>::add_rule(;
 
     Ok(quote!(
         struct #rule_name{
