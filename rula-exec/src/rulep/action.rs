@@ -3,6 +3,7 @@ use crate::network::qubit::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 
+#[deprecated(since = "0.2.0", note = "These actions are no longer valid.")]
 pub mod v1 {
 
     /// Version 1 actions
@@ -276,7 +277,7 @@ pub mod v1 {
 
 pub mod v2 {
 
-    use super::{v1::Purification, *};
+    use super::*;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Action {
@@ -414,6 +415,13 @@ pub mod v2 {
             assert_eq!(action.name, None);
             assert_eq!(action.clauses.len(), 1);
             assert_eq!(action.clauses[0], ActionClauses::Gate(qgate));
+        }
+
+        #[test]
+        fn test_measure_clause() {
+            let measure_clause = Measure::new(MeasBasis::X, Qubit::new());
+            assert_eq!(measure_clause.basis, MeasBasis::X);
+            assert_eq!(measure_clause.target, Qubit::new())
         }
     }
 }

@@ -46,15 +46,7 @@ mod v1 {
     }
 
     impl EnoughResource {
-        pub fn new() -> Self {
-            EnoughResource {
-                name: String::from("enough_resource"),
-                num_required_resource: 0,
-                required_fidelity: 0.0,
-                qnic_interface: Interface::place_holder(),
-            }
-        }
-        pub fn from(num_resource: u32, required_fidelity: f64, qnic_interface: Interface) -> Self {
+        pub fn new(num_resource: u32, required_fidelity: f64, qnic_interface: Interface) -> Self {
             EnoughResource {
                 name: String::from("enough_resource"),
                 num_required_resource: num_resource,
@@ -72,14 +64,7 @@ mod v1 {
     }
 
     impl MeasureCount {
-        pub fn new() -> Self {
-            MeasureCount {
-                name: String::from("measure_count"),
-                count: 0,
-                qnic_interface: Interface::place_holder(),
-            }
-        }
-        pub fn from(count: u32, qnic_interface: Interface) -> Self {
+        pub fn new(count: u32, qnic_interface: Interface) -> Self {
             MeasureCount {
                 name: String::from("measure_count"),
                 count: count,
@@ -96,15 +81,7 @@ mod v1 {
     }
 
     impl Fidelity {
-        pub fn new() -> Self {
-            Fidelity {
-                name: String::from("fidelity"),
-                required_fidelity: 0.0,
-                qnic_interface: Interface::place_holder(),
-            }
-        }
-
-        pub fn from(fidelity: f64, qnic_interface: Interface) -> Self {
+        pub fn new(fidelity: f64, qnic_interface: Interface) -> Self {
             Fidelity {
                 name: String::from("fidelity"),
                 required_fidelity: fidelity,
@@ -120,39 +97,60 @@ mod v1 {
     }
 
     impl Wait {
-        pub fn new() -> Self {
-            Wait {
-                name: String::from("wait"),
-                qnic_interface: Interface::place_holder(),
-            }
-        }
-
-        pub fn from(qnic_interface: Interface) -> Self {
+        pub fn new(qnic_interface: Interface) -> Self {
             Wait {
                 name: String::from("wait"),
                 qnic_interface: qnic_interface,
             }
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    #[cfg(test)]
+    mod tests {
+        use super::*;
 
-    #[test]
-    fn test_condition_clause() {
-        let mut condition = Condition::new(None);
-        let interface = Interface::place_holder();
-        // from(fidelity: f64, qnic_interface: Interface)
-        let fidelity_clause =
-            v1::ConditionClauses::Fidelity(v1::Fidelity::from(0.95, interface.clone()));
-        condition.add_condition_clause(fidelity_clause);
-        assert_eq!(condition.name, None);
-        assert_eq!(condition.clauses.len(), 1);
-        assert_eq!(
-            condition.clauses[0],
-            v1::ConditionClauses::Fidelity(v1::Fidelity::from(0.95, interface))
-        );
+        #[test]
+        fn test_condition_clause() {
+            let mut condition = Condition::new(None);
+            let interface = Interface::place_holder();
+            // from(fidelity: f64, qnic_interface: Interface)
+            let fidelity_clause =
+                v1::ConditionClauses::Fidelity(v1::Fidelity::new(0.95, interface.clone()));
+            condition.add_condition_clause(fidelity_clause);
+            assert_eq!(condition.name, None);
+            assert_eq!(condition.clauses.len(), 1);
+            assert_eq!(
+                condition.clauses[0],
+                v1::ConditionClauses::Fidelity(v1::Fidelity::new(0.95, interface))
+            );
+        }
+
+        #[test]
+        fn test_enough_resource_clause() {
+            let enough_resource = EnoughResource::new(2, 0.8, Interface::place_holder());
+            assert_eq!(enough_resource.num_required_resource, 2);
+            assert_eq!(enough_resource.required_fidelity, 0.8);
+            assert_eq!(enough_resource.qnic_interface, Interface::place_holder());
+        }
+
+        #[test]
+        fn test_measure_count_clause() {
+            let measure_count = MeasureCount::new(8000, Interface::place_holder());
+            assert_eq!(measure_count.count, 8000);
+            assert_eq!(measure_count.qnic_interface, Interface::place_holder());
+        }
+
+        #[test]
+        fn test_fidelity_clause() {
+            let fidelity = Fidelity::new(0.8, Interface::place_holder());
+            assert_eq!(fidelity.required_fidelity, 0.8);
+            assert_eq!(fidelity.qnic_interface, Interface::place_holder());
+        }
+
+        #[test]
+        fn test_wait_clause(){
+            let wait = Wait::new(Interface::place_holder());
+            assert_eq!(wait.qnic_interface, Interface::place_holder());
+        }
     }
 }

@@ -12,3 +12,5 @@ Cargo.lock
 
 # generated test rust files
 rula-exection/tests/generated
+cargo-test*
+cov.sh
