@@ -1511,7 +1511,7 @@ mod test_rule_expr {
                                         Some(TypeDef::Qubit),
                                     )
                                 ],
-                                Stmt::new(
+                                vec![Stmt::new(
                                     StmtKind::Expr(
                                         Expr::new(
                                             ExprKind::Lit(
@@ -1526,7 +1526,7 @@ mod test_rule_expr {
                                             )
                                         )
                                     )
-                                )
+                                )]
                             )
                         )
                     )

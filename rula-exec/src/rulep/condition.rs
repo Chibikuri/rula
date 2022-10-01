@@ -148,7 +148,7 @@ mod v1 {
         }
 
         #[test]
-        fn test_wait_clause(){
+        fn test_wait_clause() {
             let wait = Wait::new(Interface::place_holder());
             assert_eq!(wait.qnic_interface, Interface::place_holder());
         }

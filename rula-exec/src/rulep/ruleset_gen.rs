@@ -4,10 +4,12 @@ use std::io::Write;
 use std::net::Ipv4Addr;
 use std::process::Command;
 
+use super::action::v2::Action as ActionV2;
 use super::ruleset::RuleSet;
+use super::IResult;
 use rula::parser::ast::*;
 
-pub fn generate_ruleset(ruleset: &RuleSetExpr) {
+pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<ActionV2>> {
     // generate ruleset from rule_expr
     let ruleset_name = &*ruleset.name.name;
     let default_rule = match &*ruleset.default {
@@ -17,25 +19,25 @@ pub fn generate_ruleset(ruleset: &RuleSetExpr) {
     let rules = &*ruleset.rules;
     for stmt in rules {
         // statement
-        // println!("Statement {:#?}", &stmt);
         match &*stmt.kind {
-            StmtKind::Let(let_stmt) => {}
+            // get return value from rule
+            StmtKind::Let(let_stmt) => {
+                // This info might not be used at this moment
+                let return_val_store = &*let_stmt.ident;
+                let rule_expr = match &*let_stmt.expr.kind {
+                    ExprKind::FnCall(rule_name) => &*rule_name.func_name,
+                    _ => todo!("error"),
+                };
+            }
             StmtKind::Expr(expr) => {}
             _ => todo!("Here ruleset suppose to be a set of rules."),
         }
     }
     // let rule_table = vec![];
 
-    // let ruleset = RuleSet::new(
-    //     ruleset_name,
-    // );
+    let ruleset = RuleSet::new(ruleset_name);
+    Ok(ruleset)
 }
-
-fn generate_rule(rule: &RuleExpr) {}
-
-fn generate_cond(cond: &CondExpr) {}
-
-fn generate_act(act: &ActExpr) {}
 
 // Helper function to generate
 pub fn generate_ruleset_file<T>(program: RuleSet<T>, file_name: &str) {
@@ -50,6 +52,7 @@ pub fn generate_ruleset_file<T>(program: RuleSet<T>, file_name: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rulep::ruleset::Rule;
 
     #[test]
     fn test_make_json() {
@@ -80,6 +83,13 @@ mod tests {
                 ))))),
             ],
         );
-        generate_ruleset(&test_ruleset);
+
+        let mut target_ruleset = RuleSet::<ActionV2>::new("entanglement_swapping");
+        target_ruleset.add_rule(Rule::<ActionV2>::new("swappping"));
+        target_ruleset.add_rule(Rule::<ActionV2>::new("pauli_correction"));
+        let generated_ruleset = generate_ruleset(&test_ruleset).unwrap();
+        assert_eq!(target_ruleset, generated_ruleset);
+        assert_eq!(&generated_ruleset.rules[0].name, "swapping");
+        assert_eq!(&generated_ruleset.rules[1].name, "pauli_correction");
     }
 }

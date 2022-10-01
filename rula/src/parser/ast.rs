@@ -600,16 +600,16 @@ pub struct RuleExpr {
     pub name: Box<Ident>,
     pub interface: Vec<Ident>,
     pub args: Vec<Ident>,
-    pub stmt: Box<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 impl RuleExpr {
-    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
+    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Vec<Stmt>) -> Self {
         RuleExpr {
             name: Box::new(name),
             interface: interfaces,
             args: arg_vec,
-            stmt: Box::new(stmt),
+            stmts: stmt,
         }
     }
     pub fn place_holder() -> Self {
@@ -617,7 +617,7 @@ impl RuleExpr {
             name: Box::new(Ident::place_holder()),
             interface: vec![],
             args: vec![],
-            stmt: Box::new(Stmt::place_holder()),
+            stmts: vec![],
         }
     }
     pub fn add_name(&mut self, name: Ident) {
@@ -630,7 +630,7 @@ impl RuleExpr {
         self.args.push(arg);
     }
     pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt)
+        self.stmts.push(stmt);
     }
 }
 

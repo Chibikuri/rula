@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::{uuid, Uuid};
 
-use super::action::v1::Action as ActionV1;
-use super::action::v2::Action as ActionV2;
 use super::condition::*;
 use crate::network::qnic::*;
 
@@ -24,6 +22,8 @@ pub struct RuleSet<T> {
     pub id: Uuid,
     /// Owner address can only be solved after the all network interface options are collected
     pub owner_addr: Option<IpAddr>,
+    /// Default rule to be applied
+    pub default_rule: Option<Rule<T>>,
     /// List of rules stored in this RuleSet
     pub rules: Vec<Rule<T>>,
     /// To give index to the rules sequentially
@@ -36,6 +36,7 @@ impl<T> RuleSet<T> {
             name: name.to_string(),
             id: generate_id(),
             owner_addr: None,
+            default_rule: None,
             rules: vec![],
             rule_index: 0,
         }
@@ -44,6 +45,11 @@ impl<T> RuleSet<T> {
     pub fn update_name(&mut self, name: &str) {
         self.name = name.to_string();
     }
+
+    pub fn add_default_rule(&mut self, rule: Option<Rule<T>>) {
+        self.default_rule = rule;
+    }
+
     pub fn add_rule(&mut self, mut rule: Rule<T>) {
         rule.update_id(self.rule_index);
         self.rules.push(rule);
@@ -106,11 +112,12 @@ impl<T> Rule<T> {
 
 #[cfg(test)]
 pub mod tests {
+    use super::super::action::v2::Action as ActionV2;
     use super::*;
 
     #[test]
     fn test_ruleset_new() {
-        let ruleset = RuleSet::<ActionV1>::new("test");
+        let ruleset = RuleSet::<ActionV2>::new("test");
         assert_eq!(ruleset.name, String::from("test"));
         assert_eq!(
             ruleset.id.to_string(),
@@ -121,7 +128,7 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_add_rule() {
-        let mut ruleset = RuleSet::<ActionV1>::new("test");
+        let mut ruleset = RuleSet::<ActionV2>::new("test");
         let rule = Rule::new("rule1");
         ruleset.add_rule(rule);
         assert_eq!(ruleset.rules.len(), 1);
@@ -134,7 +141,7 @@ pub mod tests {
 
     #[test]
     fn test_rule_new() {
-        let rule = Rule::<ActionV1>::new("test");
+        let rule = Rule::<ActionV2>::new("test");
         assert_eq!(rule.name, String::from("test"));
         assert_eq!(rule.id, 0);
         assert_eq!(rule.conditions.len(), 0);
@@ -148,7 +155,7 @@ pub mod tests {
     fn test_rule_add_condition_and_action() {
         let mut rule = Rule::new("test");
         let condition = Condition::new(None);
-        let action = ActionV1::new(None);
+        let action = ActionV2::new(None);
         rule.add_condition(condition);
         rule.add_action(action);
         assert_eq!(rule.conditions.len(), 1);

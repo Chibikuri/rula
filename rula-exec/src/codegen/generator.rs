@@ -2,15 +2,12 @@
 use super::error::*;
 use super::IResult;
 
-use crate::rulep::action::v1::Action as ActionV1;
 use crate::rulep::action::v2::Action as ActionV2;
 
-use crate::rulep::ruleset::RuleSet;
-use crate::rulep::ruleset_gen::generate_ruleset;
-// use crate::utils::file_gen::generate_token_stream_file;
+use crate::rulep::ruleset::{Rule, RuleSet};
 use rula::parser::ast::*;
 
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
 use std::sync::Mutex;
 use syn::LitFloat;
@@ -322,26 +319,31 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
         // generate portable format with rule information
         let ruleset_name = &*ruleset_expr.name.name;
         let glob_ruleset =
-            RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionV2>::new(ruleset_name)));
-        println!("{:#?}", RULESET_FORMAT);
-        // generate_ruleset(ruleset_expr)
+            RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionV2>::new("ruleset")));
+        glob_ruleset.lock().unwrap().update_name(ruleset_name);
     }
     Ok(quote!())
 }
 
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
-    let rule_name = generate_ident(&rule_expr.name).unwrap();
-    // This might not be true. Rule could be parsed first
-    // let ruleset = RULESET_FORMAT
-    //     .get_or_init(|| Mutex::new(RuleSet::<ActionV2>))
-    // let mut rlset = ruleset.lock().unwrap();
-    // *rlset = RuleSet::<ActionV2>::add_rule(;
+    let rule_name = &*rule_expr.name;
+    let rule_token = generate_ident(rule_name).unwrap();
+
+    if cfg!(feature = "gen-ruleset") {
+        // RuLa always require the RuleSet
+        let ruleset =
+            RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionV2>::new("ruleset")));
+        let mut rule = Rule::new(&rule_name.name);
+
+        ruleset.lock().unwrap().add_rule(rule);
+    }
 
     Ok(quote!(
-        struct #rule_name{
+        struct #rule_token{
         }
     ))
 }
+
 fn generate_cond(cond_expr: &CondExpr) -> IResult<TokenStream> {
     Ok(quote!())
 }
@@ -656,9 +658,9 @@ mod tests {
             Ident::new("hello", None),
             vec![Ident::new("qn0", None)],
             vec![Ident::new("q2", Some(TypeDef::Qubit))],
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None)),
-            ))))),
+            vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                Lit::new(LitKind::Ident(Ident::new("expression", None))),
+            ))))],
         );
         let test_stream = generate_rule(&rule_expr).unwrap();
         // assert_eq!(

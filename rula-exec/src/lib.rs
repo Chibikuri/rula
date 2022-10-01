@@ -17,6 +17,11 @@ pub mod rulep {
     pub mod condition;
     pub mod ruleset;
     pub mod ruleset_gen;
+
+    #[cfg(not(tarpaulin_include))]
+    mod error;
+    use error::RuleSetGenerationError;
+    pub type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
 }
 
 pub mod network {
