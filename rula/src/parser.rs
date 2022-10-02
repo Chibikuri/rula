@@ -1,6 +1,5 @@
 pub mod ast;
 pub mod error;
-pub mod token;
 mod util;
 
 use crate::Rule;
@@ -172,6 +171,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::return_expr => Ok(Expr::new(ExprKind::Return(
             build_ast_from_return_expr(pair).unwrap(),
         ))),
+        Rule::ruleset_expr => Ok(Expr::new(ExprKind::RuleSetExpr(
+            build_ast_from_ruleset_expr(pair).unwrap(),
+        ))),
         Rule::rule_expr => Ok(Expr::new(ExprKind::RuleExpr(
             build_ast_from_rule_expr(pair).unwrap(),
         ))),
@@ -180,6 +182,12 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         ))),
         Rule::act_expr => Ok(Expr::new(ExprKind::ActExpr(
             build_ast_from_act_expr(pair).unwrap(),
+        ))),
+        Rule::fn_call_expr => Ok(Expr::new(ExprKind::FnCall(
+            build_ast_from_fn_call_expr(pair).unwrap(),
+        ))),
+        Rule::braket_expr => Ok(Expr::new(ExprKind::Array(
+            build_ast_from_braket_expr(pair).unwrap(),
         ))),
         // 1+10, (1+18)*20
         // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
@@ -296,16 +304,10 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
                 let gen_expression = blocks.into_inner().next().unwrap();
                 let expr = match gen_expression.as_rule() {
                     // { braket_expr | fn_call_expr | literal_expr }
-                    Rule::literal_list => {
-                        let mut arr = Array::place_holder();
-                        // braket_expr could be list of literals
-                        for lit in gen_expression.into_inner() {
-                            arr.add_item(
-                                build_ast_from_literals(lit.into_inner().next().unwrap()).unwrap(),
-                            )
-                        }
-                        Expr::new(ExprKind::Array(arr))
-                    }
+                    Rule::braket_expr => Expr::new(ExprKind::Array(
+                        build_ast_from_braket_expr(gen_expression.into_inner().next().unwrap())
+                            .unwrap(),
+                    )),
                     Rule::fn_call_expr => {
                         // fn call e.g. hello_world()
                         Expr::new(ExprKind::FnCall(
@@ -403,6 +405,26 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     comp_expr.add_comp_op(comp_op);
     comp_expr.add_rhs(expressions[1].clone());
     Ok(comp_expr)
+}
+
+fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
+    let mut ruleset_expr = RuleSetExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::fn_call_expr => {
+                ruleset_expr.add_default(Some(build_ast_from_fn_call_expr(block).unwrap()));
+            }
+            Rule::stmt => {
+                ruleset_expr
+                    .add_rules(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
+            }
+            _ => unreachable!(),
+        }
+    }
+    Ok(ruleset_expr)
 }
 
 fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
@@ -513,14 +535,28 @@ fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
 
 fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
     let mut fnc_call = FnCall::place_holder();
-    let fnc_name = pair.into_inner().next().unwrap();
-    match fnc_name.as_rule() {
-        Rule::ident => {
-            fnc_call.add_name(build_ast_from_ident(fnc_name).unwrap());
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                fnc_call.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::ident_list => {
+                for arg in block.into_inner() {
+                    fnc_call.add_argument(build_ast_from_ident(arg).unwrap());
+                }
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
         }
-        _ => return Err(RuLaError::RuLaSyntaxError),
     }
     Ok(fnc_call)
+}
+
+fn build_ast_from_braket_expr(pair: Pair<Rule>) -> IResult<Array> {
+    let mut array = Array::place_holder();
+    for lit in pair.into_inner() {
+        array.add_item(build_ast_from_literals(lit.into_inner().next().unwrap()).unwrap())
+    }
+    Ok(array)
 }
 
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {

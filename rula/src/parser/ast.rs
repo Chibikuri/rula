@@ -211,6 +211,7 @@ pub enum ExprKind {
     Struct(Struct),
     Return(Return),
     Comp(Comp),
+    RuleSetExpr(RuleSetExpr),
     RuleExpr(RuleExpr),
     CondExpr(CondExpr),
     ActExpr(ActExpr),
@@ -453,23 +454,29 @@ impl FnDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnCall {
     pub func_name: Box<Ident>,
+    pub arguments: Vec<Ident>,
 }
 
 impl FnCall {
-    pub fn new(name: Ident) -> Self {
+    pub fn new(name: Ident, arguments: Vec<Ident>) -> Self {
         FnCall {
             func_name: Box::new(name),
+            arguments: arguments,
         }
     }
 
     pub fn place_holder() -> Self {
         FnCall {
             func_name: Box::new(Ident::place_holder()),
+            arguments: vec![],
         }
     }
 
     pub fn add_name(&mut self, name: Ident) {
         self.func_name = Box::new(name);
+    }
+    pub fn add_argument(&mut self, arg: Ident) {
+        self.arguments.push(arg);
     }
 }
 
@@ -554,6 +561,38 @@ impl Comp {
         self.comp_op = Box::new(op)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleSetExpr {
+    pub name: Box<Ident>,
+    pub default: Box<Option<FnCall>>,
+    pub rules: Vec<Stmt>, // This could be the vector of Rules
+}
+
+impl RuleSetExpr {
+    pub fn new(name: Ident, default: Option<FnCall>, rules: Vec<Stmt>) -> Self {
+        RuleSetExpr {
+            name: Box::new(name),
+            default: Box::new(default),
+            rules: rules,
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleSetExpr {
+            name: Box::new(Ident::place_holder()),
+            default: Box::new(None),
+            rules: vec![],
+        }
+    }
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+    pub fn add_default(&mut self, default: Option<FnCall>) {
+        self.default = Box::new(default);
+    }
+    pub fn add_rules(&mut self, rules: Stmt) {
+        self.rules.push(rules);
+    }
+}
 
 // rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
 #[derive(Debug, Clone, PartialEq)]
@@ -561,16 +600,16 @@ pub struct RuleExpr {
     pub name: Box<Ident>,
     pub interface: Vec<Ident>,
     pub args: Vec<Ident>,
-    pub stmt: Box<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 impl RuleExpr {
-    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Stmt) -> Self {
+    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Vec<Stmt>) -> Self {
         RuleExpr {
             name: Box::new(name),
             interface: interfaces,
             args: arg_vec,
-            stmt: Box::new(stmt),
+            stmts: stmt,
         }
     }
     pub fn place_holder() -> Self {
@@ -578,7 +617,7 @@ impl RuleExpr {
             name: Box::new(Ident::place_holder()),
             interface: vec![],
             args: vec![],
-            stmt: Box::new(Stmt::place_holder()),
+            stmts: vec![],
         }
     }
     pub fn add_name(&mut self, name: Ident) {
@@ -591,34 +630,34 @@ impl RuleExpr {
         self.args.push(arg);
     }
     pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt)
+        self.stmts.push(stmt);
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
-    pub awaitable: Box<Stmt>,
+    pub clauses: Vec<Stmt>,
 }
 
 impl CondExpr {
-    pub fn new(name: Option<Ident>, stmt: Stmt) -> Self {
+    pub fn new(name: Option<Ident>, stmts: Vec<Stmt>) -> Self {
         CondExpr {
             name: Box::new(name),
-            awaitable: Box::new(stmt),
+            clauses: stmts,
         }
     }
     pub fn place_holder() -> Self {
         CondExpr {
             name: Box::new(None),
-            awaitable: Box::new(Stmt::place_holder()),
+            clauses: vec![],
         }
     }
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
     }
     pub fn add_awaitable(&mut self, stmt: Stmt) {
-        self.awaitable = Box::new(stmt);
+        self.clauses.push(stmt);
     }
 }
 

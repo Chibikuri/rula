@@ -13,9 +13,23 @@ pub mod codegen {
 }
 
 pub mod rulep {
+    pub mod action;
+    pub mod condition;
     pub mod ruleset;
     pub mod ruleset_gen;
+
+    #[cfg(not(tarpaulin_include))]
+    mod error;
+    use error::RuleSetGenerationError;
+    pub type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
 }
+
+pub mod network {
+    pub mod qnic;
+    pub mod qubit;
+}
+
+pub mod utils {}
 
 #[cfg(test)]
 mod tests {

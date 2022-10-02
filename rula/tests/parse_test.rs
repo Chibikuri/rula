@@ -931,7 +931,8 @@ mod for_expr_test {
                                                 Ident::new(
                                                     "range",
                                                     None
-                                                )
+                                                ),
+                                                vec![]
                                             )
                                         )
                                     ),
@@ -1375,6 +1376,105 @@ mod test_return_expr {
     }
 }
 
+mod test_ruleset_expr {
+    use super::*;
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_ruleset(){
+        let ruleset_expr = "ruleset entanglement_swapping{rules()}";
+        let ruleset_expr_asts = rula::parse(ruleset_expr).unwrap();
+
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::RuleSetExpr(
+                                RuleSetExpr::new(
+                                    Ident::new(
+                                        "entanglement_swapping",
+                                        None,
+                                    ),
+                                    None, 
+                                    vec![Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::FnCall(
+                                                    FnCall::new(
+                                                        Ident::new(
+                                                            "rules",
+                                                            None
+                                                        ),
+                                                        vec![],
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(ruleset_expr_asts, target_ast_nodes);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_simple_ruleset_with_default(){
+        let ruleset_expr = "ruleset entanglement_swapping{default: default() rules()}";
+        let ruleset_expr_asts = rula::parse(ruleset_expr).unwrap();
+
+        let target_ast_nodes = vec![
+            build_stmt_ast(
+                Stmt::new(
+                    StmtKind::Expr(
+                        Expr::new(
+                            ExprKind::RuleSetExpr(
+                                RuleSetExpr::new(
+                                    Ident::new(
+                                        "entanglement_swapping",
+                                        None,
+                                    ),
+                                    Some(
+                                        FnCall::new(
+                                            Ident::new(
+                                                "default",
+                                                None
+                                            ),
+                                            vec![]
+                                        )
+                                    ),
+                                    vec![
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::FnCall(
+                                                        FnCall::new(
+                                                            Ident::new(
+                                                                "rules",
+                                                                None
+                                                            ),
+                                                            vec![]
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ];
+        assert_eq!(ruleset_expr_asts, target_ast_nodes);
+    }
+}
 mod test_rule_expr {
     use super::*;
 
@@ -1383,7 +1483,7 @@ mod test_rule_expr {
     fn test_simple_rule_expr() {
 
         let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){expression}";
-        let fn_def_asts = rula::parse(rule_expr).unwrap();
+        let rule_expr_asts = rula::parse(rule_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
                 Stmt::new(
@@ -1411,7 +1511,7 @@ mod test_rule_expr {
                                         Some(TypeDef::Qubit),
                                     )
                                 ],
-                                Stmt::new(
+                                vec![Stmt::new(
                                     StmtKind::Expr(
                                         Expr::new(
                                             ExprKind::Lit(
@@ -1426,7 +1526,7 @@ mod test_rule_expr {
                                             )
                                         )
                                     )
-                                )
+                                )]
                             )
                         )
                     )
@@ -1434,7 +1534,7 @@ mod test_rule_expr {
             )
         )
         ];
-        assert_eq!(target_ast_nodes, fn_def_asts);
+        assert_eq!(target_ast_nodes, rule_expr_asts);
     }
 }
 
@@ -1459,22 +1559,24 @@ mod test_condition_expr {
                                             None,
                                         )
                                     ),
-                                    Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "awaitables",
-                                                                None
+                                    vec![
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::Lit(
+                                                        Lit::new(
+                                                            LitKind::Ident(
+                                                                Ident::new(
+                                                                    "awaitables",
+                                                                    None
+                                                                )
                                                             )
                                                         )
                                                     )
                                                 )
                                             )
                                         )
-                                    )
+                                    ]
                                 )
                             )
                         )

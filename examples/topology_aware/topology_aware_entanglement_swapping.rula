@@ -1,0 +1,73 @@
+import std::{gen_qubit_status, borrow_qubit};
+import std::operation::{cnot, pauli_x, pauli_z};
+import std::operation::compound::bsm;
+import std::messages;
+import std::time::time;
+
+// automatic assignment for qnic interfaces
+#topology: "topology.json";
+
+rule default<qn0>() {
+	cond{
+		time() - qubit.initiated() > 0.0003,
+	} => act{
+		free(q);
+	}
+}
+
+rule swapping<qn0, qn1>(partner1, partner2) {
+    cond {
+        // How to ensure these qubits have the proper partners?
+        // -> This can be given by external parameter
+        let q1 = get_free_qubit(#qn0, 1, partner1),
+        let q2 = get_free_qubit(#qn1, 1, partner2),
+    } => act{
+        let q1_entangled = get_partner_qubit_info(q1);
+        result = bsm(q1, q2),
+    }(q1_entangled, result)
+    send(result, q1_entangled);
+    return q1_entangled;
+}
+
+rule pauli_correction<qnall>(q: Qubit){
+    // Should this be qubit address?
+    let message = queue(#qnall).lookup(q);
+    cond {
+        message.ready(),
+    } => act{
+        let qubit_index = message.content["qubit_index"];
+        let target_qubit = lookup_by_index(#qnall, qubit_index);
+        match result: message.content["meas_result"]{
+            (result == "00") => {
+                // do nothing
+            },
+            (result == "01") => {
+                // do z
+                pauli_z(target_qubit);
+            },
+            (result == "10") => {
+                pauli_x(target_qubit);
+            },
+            (result == "11") => {
+                pauli_z(target_qubit);
+                pauli_x(target_qubit);
+            },
+            _ => {
+                // otherwise, assume something wrong and discard.
+                free(target_qubit);
+            }
+        }
+    }
+}
+
+
+ruleset entanglement_swapping{
+    default: default()
+    let q1_entangled = swapping();
+    pauli_correction(q1_entangled)
+}
+
+
+for i in topology.network.len(){
+    
+}

@@ -55,7 +55,7 @@ fn_def_expr = { ^"fn" ~ arguments ~ brace_stmt }
 arguments = { "(" ~ ( ident_typed? ~ ( "," ~ ident_typed )* ) ~ ")" }
 
 // Fnction call expression with parenthesis
-fn_call_expr = { ident ~ paren_expr }
+fn_call_expr = { ident ~ "(" ~ ident_list? ~ ")" }
 
 // Struct expression to define ordinary structure
 struct_expr = {^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}
@@ -67,14 +67,14 @@ tuple = {"(" ~ literal_list? ~ ")"}
 
 // RuleSet expression that holds multiple rules
 ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ rules? ~ "}" }
-rules = {"default:"? ~ (fn_call_expr)? ~ (stmt)*}
+rules = _{("default:" ~ fn_call_expr)? ~ stmt}
 
 // Rule expression to define RuLa rule
 rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ brace_stmt }
 
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
-cond_expr = { ^"cond" ~ ident? ~ brace_stmt }
+cond_expr = { ^"cond" ~ ident? ~ "{" ~ stmt? ~ ("," ~ stmt)* ~ ","? ~ "}" }
 // awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations
@@ -99,7 +99,7 @@ comparable = { fn_call_expr | term_expr | literal_expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!="}
 
 // Braket expression
-braket_expr = _{"[" ~ literal_list? ~ "]"}
+braket_expr = {"[" ~ literal_list? ~ "]"}
 
 // Expression with angle brakets
 angle_expr = _{"<" ~ ( ( ident_typed? ~ ( "," ~ ident_typed )* ) )? ~ ">"}
@@ -113,7 +113,7 @@ brace_stmt = _{ "{" ~ stmt? ~ "}" }
 // Identifiers
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }
 ident_typed = { ident ~ ( ":" ~ typedef_lit ) }
-ident = @{ ASCII_ALPHA ~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
+ident = @{ "#"? ~ ASCII_ALPHA~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
 literal_expr = { ( bool | string | ident | number | binary | hex | unicord ) }

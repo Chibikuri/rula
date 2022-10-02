@@ -2,5 +2,5 @@
 
 members = [
     "rula",
-    "rula-runtime"
+    "rula-exec"
 ]
