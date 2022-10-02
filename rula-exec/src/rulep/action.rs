@@ -1,5 +1,5 @@
-use crate::network::qnic::{Interface, QnicType};
-use crate::network::qubit::Qubit;
+use crate::network::qnic_wrapper::{Interface, QnicType};
+use crate::network::qubit_wrapper::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 

@@ -1,4 +1,4 @@
-use crate::network::qnic::Interface;
+use crate::network::qnic_wrapper::Interface;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

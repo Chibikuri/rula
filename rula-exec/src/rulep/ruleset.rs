@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use uuid::{uuid, Uuid};
 
 use super::condition::*;
-use crate::network::qnic::*;
+use crate::network::qnic_wrapper::*;
 
 fn generate_id() -> Uuid {
     if cfg!(test) {
