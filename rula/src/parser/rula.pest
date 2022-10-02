@@ -74,7 +74,7 @@ rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ brace_stmt }
 
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
-cond_expr = { ^"cond" ~ ident? ~ brace_stmt }
+cond_expr = { ^"cond" ~ ident? ~ "{" ~ stmt? ~ ("," ~ stmt)* ~ ","? ~ "}" }
 // awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations

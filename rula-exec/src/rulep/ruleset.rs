@@ -68,7 +68,7 @@ pub struct Rule<T> {
     /// Interface information
     pub qnic_interfaces: Option<Vec<Interface>>,
     /// A list of conditions to be met
-    pub conditions: Vec<Condition>,
+    pub condition: Condition,
     /// A list of actions to be acted
     pub actions: Vec<T>,
     /// Next rule
@@ -84,14 +84,14 @@ impl<T> Rule<T> {
             qnic_interfaces: None,
             id: 0,
             shared_tag: 0,
-            conditions: vec![],
+            condition: Condition::new(None),
             actions: vec![],
             next_rule_id: 0,
             is_finalized: false,
         }
     }
-    pub fn add_condition(&mut self, condition: Condition) {
-        self.conditions.push(condition);
+    pub fn set_condition(&mut self, condition: Condition) {
+        self.condition = condition;
     }
     pub fn add_action(&mut self, action: T) {
         self.actions.push(action);
@@ -144,7 +144,7 @@ pub mod tests {
         let rule = Rule::<ActionV2>::new("test");
         assert_eq!(rule.name, String::from("test"));
         assert_eq!(rule.id, 0);
-        assert_eq!(rule.conditions.len(), 0);
+        assert_eq!(rule.condition, Condition::new(None));
         assert_eq!(rule.actions.len(), 0);
         assert_eq!(rule.next_rule_id, 0);
         assert_eq!(rule.shared_tag, 0);
@@ -156,9 +156,9 @@ pub mod tests {
         let mut rule = Rule::new("test");
         let condition = Condition::new(None);
         let action = ActionV2::new(None);
-        rule.add_condition(condition);
+        rule.set_condition(condition);
         rule.add_action(action);
-        assert_eq!(rule.conditions.len(), 1);
+        assert_eq!(rule.condition, Condition::new(None));
         assert_eq!(rule.actions.len(), 1);
     }
 

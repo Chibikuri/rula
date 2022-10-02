@@ -637,27 +637,27 @@ impl RuleExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
-    pub awaitable: Box<Stmt>,
+    pub clauses: Vec<Stmt>,
 }
 
 impl CondExpr {
-    pub fn new(name: Option<Ident>, stmt: Stmt) -> Self {
+    pub fn new(name: Option<Ident>, stmts: Vec<Stmt>) -> Self {
         CondExpr {
             name: Box::new(name),
-            awaitable: Box::new(stmt),
+            clauses: stmts,
         }
     }
     pub fn place_holder() -> Self {
         CondExpr {
             name: Box::new(None),
-            awaitable: Box::new(Stmt::place_holder()),
+            clauses: vec![],
         }
     }
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
     }
     pub fn add_awaitable(&mut self, stmt: Stmt) {
-        self.awaitable = Box::new(stmt);
+        self.clauses.push(stmt);
     }
 }
 

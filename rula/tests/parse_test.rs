@@ -1559,22 +1559,24 @@ mod test_condition_expr {
                                             None,
                                         )
                                     ),
-                                    Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "awaitables",
-                                                                None
+                                    vec![
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::Lit(
+                                                        Lit::new(
+                                                            LitKind::Ident(
+                                                                Ident::new(
+                                                                    "awaitables",
+                                                                    None
+                                                                )
                                                             )
                                                         )
                                                     )
                                                 )
                                             )
                                         )
-                                    )
+                                    ]
                                 )
                             )
                         )
