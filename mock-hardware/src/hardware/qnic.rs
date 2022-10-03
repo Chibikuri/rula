@@ -1,8 +1,12 @@
+use super::error::HardwareError;
 use super::qubit::MockQubit;
+use super::IResult;
+use std::collections::HashMap;
 
 pub struct MockQnic {
     /// `qubits` can only be accessed by proper function calls
-    qubits: Vec<MockQubit>,
+    qubits: HashMap<u64, MockQubit>,
+    index: u64,
 }
 
 pub enum QnicInstruction {
@@ -20,28 +24,60 @@ pub enum QnicInstruction {
     Send(Send),
     /// Store result
     Store(Store),
+    /// Check entangled partner
+    CheckEntangledWith(CheckEntangledWith),
     /// No operation just in case,
     Nop,
 }
 
 impl MockQnic {
     pub fn new() -> Self {
-        MockQnic { qubits: vec![] }
+        MockQnic {
+            qubits: HashMap::new(),
+            index: 0,
+        }
     }
     /// free target qubit
-    fn free(&self, free_qubit: &FreeQubit) {}
+    fn free(&self, free_qubit: &FreeQubit) -> IResult<()>{
+        if MockQnic::exist(self, free_qubit.qubit_address){
+            Ok(())
+        }else{
+            Err(HardwareError::Test)
+        }
+    }
 
-    fn get(&self, get_qubit: &GetQubit) {}
+    fn get(&self, get_qubit: &GetQubit) -> IResult<()> {
+        Ok(())
+    }
 
-    fn apply(&self, apply_gate: &ApplyGate) {}
+    fn apply(&self, apply_gate: &ApplyGate) -> IResult<()>{
+        Ok(())
+    }
 
-    fn measure(&self, measure_qubit: &MeasureQubit) {}
+    fn measure(&self, measure_qubit: &MeasureQubit)-> IResult<()> {
+        Ok(())
+    }
 
-    fn send(&self, send: &Send) {}
+    fn send(&self, send: &Send) -> IResult<()>{
+        Ok(())
+    }
 
-    fn store(&self, store_result: &Store) {}
+    fn store(&self, store_result: &Store) -> IResult<()>{
+        Ok(())
+    }
 
-    pub fn call_instruction(&self, instruction: QnicInstruction) {
+    fn check_entangled_with(&self, entangled_with: &CheckEntangledWith) -> IResult<()>{
+        Ok(())
+    }
+
+    fn exist(&self, qubit_address: u64) -> bool {
+        match self.qubits.get(&qubit_address) {
+            Some(_qubit) => true,
+            _ => false,
+        }
+    }
+
+    pub fn call_instruction(&self, instruction: QnicInstruction) -> IResult<()>{
         match instruction {
             QnicInstruction::FreeQubit(free_qubit) => MockQnic::free(self, &free_qubit),
             QnicInstruction::GetQubit(get_qubit) => MockQnic::get(self, &get_qubit),
@@ -49,12 +85,17 @@ impl MockQnic {
             QnicInstruction::MeasureQubit(meas_qubit) => MockQnic::measure(self, &meas_qubit),
             QnicInstruction::Send(send) => MockQnic::send(self, &send),
             QnicInstruction::Store(store) => MockQnic::store(&self, &store),
+            QnicInstruction::CheckEntangledWith(entangled_with) => {
+                MockQnic::check_entangled_with(&self, &entangled_with)
+            }
             _ => todo!("new instruction?"),
         }
     }
 
-    fn append_qubits(&mut self, qubit: MockQubit) {
-        self.qubits.push(qubit);
+    pub fn append_qubits(&mut self, qubit: MockQubit) {
+        self.qubits.insert(self.index, qubit);
+        self.index += 1;
+        // self.qubits.push(qubit);
     }
 }
 
@@ -73,6 +114,7 @@ pub struct MeasureQubit {}
 pub struct Send {}
 pub struct Store {}
 
+pub struct CheckEntangledWith {}
 #[cfg(test)]
 pub mod tests {
     use super::*;
