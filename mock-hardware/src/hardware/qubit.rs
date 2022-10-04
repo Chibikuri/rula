@@ -1,3 +1,5 @@
+use super::result::{MeasBasis, MeasResult, Outcome};
+use super::IResult;
 use tokio::time::{sleep, Duration};
 
 pub enum QubitInstruction {
@@ -5,7 +7,7 @@ pub enum QubitInstruction {
     SetBusy,
     CheckStatus,
     Gate(GateType),
-    Measure(Measure),
+    Measure(MeasBasis),
     Test,
 }
 
@@ -70,27 +72,44 @@ impl MockQubit {
         self.busy
     }
 
-    pub async fn call_instruction(&mut self, instruction: QubitInstruction) {
+    async fn measure(&mut self, meas_basis: &MeasBasis) -> IResult<Returnable> {
+        sleep(Duration::from_nanos(200)).await;
+        Ok(Returnable::Result(MeasResult::new(
+            MeasBasis::X,
+            Outcome::One,
+        )))
+    }
+
+    pub async fn call_instruction(&mut self, instruction: QubitInstruction) -> IResult<Returnable> {
         match instruction {
             QubitInstruction::SetFree => {
                 self.free();
+                Ok(Returnable::None)
             }
             QubitInstruction::SetBusy => {
                 self.busy();
+                Ok(Returnable::None)
             }
             QubitInstruction::CheckStatus => {
                 self.check_status();
+                Ok(Returnable::None)
             }
             QubitInstruction::Gate(gate_type) => {
                 MockQubit::gate(self, &gate_type).await;
+                Ok(Returnable::None)
+            }
+            QubitInstruction::Measure(meas_basis) => {
+                let result = MockQubit::measure(self, &meas_basis).await.unwrap();
+                Ok(result)
             }
             _ => todo!("unknown instruction"),
         }
     }
 }
 
-pub struct Measure {
-    pub basis: MeasurementBasis,
+pub enum Returnable {
+    Result(MeasResult),
+    None,
 }
 
 /// These are just mock operations to return the signal
@@ -105,10 +124,4 @@ pub enum GateType {
     CxTarget,
     CzControl,
     CzTarget,
-}
-
-pub enum MeasurementBasis {
-    X,
-    Y,
-    Z,
 }

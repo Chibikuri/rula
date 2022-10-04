@@ -1,5 +1,6 @@
 use super::error::HardwareError;
 use super::qubit::{GateType, MockQubit, QubitInstruction};
+use super::result::{MeasBasis, MeasResult};
 use super::IResult;
 use std::collections::HashMap;
 use std::fmt;
@@ -7,6 +8,7 @@ use std::fmt;
 pub struct MockQnic {
     /// `qubits` can only be accessed by proper function calls
     qubits: HashMap<u64, MockQubit>,
+    register: HashMap<u64, MeasResult>,
     index: u64,
 }
 
@@ -36,6 +38,7 @@ impl MockQnic {
     pub fn new() -> Self {
         MockQnic {
             qubits: HashMap::new(),
+            register: HashMap::new(),
             index: 0,
         }
     }
@@ -50,7 +53,7 @@ impl MockQnic {
         }
     }
 
-    async fn set_busy(&mut self, get_qubit: &GetQubit) -> IResult<()> {
+    async fn reserve(&mut self, get_qubit: &GetQubit) -> IResult<()> {
         if MockQnic::exist(self, get_qubit.qubit_address) {
             let qubit = self.qubits.get_mut(&get_qubit.qubit_address).unwrap();
             qubit.call_instruction(QubitInstruction::SetBusy).await;
@@ -77,7 +80,7 @@ impl MockQnic {
                                 .call_instruction(QubitInstruction::Gate(GateType::CxTarget))
                                 .await;
                         }
-                        None => return Err(HardwareError::NoQubitFound),
+                        None => return Err(HardwareError::NoControlQubitFound),
                     }
                 }
                 QuantumGate::Cz => {
@@ -94,7 +97,7 @@ impl MockQnic {
                                 .call_instruction(QubitInstruction::Gate(GateType::CzTarget))
                                 .await;
                         }
-                        None => return Err(HardwareError::NoQubitFound),
+                        None => return Err(HardwareError::NoControlQubitFound),
                     }
                 }
                 QuantumGate::X => {
@@ -141,6 +144,24 @@ impl MockQnic {
     }
 
     async fn measure(&mut self, measure_qubit: &MeasureQubit) -> IResult<()> {
+        let qubit = self.qubits.get_mut(&measure_qubit.qubit_address).unwrap();
+        match measure_qubit.basis {
+            MeasBasis::X => {
+                qubit
+                    .call_instruction(QubitInstruction::Measure(MeasBasis::X))
+                    .await;
+            }
+            MeasBasis::Y => {
+                qubit
+                    .call_instruction(QubitInstruction::Measure(MeasBasis::Y))
+                    .await;
+            }
+            MeasBasis::Z => {
+                qubit
+                    .call_instruction(QubitInstruction::Measure(MeasBasis::Z))
+                    .await;
+            }
+        }
         Ok(())
     }
 
@@ -171,7 +192,7 @@ impl MockQnic {
                 Ok(())
             }
             QnicInstruction::GetQubit(get_qubit) => {
-                MockQnic::set_busy(self, &get_qubit).await.unwrap();
+                MockQnic::reserve(self, &get_qubit).await.unwrap();
                 Ok(())
             }
             QnicInstruction::ApplyGate(apply_gate) => {
@@ -242,7 +263,11 @@ pub enum QuantumGate {
 }
 
 #[derive(Debug)]
-pub struct MeasureQubit {}
+pub struct MeasureQubit {
+    pub qubit_address: u64,
+    pub register_address: u64,
+    pub basis: MeasBasis,
+}
 
 #[derive(Debug)]
 pub struct Send {}

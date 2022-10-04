@@ -4,5 +4,6 @@ use std::fmt::Debug;
 pub enum HardwareError {
     NoInstructionFound,
     NoQubitFound,
+    NoControlQubitFound,
     Test,
 }
