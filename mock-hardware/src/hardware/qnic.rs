@@ -1,7 +1,8 @@
 use super::error::HardwareError;
-use super::qubit::MockQubit;
+use super::qubit::{GateType, MockQubit, QubitInstruction};
 use super::IResult;
 use std::collections::HashMap;
+use std::fmt;
 
 pub struct MockQnic {
     /// `qubits` can only be accessed by proper function calls
@@ -9,10 +10,11 @@ pub struct MockQnic {
     index: u64,
 }
 
+#[derive(Debug)]
 pub enum QnicInstruction {
     /// Free specified qubit
     FreeQubit(FreeQubit),
-    /// Get qubit
+    /// Get ownership of qubit
     GetQubit(GetQubit),
     /// Emit photons from Quantum Memory (This is L2)
     // EmitPhoton(EmitPhoton),
@@ -38,57 +40,163 @@ impl MockQnic {
         }
     }
     /// free target qubit
-    fn free(&self, free_qubit: &FreeQubit) -> IResult<()>{
-        if MockQnic::exist(self, free_qubit.qubit_address){
+    async fn free(&mut self, free_qubit: &FreeQubit) -> IResult<()> {
+        if MockQnic::exist(self, free_qubit.qubit_address) {
+            let qubit = self.qubits.get_mut(&free_qubit.qubit_address).unwrap();
+            qubit.call_instruction(QubitInstruction::SetFree).await;
             Ok(())
-        }else{
-            Err(HardwareError::Test)
+        } else {
+            Err(HardwareError::NoQubitFound)
         }
     }
 
-    fn get(&self, get_qubit: &GetQubit) -> IResult<()> {
+    async fn set_busy(&mut self, get_qubit: &GetQubit) -> IResult<()> {
+        if MockQnic::exist(self, get_qubit.qubit_address) {
+            let qubit = self.qubits.get_mut(&get_qubit.qubit_address).unwrap();
+            qubit.call_instruction(QubitInstruction::SetBusy).await;
+            Ok(())
+        } else {
+            Err(HardwareError::NoQubitFound)
+        }
+    }
+
+    async fn apply(&mut self, apply_gate: &ApplyGate) -> IResult<()> {
+        if MockQnic::exist(self, apply_gate.target) {
+            match apply_gate.gate {
+                QuantumGate::Cx => {
+                    match apply_gate.control {
+                        Some(control_qubit) => {
+                            // apply mock cx control
+                            let cqubit = self.qubits.get_mut(&control_qubit).unwrap();
+                            cqubit
+                                .call_instruction(QubitInstruction::Gate(GateType::CxControl))
+                                .await;
+
+                            let target_qubit = self.qubits.get_mut(&apply_gate.target).unwrap();
+                            target_qubit
+                                .call_instruction(QubitInstruction::Gate(GateType::CxTarget))
+                                .await;
+                        }
+                        None => return Err(HardwareError::NoQubitFound),
+                    }
+                }
+                QuantumGate::Cz => {
+                    match apply_gate.control {
+                        Some(control_qubit) => {
+                            // apply mock cx control
+                            let cqubit = self.qubits.get_mut(&control_qubit).unwrap();
+                            cqubit
+                                .call_instruction(QubitInstruction::Gate(GateType::CzControl))
+                                .await;
+                            // apply mock cx target
+                            let target_qubit = self.qubits.get_mut(&apply_gate.target).unwrap();
+                            target_qubit
+                                .call_instruction(QubitInstruction::Gate(GateType::CzTarget))
+                                .await;
+                        }
+                        None => return Err(HardwareError::NoQubitFound),
+                    }
+                }
+                QuantumGate::X => {
+                    let target = self.qubits.get_mut(&apply_gate.target).unwrap();
+                    target
+                        .call_instruction(QubitInstruction::Gate(GateType::X))
+                        .await;
+                }
+                QuantumGate::Y => {
+                    let target = self.qubits.get_mut(&apply_gate.target).unwrap();
+                    target
+                        .call_instruction(QubitInstruction::Gate(GateType::Y))
+                        .await;
+                }
+                QuantumGate::Z => {
+                    let target = self.qubits.get_mut(&apply_gate.target).unwrap();
+                    target
+                        .call_instruction(QubitInstruction::Gate(GateType::Z))
+                        .await;
+                }
+                QuantumGate::H => {
+                    let target = self.qubits.get_mut(&apply_gate.target).unwrap();
+                    target
+                        .call_instruction(QubitInstruction::Gate(GateType::H))
+                        .await;
+                }
+                QuantumGate::S => {
+                    let target = self.qubits.get_mut(&apply_gate.target).unwrap();
+                    target
+                        .call_instruction(QubitInstruction::Gate(GateType::S))
+                        .await;
+                }
+                QuantumGate::T => {
+                    let target = self.qubits.get_mut(&apply_gate.target).unwrap();
+                    target
+                        .call_instruction(QubitInstruction::Gate(GateType::T))
+                        .await;
+                }
+            }
+        } else {
+            return Err(HardwareError::NoQubitFound);
+        }
         Ok(())
     }
 
-    fn apply(&self, apply_gate: &ApplyGate) -> IResult<()>{
+    async fn measure(&mut self, measure_qubit: &MeasureQubit) -> IResult<()> {
         Ok(())
     }
 
-    fn measure(&self, measure_qubit: &MeasureQubit)-> IResult<()> {
+    async fn send(&mut self, send: &Send) -> IResult<()> {
         Ok(())
     }
 
-    fn send(&self, send: &Send) -> IResult<()>{
+    async fn store(&mut self, store_result: &Store) -> IResult<()> {
         Ok(())
     }
 
-    fn store(&self, store_result: &Store) -> IResult<()>{
+    async fn check_entangled_with(&mut self, entangled_with: &CheckEntangledWith) -> IResult<()> {
         Ok(())
     }
 
-    fn check_entangled_with(&self, entangled_with: &CheckEntangledWith) -> IResult<()>{
-        Ok(())
-    }
-
-    fn exist(&self, qubit_address: u64) -> bool {
+    fn exist(&mut self, qubit_address: u64) -> bool {
         match self.qubits.get(&qubit_address) {
             Some(_qubit) => true,
             _ => false,
         }
     }
 
-    pub fn call_instruction(&self, instruction: QnicInstruction) -> IResult<()>{
+    // using trait object would be easier?
+    pub async fn call_instruction(&mut self, instruction: QnicInstruction) -> IResult<()> {
         match instruction {
-            QnicInstruction::FreeQubit(free_qubit) => MockQnic::free(self, &free_qubit),
-            QnicInstruction::GetQubit(get_qubit) => MockQnic::get(self, &get_qubit),
-            QnicInstruction::ApplyGate(apply_gate) => MockQnic::apply(self, &apply_gate),
-            QnicInstruction::MeasureQubit(meas_qubit) => MockQnic::measure(self, &meas_qubit),
-            QnicInstruction::Send(send) => MockQnic::send(self, &send),
-            QnicInstruction::Store(store) => MockQnic::store(&self, &store),
-            QnicInstruction::CheckEntangledWith(entangled_with) => {
-                MockQnic::check_entangled_with(&self, &entangled_with)
+            QnicInstruction::FreeQubit(free_qubit) => {
+                MockQnic::free(self, &free_qubit).await.unwrap();
+                Ok(())
             }
-            _ => todo!("new instruction?"),
+            QnicInstruction::GetQubit(get_qubit) => {
+                MockQnic::set_busy(self, &get_qubit).await.unwrap();
+                Ok(())
+            }
+            QnicInstruction::ApplyGate(apply_gate) => {
+                MockQnic::apply(self, &apply_gate).await.unwrap();
+                Ok(())
+            }
+            QnicInstruction::MeasureQubit(meas_qubit) => {
+                MockQnic::measure(self, &meas_qubit).await.unwrap();
+                Ok(())
+            }
+            QnicInstruction::Send(send) => {
+                MockQnic::send(self, &send).await.unwrap();
+                Ok(())
+            }
+            QnicInstruction::Store(store) => {
+                MockQnic::store(self, &store).await.unwrap();
+                Ok(())
+            }
+            QnicInstruction::CheckEntangledWith(entangled_with) => {
+                MockQnic::check_entangled_with(self, &entangled_with)
+                    .await
+                    .unwrap();
+                Ok(())
+            }
+            _ => Err(HardwareError::NoInstructionFound),
         }
     }
 
@@ -99,23 +207,65 @@ impl MockQnic {
     }
 }
 
+pub enum Returnable {
+    Qubit(Box<MockQubit>),
+    None,
+}
+
+#[derive(Debug)]
 pub struct FreeQubit {
     pub qubit_address: u64,
 }
 
-pub struct EmitPhoton {}
+#[derive(Debug)]
+pub struct GetQubit {
+    pub qubit_address: u64,
+}
 
-pub struct ApplyGate {}
+#[derive(Debug)]
+pub struct ApplyGate {
+    pub control: Option<u64>,
+    pub target: u64,
+    pub gate: QuantumGate,
+}
 
-pub struct GetQubit {}
+#[derive(Debug)]
+pub enum QuantumGate {
+    X,
+    Y,
+    Z,
+    H,
+    S,
+    T,
+    Cx,
+    Cz,
+}
 
+#[derive(Debug)]
 pub struct MeasureQubit {}
 
+#[derive(Debug)]
 pub struct Send {}
+
+#[derive(Debug)]
 pub struct Store {}
 
+#[derive(Debug)]
 pub struct CheckEntangledWith {}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_set_busy_qubit() {
+        // Target instruction
+        let mut qnic = MockQnic::new();
+        let mock_qubit = MockQubit::new(0);
+        qnic.append_qubits(mock_qubit);
+        // Get qubit to make it busy
+        let set_busy_instruction = QnicInstruction::GetQubit(GetQubit { qubit_address: 0 });
+        qnic.call_instruction(set_busy_instruction).await.unwrap();
+        // assert_eq!(qnic.qubits.get(&0).unwrap(), false);
+    }
 }

@@ -1,4 +1,8 @@
+use std::fmt::Debug;
 
-pub enum HardwareError{
-    Test
+#[derive(Debug)]
+pub enum HardwareError {
+    NoInstructionFound,
+    NoQubitFound,
+    Test,
 }
