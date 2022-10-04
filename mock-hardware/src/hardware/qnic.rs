@@ -1,6 +1,6 @@
 use super::error::HardwareError;
 use super::qubit::{GateType, MockQubit, QubitInstruction, Returnable};
-use super::result::{MeasBasis, MeasResult};
+use super::result::{MeasBasis, MeasResult, Outcome};
 use super::IResult;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -385,4 +385,71 @@ pub mod tests {
         let res = qnic.call_instruction(gate_operation).await.unwrap();
         assert_eq!(res, QnicReturnable::None);
     }
+
+    #[tokio::test]
+    async fn test_measure_qubit() {
+        let mut qnic = MockQnic::new();
+        let mock_qubit = MockQubit::new(0);
+        qnic.append_qubits(mock_qubit);
+
+        let measure_instruction = QnicInstruction::MeasureQubit(MeasureQubit {
+            qubit_address: 0,
+            register_address: 0,
+            basis: MeasBasis::X,
+        });
+        qnic.call_instruction(measure_instruction).await.unwrap();
+        let load_instruction = QnicInstruction::Load(Load {
+            register_address: 0,
+        });
+        let result = qnic.call_instruction(load_instruction).await.unwrap();
+        assert_eq!(
+            result,
+            QnicReturnable::MeasResult(MeasResult {
+                basis: MeasBasis::X,
+                result: Outcome::One
+            })
+        );
+
+        let mock_qubit = MockQubit::new(1);
+        qnic.append_qubits(mock_qubit);
+        let measure_instruction = QnicInstruction::MeasureQubit(MeasureQubit {
+            qubit_address: 1,
+            register_address: 1,
+            basis: MeasBasis::Y,
+        });
+        qnic.call_instruction(measure_instruction).await.unwrap();
+        let load_instruction = QnicInstruction::Load(Load {
+            register_address: 1,
+        });
+        let result = qnic.call_instruction(load_instruction).await.unwrap();
+        assert_eq!(
+            result,
+            QnicReturnable::MeasResult(MeasResult {
+                basis: MeasBasis::Y,
+                result: Outcome::One
+            })
+        );
+
+        let mock_qubit = MockQubit::new(2);
+        qnic.append_qubits(mock_qubit);
+        let measure_instruction = QnicInstruction::MeasureQubit(MeasureQubit {
+            qubit_address: 2,
+            register_address: 2,
+            basis: MeasBasis::Z,
+        });
+        qnic.call_instruction(measure_instruction).await.unwrap();
+        let load_instruction = QnicInstruction::Load(Load {
+            register_address: 2,
+        });
+        let result = qnic.call_instruction(load_instruction).await.unwrap();
+        assert_eq!(
+            result,
+            QnicReturnable::MeasResult(MeasResult {
+                basis: MeasBasis::Z,
+                result: Outcome::One
+            })
+        );
+    }
+
+    // #[test]
 }
