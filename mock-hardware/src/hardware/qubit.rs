@@ -1,5 +1,7 @@
+use super::error::HardwareError;
 use super::result::{MeasBasis, MeasResult, Outcome};
 use super::IResult;
+use std::net::IpAddr;
 use tokio::time::{sleep, Duration};
 
 pub enum QubitInstruction {
@@ -8,13 +10,15 @@ pub enum QubitInstruction {
     CheckStatus,
     Gate(GateType),
     Measure(MeasBasis),
+    SetEntangled(IpAddr),
     Test,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MockQubit {
     pub address: u64,
-    busy: bool,
+    pub(crate) busy: bool,
+    pub(crate) entangled_with: Option<IpAddr>,
 }
 
 impl MockQubit {
@@ -22,6 +26,7 @@ impl MockQubit {
         MockQubit {
             address: address,
             busy: false,
+            entangled_with: None,
         }
     }
 
@@ -60,12 +65,20 @@ impl MockQubit {
         }
     }
 
-    fn free(&mut self) {
+    fn free(&mut self) -> IResult<()> {
+        if !self.busy {
+            return Err(HardwareError::QubitNotBusy);
+        }
         self.busy = false;
+        Ok(())
     }
 
-    fn busy(&mut self) {
+    fn busy(&mut self) -> IResult<()> {
+        if self.busy {
+            return Err(HardwareError::QubitAlreadyBusy);
+        }
         self.busy = true;
+        Ok(())
     }
 
     fn check_status(&mut self) -> bool {
@@ -74,20 +87,37 @@ impl MockQubit {
 
     async fn measure(&mut self, meas_basis: &MeasBasis) -> IResult<Returnable> {
         sleep(Duration::from_nanos(200)).await;
-        Ok(Returnable::Result(MeasResult::new(
-            MeasBasis::X,
-            Outcome::One,
-        )))
+        // Here this just always resutns one for mocking reason
+        match meas_basis {
+            MeasBasis::X => Ok(Returnable::MeasResult(MeasResult::new(
+                MeasBasis::X,
+                Outcome::One,
+            ))),
+            MeasBasis::Y => Ok(Returnable::MeasResult(MeasResult::new(
+                MeasBasis::Y,
+                Outcome::One,
+            ))),
+            MeasBasis::Z => Ok(Returnable::MeasResult(MeasResult::new(
+                MeasBasis::Z,
+                Outcome::One,
+            ))),
+            _ => return Err(HardwareError::InvalidBasis),
+        }
+    }
+
+    fn set_entangled_with(&mut self, entangled_with: Option<IpAddr>) -> IResult<()> {
+        self.entangled_with = entangled_with;
+        Ok(())
     }
 
     pub async fn call_instruction(&mut self, instruction: QubitInstruction) -> IResult<Returnable> {
         match instruction {
             QubitInstruction::SetFree => {
-                self.free();
+                self.free().unwrap();
                 Ok(Returnable::None)
             }
             QubitInstruction::SetBusy => {
-                self.busy();
+                self.busy().unwrap();
                 Ok(Returnable::None)
             }
             QubitInstruction::CheckStatus => {
@@ -102,13 +132,17 @@ impl MockQubit {
                 let result = MockQubit::measure(self, &meas_basis).await.unwrap();
                 Ok(result)
             }
+            QubitInstruction::SetEntangled(partner_addr) => {
+                MockQubit::set_entangled_with(self, Some(partner_addr)).unwrap();
+                Ok(Returnable::None)
+            }
             _ => todo!("unknown instruction"),
         }
     }
 }
 
 pub enum Returnable {
-    Result(MeasResult),
+    MeasResult(MeasResult),
     None,
 }
 

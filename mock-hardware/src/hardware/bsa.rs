@@ -1,1 +1,1 @@
-pub mod MockBsa {}
+pub struct MockBsa {}
