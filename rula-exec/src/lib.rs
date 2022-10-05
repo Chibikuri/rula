@@ -25,8 +25,8 @@ pub mod rulep {
 }
 
 pub mod network {
-    pub mod qnic;
-    pub mod qubit;
+    pub mod qnic_wrapper;
+    pub mod qubit_wrapper;
 }
 
 pub mod utils {}
