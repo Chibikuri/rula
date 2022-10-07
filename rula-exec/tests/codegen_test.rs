@@ -1,5 +1,5 @@
-use rula::parser::ast::*;
 use rula_exec::codegen::generator::*;
+use rula_parser::parser::ast::*;
 
 use proc_macro2::TokenStream;
 use std::env;

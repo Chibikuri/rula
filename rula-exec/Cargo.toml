@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rula = { path = "../rula" }
+rula_parser = { path = "../rula-parser" }
 # (rula_ast -> rula_program(rust syntax tree) -> quote -> rust_source)
 quote = "1.0"
 syn = {version = "1.0", features = ["full"]}

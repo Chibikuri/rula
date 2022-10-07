@@ -7,7 +7,7 @@ use std::process::Command;
 use super::action::v2::Action as ActionV2;
 use super::ruleset::RuleSet;
 use super::IResult;
-use rula::parser::ast::*;
+use rula_parser::parser::ast::*;
 
 pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<ActionV2>> {
     // generate ruleset from rule_expr

@@ -68,6 +68,6 @@ ruleset entanglement_swapping{
 }
 
 
-for i in topology.network.len(){
-    
+for i in range(topology.network.len()){
+    topology.network[i + 1]
 }

@@ -33,7 +33,7 @@ pub mod utils {}
 
 #[cfg(test)]
 mod tests {
-    use rula::parser::ast::{AstNode, RuLa, RuLaKind};
+    use rula_parser::parser::ast::{AstNode, RuLa, RuLaKind};
 
     #[test]
     fn it_works() {

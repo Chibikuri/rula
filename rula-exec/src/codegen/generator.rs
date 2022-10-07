@@ -6,7 +6,7 @@ use crate::rulep::action::v2::Action as ActionV2;
 
 use crate::rulep::condition::Condition;
 use crate::rulep::ruleset::{Rule, RuleSet};
-use rula::parser::ast::*;
+use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
