@@ -67,18 +67,21 @@ tuple = {"(" ~ literal_list? ~ ")"}
 
 // RuleSet expression that holds multiple rules
 ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ rules? ~ "}" }
-rules = _{("default:" ~ fn_call_expr)? ~ stmt}
+rules = _{("default:" ~ fn_call_expr)? ~ (stmt)*}
 
 // Rule expression to define RuLa rule
-rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ brace_stmt }
+rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ "{" ~ rule_contents ~ "}"}
+// Should have better way to do preprocessing
+rule_contents = {monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)*}
 
+monitor_expr = {^"monitor" ~ "{" ~ (let_stmt)* ~ "}"}
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
 cond_expr = { ^"cond" ~ ident? ~ "{" ~ stmt? ~ ("," ~ stmt)* ~ ","? ~ "}" }
 // awaitable = {expr} // for now, awaitable could be expression?
 
 // Action expression for qubit to act on operations
-act_expr = { ^"act" ~ ident? ~ brace_stmt }
+act_expr = { ^"act" ~ ident? ~ "{" ~ (stmt)* ~ "}"}
 // operatable = _{ident}
 
 // Term expr without any operator recedence

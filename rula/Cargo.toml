@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0.10", features = ["derive"] }
+rula_parser = {path="../rula-parser"}
+rula-exec = {path="../rula-exec"}

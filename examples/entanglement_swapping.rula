@@ -4,9 +4,9 @@
 #interface: {qn0, qn1} => qnall;
 // This can also be defined by toml file
 // CONF includes node specific variables
-#def: CONF = {
-    distance = [1, 1, 1, 1, 1],
-}
+//#def: CONF = {
+//    distance = [1, 1, 1, 1, 1],
+//}
 
 rule default<qn0>() {
 	cond{
@@ -17,8 +17,9 @@ rule default<qn0>() {
 }
 
 rule swapping<qn0, qn1>(distance) {
-    let q1 = qn0.get_free_qubit(1, qn0.get_partner_by_hop(distance));
-    let q2 = qn1.get_free_qubit(1, qn1.get_partner_by_hop(distance));
+    monitor:
+        let q1 = qn0.get_free_qubit(1, qn0.get_partner_by_hop(distance));
+        let q2 = qn1.get_free_qubit(1, qn1.get_partner_by_hop(distance));
     cond {
         // How to ensure these qubits have the proper partners?
         // -> This can be given by external parameter
@@ -35,7 +36,9 @@ rule swapping<qn0, qn1>(distance) {
 
 rule pauli_correction<qnall>(){
     // Should this be qubit address?
-    let message = get_message(#qnall);
+    monitor {
+        let message = get_message(#qnall);
+    }
     cond {
         message.kind == "swapping",
     } => act{
