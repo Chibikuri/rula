@@ -446,13 +446,42 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
                     rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
                 }
             }
-            Rule::stmt => {
-                rule_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
-            }
+            Rule::rule_contents => rule_expr.add_rule_content(
+                build_ast_from_rule_contents(block.into_inner().next().unwrap()).unwrap(),
+            ),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(rule_expr)
+}
+
+fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
+    let mut rule_content_expr = RuleContentExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::monitor_expr => rule_content_expr.add_monitor_expr(
+                build_ast_from_monitor_expr(block.into_inner().next().unwrap()).unwrap(),
+            ),
+            Rule::cond_expr => rule_content_expr.add_condition_expr(
+                build_ast_from_cond_expr(block.into_inner().next().unwrap()).unwrap(),
+            ),
+            Rule::act_expr => rule_content_expr.add_action_expr(
+                build_ast_from_act_expr(block.into_inner().next().unwrap()).unwrap(),
+            ),
+            Rule::stmt => rule_content_expr
+                .add_post_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(rule_content_expr)
+}
+
+fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<MonitorExpr>> {
+    let mut monitor_expr = MonitorExpr::place_holder();
+    for let_stmt in pair.into_inner() {
+        monitor_expr.add_monitor_value(build_ast_from_let_stmt(let_stmt).unwrap());
+    }
+    Ok(Some(monitor_expr))
 }
 
 fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {

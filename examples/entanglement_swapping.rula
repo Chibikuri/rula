@@ -10,7 +10,6 @@
 
 rule default<qn0>() {
 	cond{
-		time() - qubit.initiated() > 0.0003,
 	} => act{
 		free(q);
 	}

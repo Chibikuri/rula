@@ -1482,7 +1482,7 @@ mod test_rule_expr {
     #[rustfmt::skip]
     fn test_simple_rule_expr() {
 
-        let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){expression}";
+        let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){cond{} => act{}}";
         let rule_expr_asts = rula_parser::parse(rule_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
@@ -1511,22 +1511,18 @@ mod test_rule_expr {
                                         Some(TypeDef::Qubit),
                                     )
                                 ],
-                                vec![Stmt::new(
-                                    StmtKind::Expr(
-                                        Expr::new(
-                                            ExprKind::Lit(
-                                                Lit::new(
-                                                    LitKind::Ident(
-                                                        Ident::new(
-                                                            "expression",
-                                                            None
-                                                        )
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    )
-                                )]
+                                RuleContentExpr::new(
+                                    None,
+                                    CondExpr::new(
+                                        None,
+                                        vec![]
+                                    ),
+                                    ActExpr::new(
+                                        None,
+                                        vec![]
+                                    ),
+                                    vec![]
+                                )
                             )
                         )
                     )
@@ -1609,22 +1605,24 @@ mod test_action_expr {
                                             None,
                                         )
                                     ),
-                                    Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "operatable",
-                                                                None
+                                    vec![
+                                        Stmt::new(
+                                            StmtKind::Expr(
+                                                Expr::new(
+                                                    ExprKind::Lit(
+                                                        Lit::new(
+                                                            LitKind::Ident(
+                                                                Ident::new(
+                                                                    "operatable",
+                                                                    None
+                                                                )
                                                             )
                                                         )
                                                     )
                                                 )
                                             )
                                         )
-                                    )
+                                    ]
                                 )
                             )
                         )

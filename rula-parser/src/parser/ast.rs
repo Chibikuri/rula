@@ -600,16 +600,21 @@ pub struct RuleExpr {
     pub name: Box<Ident>,
     pub interface: Vec<Ident>,
     pub args: Vec<Ident>,
-    pub stmts: Vec<Stmt>,
+    pub rule_content: Box<RuleContentExpr>,
 }
 
 impl RuleExpr {
-    pub fn new(name: Ident, interfaces: Vec<Ident>, arg_vec: Vec<Ident>, stmt: Vec<Stmt>) -> Self {
+    pub fn new(
+        name: Ident,
+        interfaces: Vec<Ident>,
+        arg_vec: Vec<Ident>,
+        rule_content: RuleContentExpr,
+    ) -> Self {
         RuleExpr {
             name: Box::new(name),
             interface: interfaces,
             args: arg_vec,
-            stmts: stmt,
+            rule_content: Box::new(rule_content),
         }
     }
     pub fn place_holder() -> Self {
@@ -617,7 +622,7 @@ impl RuleExpr {
             name: Box::new(Ident::place_holder()),
             interface: vec![],
             args: vec![],
-            stmts: vec![],
+            rule_content: Box::new(RuleContentExpr::place_holder()),
         }
     }
     pub fn add_name(&mut self, name: Ident) {
@@ -629,11 +634,75 @@ impl RuleExpr {
     pub fn add_arg(&mut self, arg: Ident) {
         self.args.push(arg);
     }
-    pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmts.push(stmt);
+    pub fn add_rule_content(&mut self, rule_content: RuleContentExpr) {
+        self.rule_content = Box::new(rule_content)
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleContentExpr {
+    pub monitor_expr: Box<Option<MonitorExpr>>,
+    pub condition_expr: Box<CondExpr>,
+    pub action_expr: Box<ActExpr>,
+    pub post_processing: Vec<Stmt>,
+}
+
+impl RuleContentExpr {
+    pub fn new(
+        monitor_expr: Option<MonitorExpr>,
+        condition_expr: CondExpr,
+        action_expr: ActExpr,
+        post_processing: Vec<Stmt>,
+    ) -> Self {
+        RuleContentExpr {
+            monitor_expr: Box::new(monitor_expr),
+            condition_expr: Box::new(condition_expr),
+            action_expr: Box::new(action_expr),
+            post_processing: post_processing,
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleContentExpr {
+            monitor_expr: Box::new(None),
+            condition_expr: Box::new(CondExpr::place_holder()),
+            action_expr: Box::new(ActExpr::place_holder()),
+            post_processing: vec![],
+        }
+    }
+    pub fn add_monitor_expr(&mut self, monitor_expr: Option<MonitorExpr>) {
+        self.monitor_expr = Box::new(monitor_expr);
+    }
+    pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
+        self.condition_expr = Box::new(condition_expr);
+    }
+    pub fn add_action_expr(&mut self, action_expr: ActExpr) {
+        self.action_expr = Box::new(action_expr);
+    }
+    pub fn add_post_stmt(&mut self, stmt: Stmt) {
+        self.post_processing.push(stmt);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MonitorExpr {
+    pub monitored_values: Vec<Let>,
+}
+
+impl MonitorExpr {
+    pub fn new(monitored_values: Vec<Let>) -> Self {
+        MonitorExpr {
+            monitored_values: monitored_values,
+        }
+    }
+    pub fn place_holder() -> Self {
+        MonitorExpr {
+            monitored_values: vec![],
+        }
+    }
+    pub fn add_monitor_value(&mut self, monitor_value: Let) {
+        self.monitored_values.push(monitor_value);
+    }
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
@@ -664,27 +733,27 @@ impl CondExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActExpr {
     name: Box<Option<Ident>>,
-    operatable: Box<Stmt>,
+    operatable: Vec<Stmt>,
 }
 
 impl ActExpr {
-    pub fn new(name: Option<Ident>, operatable: Stmt) -> Self {
+    pub fn new(name: Option<Ident>, operatable: Vec<Stmt>) -> Self {
         ActExpr {
             name: Box::new(name),
-            operatable: Box::new(operatable),
+            operatable: operatable,
         }
     }
     pub fn place_holder() -> Self {
         ActExpr {
             name: Box::new(None),
-            operatable: Box::new(Stmt::place_holder()),
+            operatable: vec![],
         }
     }
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
     }
     pub fn add_operatable(&mut self, stmt: Stmt) {
-        self.operatable = Box::new(stmt);
+        self.operatable.push(stmt);
     }
 }
 

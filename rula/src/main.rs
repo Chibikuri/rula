@@ -30,7 +30,9 @@ fn main() {
         .expect("Something went wrong reading the file");
     // parse rula program
     let ast = rula_parser::parse(&contents).unwrap();
-    println!("{:#?}", ast);
+    let rust = rula_exec::codegen::generator::generate(ast).unwrap();
+    println!("{:#?}", rust);
+    // println!("{:#?}", ast);
     if !args.ruleset {
         println!("Generating RuleSet...");
     }
