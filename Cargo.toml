@@ -2,6 +2,7 @@
 
 members = [
     "rula",
+    "rula-lib",
     "rula-parser",
     "rula-exec",
     "mock-hardware"
