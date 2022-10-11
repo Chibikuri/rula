@@ -6,3 +6,7 @@ pub mod hardware {
     use error::HardwareError;
     pub type IResult<T> = std::result::Result<T, HardwareError>;
 }
+
+pub mod software{
+    pub mod resource_allocator;
+}

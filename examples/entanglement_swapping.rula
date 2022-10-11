@@ -35,9 +35,8 @@ rule swapping<qn0, qn1>(distance) {
 
 rule pauli_correction<qnall>(){
     // Should this be qubit address?
-    monitor {
+    monitor:
         let message = get_message(#qnall);
-    }
     cond {
         message.kind == "swapping",
     } => act{
