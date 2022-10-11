@@ -1,4 +1,1 @@
-
-pub struct ResourceAllocator{
-    
-}
+pub struct ResourceAllocator {}

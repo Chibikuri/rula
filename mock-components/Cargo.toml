@@ -1,5 +1,5 @@
 [package]
-name = "mock-hardware"
+name = "mock_components"
 version = "0.1.0"
 edition = "2021"
 description = "Mocked Hardwares"

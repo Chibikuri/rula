@@ -13,6 +13,12 @@ use proc_macro2::{Span, TokenStream};
 use std::sync::Mutex;
 use syn::LitFloat;
 
+// These are used but only in quote! macro
+#[allow(unused_imports)]
+use std::net::SocketAddr;
+#[allow(unused_imports)]
+use mock_components::hardware::result::MeasResult;
+
 // This could be generalized for two different actions
 #[cfg(feature = "gen-v1-ruleset")]
 static RULESET_FORMAT_V1: Lazy<RuleSet<ActionV1>> = Lazy::new(|| {});
@@ -77,8 +83,74 @@ fn generate_program(program: &Program) -> IResult<TokenStream> {
 }
 
 fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
-    // Here, the qnic interface can be mocked out
-    Ok(quote!())
+    let mut interface_names = vec![];
+    for i in &interface.interface {
+        interface_names.push(generate_ident(i).unwrap())
+    }
+    let interface_group_name = match &*interface.group_name {
+        Some(group_name) => generate_ident(&group_name).unwrap(),
+        None => quote!(INTERFACE),
+    };
+
+    Ok(quote!(
+        use once_cell::sync::OnceCell;
+        use std::sync::Mutex;
+        use std::collections::HashMap;
+        use std::net::IpAddr;
+
+        static #interface_group_name: OnceCell<Mutex<InterfaceGroup>> = OnceCell::new();
+
+        #[derive(Debug)]
+        pub struct InterfaceGroup{
+            pub interfaces: HashMap<String, QNicInterface>,
+        }
+
+        impl InterfaceGroup{
+            pub fn new() -> Self{
+                InterfaceGroup{interfaces: HashMap::new()}
+            }
+
+            pub fn add_interface(&mut self, name: &str, interface: QNicInterface){
+                self.interfaces.insert(name.to_string(), interface);
+            }
+        }
+
+        #[derive(Debug)]
+        pub struct QNicInterface{
+            pub message_box: HashMap<RuleIdentifier, Message>,
+            pub qubits: HashMap<u64, QubitInterface>,
+        }
+
+        impl QNicInterface{
+            pub fn new() -> QNicInterface{
+                QNicInterface{
+                    message_box: HashMap::new(),
+                    qubits: HashMap::new()
+                }
+            }
+        }
+        #[derive(Debug)]
+        pub struct Message{
+            pub socket_addr: SocketAddr,
+            pub meas_result: MeasResult,
+        }
+
+        #[derive(Debug)]
+        pub struct RuleIdentifier{
+            pub qnic_address: IpAddr,
+            pub rule_id: u32,
+        }
+
+        #[derive(Debug)]
+        pub struct QubitInterface{
+
+        }
+
+        let interface = #interface_group_name.get_or_init(|| Mutex::new(InterfaceGroup::new()));
+        for inter in vec![#(#interface_names),*]{
+            interface.lock().unwrap().add_interface(inter, QNicInterface::new());
+        }
+    ))
 }
 
 fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionV2>>) -> IResult<TokenStream> {
@@ -673,5 +745,10 @@ mod tests {
         //     "rule hello<qn0>(q2: Qubit){expression}",
         //     test_stream.to_string()
         // );
+    }
+
+    #[test]
+    fn test_interface_generation() {
+        // #interface: {qn0, qn1} => qnall;
     }
 }

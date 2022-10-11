@@ -7,6 +7,6 @@ pub mod hardware {
     pub type IResult<T> = std::result::Result<T, HardwareError>;
 }
 
-pub mod software{
+pub mod software {
     pub mod resource_allocator;
 }
