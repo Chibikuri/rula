@@ -15,20 +15,12 @@ use syn::LitFloat;
 
 // These are used but only in quote! macro
 #[allow(unused_imports)]
-use std::net::SocketAddr;
-#[allow(unused_imports)]
 use mock_components::hardware::result::MeasResult;
-
-// This could be generalized for two different actions
-#[cfg(feature = "gen-v1-ruleset")]
-static RULESET_FORMAT_V1: Lazy<RuleSet<ActionV1>> = Lazy::new(|| {});
-
-// #[cfg(feature = "gen-ruleset")]s
-// static RULESET_FORMAT: Lazy<RuleSet<ActionV2>> = Lazy::new(|| {
-//     RuleSet::<ActionV2>::new("empty_rule")
-// });
+#[allow(unused_imports)]
+use std::net::SocketAddr;
 
 static RULESET_FORMAT: OnceCell<Mutex<RuleSet<ActionV2>>> = OnceCell::new();
+static EVAL_FUNCS: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns piece of TokenStream
@@ -44,13 +36,13 @@ pub fn generate(ast_tree: Vec<AstNode>) -> IResult<TokenStream> {
             }
         }
     }
-    // let msg = format!("RuLa module that includes all functions");
+    // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
-        // #[doc = #msg]
         mod rula{
-            fn main(){
-                #rula_program
-            }
+            #rula_program
+        }
+        pub fn main(){
+
         }
     );
     Ok(rula_token_stream)
@@ -97,6 +89,7 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
         use std::sync::Mutex;
         use std::collections::HashMap;
         use std::net::IpAddr;
+        use mock_components::hardware::qnic::*;
 
         static #interface_group_name: OnceCell<Mutex<InterfaceGroup>> = OnceCell::new();
 
@@ -118,7 +111,7 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
         #[derive(Debug)]
         pub struct QNicInterface{
             pub message_box: HashMap<RuleIdentifier, Message>,
-            pub qubits: HashMap<u64, QubitInterface>,
+            pub qnic: MockQnic,
         }
 
         impl QNicInterface{
@@ -127,6 +120,10 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
                     message_box: HashMap::new(),
                     qubits: HashMap::new()
                 }
+            }
+            pub fn get_free_qubit() -> QubitInterface{
+                /// 0. Look up qubit states
+                QubitInterface{qubit_address:10}
             }
         }
         #[derive(Debug)]
@@ -143,12 +140,14 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
 
         #[derive(Debug)]
         pub struct QubitInterface{
-
+            pub qubit_address: u64,
         }
 
-        let interface = #interface_group_name.get_or_init(|| Mutex::new(InterfaceGroup::new()));
-        for inter in vec![#(#interface_names),*]{
-            interface.lock().unwrap().add_interface(inter, QNicInterface::new());
+        pub fn interface_init(){
+            let interface = #interface_group_name.get_or_init(|| Mutex::new(InterfaceGroup::new()));
+            for inter in vec![#(#interface_names),*]{
+                interface.lock().unwrap().add_interface(inter, QNicInterface::new());
+            }
         }
     ))
 }

@@ -114,6 +114,7 @@ impl<T> Rule<T> {
 pub mod tests {
     use super::super::action::v2::Action as ActionV2;
     use super::*;
+    use mock_components::hardware::qnic::QnicType;
 
     #[test]
     fn test_ruleset_new() {

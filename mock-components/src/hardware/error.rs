@@ -6,6 +6,7 @@ pub enum HardwareError {
     NoQubitFound,
     NoControlQubitFound,
     NoMeasurementFound,
+    QubitAlreadyInUse,
     QubitAlreadyBusy,
     QubitNotBusy,
     InvalidBasis,

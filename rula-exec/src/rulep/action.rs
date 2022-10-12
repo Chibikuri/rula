@@ -1,13 +1,13 @@
-use crate::network::qnic_wrapper::{Interface, QnicType};
+use crate::network::qnic_wrapper::Interface;
 use crate::network::qubit_wrapper::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 
 #[deprecated(since = "0.2.0", note = "These actions are no longer valid.")]
 pub mod v1 {
-
     /// Version 1 actions
     use super::*;
+    use mock_components::hardware::qnic::QnicType;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Action {

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 
+use mock_components::hardware::qnic::QnicType;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Interface {
     // pub partner_address: IpAddr,
@@ -27,14 +29,6 @@ impl Interface {
             qnic_address: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum QnicType {
-    QnicE,
-    QnicP,
-    QnicRp,
-    QnicN, // place holder
 }
 
 #[derive(Debug, PartialEq, Clone)]

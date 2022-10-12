@@ -2,6 +2,7 @@ use super::error::HardwareError;
 use super::qubit::{GateType, MockQubit, QubitInstruction, Returnable};
 use super::result::{MeasBasis, MeasResult, Outcome};
 use super::IResult;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 
@@ -9,15 +10,23 @@ pub struct MockQnic {
     /// `qubits` can only be accessed by proper function calls
     qubits: HashMap<u64, MockQubit>,
     register: HashMap<u64, MeasResult>,
+    /// Index for qubit
     index: u64,
+    /// Basic qnic information.
+    qnic_type: Option<QnicType>,
+    qnic_id: Option<u32>,
+    qnic_address: Option<IpAddr>,
 }
 
 #[derive(Debug)]
 pub enum QnicInstruction {
+    GetQnicInfo,
     /// Free specified qubit
-    FreeQubit(FreeQubit),
+    FreeQubit(QubitAddress),
     /// Get ownership of qubit
-    GetQubit(GetQubit),
+    GetQubit(QubitAddress),
+    /// Get Qubit Status,
+    GetQubitStatus(QubitAddress),
     /// Gate operation
     ApplyGate(ApplyGate),
     /// Measurement operation
@@ -38,12 +47,15 @@ impl MockQnic {
             qubits: HashMap::new(),
             register: HashMap::new(),
             index: 0,
+            qnic_type: None,
+            qnic_id: None,
+            qnic_address: None,
         }
     }
     /// free target qubit so that next rule can use that qubit
-    async fn free(&mut self, free_qubit: &FreeQubit) -> IResult<()> {
-        if MockQnic::exist(self, free_qubit.qubit_address) {
-            let qubit = self.qubits.get_mut(&free_qubit.qubit_address).unwrap();
+    async fn free(&mut self, free_qubit: &QubitAddress) -> IResult<()> {
+        if MockQnic::exist(self, free_qubit.address) {
+            let qubit = self.qubits.get_mut(&free_qubit.address).unwrap();
             qubit
                 .call_instruction(QubitInstruction::SetFree)
                 .await
@@ -55,9 +67,9 @@ impl MockQnic {
     }
 
     /// get qubit and reserve it for later use (Here is just a mock, nothing is happening)
-    async fn get(&mut self, get_qubit: &GetQubit) -> IResult<()> {
-        if MockQnic::exist(self, get_qubit.qubit_address) {
-            let qubit = self.qubits.get_mut(&get_qubit.qubit_address).unwrap();
+    async fn get(&mut self, get_qubit: &QubitAddress) -> IResult<()> {
+        if MockQnic::exist(self, get_qubit.address) {
+            let qubit = self.qubits.get_mut(&get_qubit.address).unwrap();
             qubit
                 .call_instruction(QubitInstruction::SetBusy)
                 .await
@@ -228,12 +240,25 @@ impl MockQnic {
         }
     }
 
+    async fn info(&mut self) -> IResult<QnicInfo> {
+        Ok(QnicInfo::new(
+            self.qnic_type.clone(),
+            self.qnic_id,
+            self.qnic_address,
+            self.qubits.len() as u32,
+        ))
+    }
+
     // using trait object would be easier?
     pub async fn call_instruction(
         &mut self,
         instruction: QnicInstruction,
     ) -> IResult<QnicReturnable> {
         match instruction {
+            QnicInstruction::GetQnicInfo => {
+                let qnic_info = MockQnic::info(self).await.unwrap();
+                Ok(QnicReturnable::QnicInfo(qnic_info))
+            }
             QnicInstruction::FreeQubit(free_qubit) => {
                 MockQnic::free(self, &free_qubit).await.unwrap();
                 Ok(QnicReturnable::None)
@@ -279,17 +304,45 @@ impl MockQnic {
 #[derive(Debug, PartialEq)]
 pub enum QnicReturnable {
     MeasResult(MeasResult),
+    QnicInfo(QnicInfo),
     None,
 }
 
-#[derive(Debug)]
-pub struct FreeQubit {
-    pub qubit_address: u64,
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum QnicType {
+    QnicE,
+    QnicP,
+    QnicRp,
+    QnicN, // place holder
 }
 
-#[derive(Debug)]
-pub struct GetQubit {
-    pub qubit_address: u64,
+#[derive(Debug, PartialEq)]
+pub struct QnicInfo {
+    pub qnic_type: Option<QnicType>,
+    pub qnic_id: Option<u32>,
+    pub qnic_address: Option<IpAddr>,
+    pub num_qubit: u32,
+}
+
+impl QnicInfo {
+    pub fn new(
+        qnic_type: Option<QnicType>,
+        qnic_id: Option<u32>,
+        qnic_address: Option<IpAddr>,
+        num_qubit: u32,
+    ) -> Self {
+        QnicInfo {
+            qnic_type: qnic_type,
+            qnic_id: qnic_id,
+            qnic_address: qnic_address,
+            num_qubit: num_qubit,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct QubitAddress {
+    pub address: u64,
 }
 
 #[derive(Debug)]
@@ -345,7 +398,7 @@ pub mod tests {
         let mock_qubit = MockQubit::new(0);
         qnic.append_qubits(mock_qubit);
         // Get qubit to make it busy
-        let set_busy_instruction = QnicInstruction::GetQubit(GetQubit { qubit_address: 0 });
+        let set_busy_instruction = QnicInstruction::GetQubit(QubitAddress { address: 0 });
         qnic.call_instruction(set_busy_instruction).await.unwrap();
         let target = qnic.qubits.get(&0).unwrap();
         assert_eq!(target.busy, true);
@@ -360,12 +413,12 @@ pub mod tests {
         let target = qnic.qubits.get(&0).unwrap();
         assert_eq!(target.busy, false);
 
-        let set_busy_instruction = QnicInstruction::GetQubit(GetQubit { qubit_address: 0 });
+        let set_busy_instruction = QnicInstruction::GetQubit(QubitAddress { address: 0 });
         qnic.call_instruction(set_busy_instruction).await.unwrap();
         let updated_target = qnic.qubits.get(&0).unwrap();
         assert_eq!(updated_target.busy, true);
 
-        let set_free_instruction = QnicInstruction::FreeQubit(FreeQubit { qubit_address: 0 });
+        let set_free_instruction = QnicInstruction::FreeQubit(QubitAddress { address: 0 });
         qnic.call_instruction(set_free_instruction).await.unwrap();
         let updated_target = qnic.qubits.get(&0).unwrap();
         assert_eq!(updated_target.busy, false);

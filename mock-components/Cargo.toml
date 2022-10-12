@@ -8,3 +8,4 @@ description = "Mocked Hardwares"
 
 [dependencies]
 tokio = {version = "1.20.1", features = ["full"]}
+serde = "1.0"
