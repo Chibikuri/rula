@@ -1,16 +1,23 @@
-
+import std::qubit::free;
+import std::time::time;
+import std::message::{Message, get_message};
+import std::result::Result;
+import std::operations::bsm;
 
 // automatic assignment for qnic interfaces
 #interface: {qn0, qn1} => qnall;
 
 // This can also be defined by toml file
-// CONF includes node specific variables
-//#def: CONF = {
-//    distance = [1, 1, 1, 1, 1],
-//}
+// CONFIG includes node specific variables
+CONFIG = {
+    num_node: 5,
+    distance: [0, 1, 1, 1, 0],
+    target: initiator,
+}
 
 rule default<qn0>() {
 	cond{
+        time() - qubit.initiated() > 0.0003,
 	} => act{
 		free(q);
 	}
@@ -21,42 +28,37 @@ rule swapping<qn0, qn1>(distance) {
         let q1 = qn0.get_free_qubit(1, qn0.get_partner_by_hop(distance));
         let q2 = qn1.get_free_qubit(1, qn1.get_partner_by_hop(distance));
     cond {
-        // How to ensure these qubits have the proper partners?
-        // -> This can be given by external parameter
         q1.ready(),
         q2.ready(),
     } => act{
-        let message = Message(kind="swapping", src=qn0, dest=qn0.get_partner_by_hop(distance));
-        result["qubit_address"] = q1.address;
+        let message = Message(kind="swapping", src=qn0, dst=qn0.get_partner_by_hop(distance));
+        let result = Result(q1);
         result["meas_result"] = bsm(q1, q2);
-        message["body"] = result;
+        message.append_body(result);
         send(message);
     }
 }
 
-rule pauli_correction<qnall>(){
-    // Should this be qubit address?
+rule pauli_correction<qn0>(){
     monitor:
-        let message = get_message(#qnall);
+        let message = qnall.get_message();
     cond {
         message.kind == "swapping",
     } => act{
-        // lookup qubit by partner address
-        let qubit = lookup_qubit(message.src, message.body.qubit_address);
-        let target_qubit = lookup_by_index(#qnall, qubit_index);
+        let target_qubit = qn0.get_qubit_by_partner(message.src, message.body.result.qubit_address);
         match result: message.result.meas_result{
             (result == "00") => {},
-            (result == "01") => {pauli_z(target_qubit)},
-            (result == "10") => {pauli_x(target_qubit)},
-            (result == "11") => {pauli_z(target_qubit), pauli_x(target_qubit)},
+            (result == "01") => {target_qubit.z()},
+            (result == "10") => {target_qubit.x()},
+            (result == "11") => {target_qubit.z(), target_qubit.x()},
             finally => {free(target_qubit)}
         }
     }
 }
 
 
-ruleset(CONF) entanglement_swapping{
+ruleset(CONFIG) entanglement_swapping{
     default: default()
-    swapping(CONF.distance);
+    swapping(CONFIG.distance, CONFIG.destination);
     pauli_correction();
 }

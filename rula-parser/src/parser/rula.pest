@@ -74,7 +74,7 @@ rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ "{" ~ rule_co
 // Should have better way to do preprocessing
 rule_contents = {monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)*}
 
-monitor_expr = {^"monitor:" ~ (let_stmt)* }
+monitor_expr = {^"watch:" ~ (let_stmt)* }
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
 cond_expr = { ^"cond" ~ ident? ~ "{" ~ stmt? ~ ("," ~ stmt)* ~ ","? ~ "}" }
@@ -165,6 +165,7 @@ complex_type = { ( "c64" | "c128" ) }
 boolean_type = { "bool" }
 string_type = { "str" }
 qubit_type = { "Qubit" }
+reserved_words = { "OR" }
  
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" ) }
