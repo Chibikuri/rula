@@ -2,13 +2,13 @@
 rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 
 // Program endpoing
-program = { interface_def? ~ ( stmt )* }
+program = { ( stmt )* }
+
+// Statement includes {let, braced statement, expression}
+stmt = {interface_def| let_stmt | brace_stmt | expr }
 
 // Interface_def 
 interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
-
-// Statement includes {let, braced statement, expression}
-stmt = { let_stmt | brace_stmt | expr }
 
 // Variable assignment
 let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ expr )? ~ ";" }

@@ -14,12 +14,25 @@ mod interface_tests {
         let interface_def = "#interface: {qn0, qn1};";
         let interface_def_ast = rula_parser::parse(interface_def).unwrap();
         let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-            ProgramKind::Interface(Interface::new(
+            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
                 vec![Ident::new("qn0", None), Ident::new("qn1", None)],
                 None,
-            )),
+            )))),
         ))))];
         assert_eq!(interface_def_ast, target_ast_nodes);
+    }
+
+    #[test]
+    fn test_interface_def_with_group_name() {
+        let interface_def = "#interface: {qn0, qn1} => qnall;";
+        let interface_def_ast = rula_parser::parse(interface_def).unwrap();
+        let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
+                vec![Ident::new("qn0", None), Ident::new("qn1", None)],
+                Some(Ident::new("qnall", None)),
+            )))),
+        ))))];
+        assert_eq!(interface_def_ast, target_ast_nodes)
     }
 }
 

@@ -79,7 +79,6 @@ fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
 fn generate_program(program: &Program) -> IResult<TokenStream> {
     match &*program.kind {
         ProgramKind::Stmt(stmt) => Ok(generate_stmt(&stmt, None).unwrap()),
-        ProgramKind::Interface(interface) => Ok(generate_interface(interface).unwrap()),
     }
 }
 
@@ -171,6 +170,7 @@ fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionClauses>>) -> IResult
                 let mut #identifier = #expr;
             ))
         }
+        StmtKind::Interface(interface) => Ok(generate_interface(&interface).unwrap()),
         StmtKind::Expr(expr) => Ok(generate_expr(&expr, rule).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),

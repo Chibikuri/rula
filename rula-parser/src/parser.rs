@@ -46,9 +46,6 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
 // Parse program <-> statement
 fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
     match pair.as_rule() {
-        Rule::interface_def => Ok(Program::new(ProgramKind::Interface(
-            build_ast_from_interface(pair.into_inner().next().unwrap()).unwrap(),
-        ))),
         Rule::stmt => Ok(Program::new(ProgramKind::Stmt(
             build_ast_from_stmt(pair.into_inner().next().unwrap()).unwrap(),
         ))),
@@ -58,27 +55,31 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
 
 fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
     let mut interface = Interface::place_holder();
-    match pair.as_rule() {
-        Rule::ident_list => {
-            // interface list
-            for interface_name in pair.into_inner() {
-                interface.add_interface(build_ast_from_ident(interface_name).unwrap());
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident_list => {
+                // interface list
+                for interface_name in block.into_inner() {
+                    interface.add_interface(build_ast_from_ident(interface_name).unwrap());
+                }
             }
+            Rule::ident => {
+                // group name
+                interface.add_name(Some(build_ast_from_ident(block).unwrap()))
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
         }
-        Rule::ident => {
-            // group name
-            interface.add_name(Some(
-                build_ast_from_ident(pair.into_inner().next().unwrap()).unwrap(),
-            ))
-        }
-        _ => return Err(RuLaError::RuLaSyntaxError),
     }
+
     Ok(interface)
 }
 
 // Parse statement <--> {Let statement | expression}
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
+        Rule::interface_def => Ok(Stmt::new(StmtKind::Interface(
+            build_ast_from_interface(pair).unwrap(),
+        ))),
         Rule::let_stmt => Ok(Stmt::new(StmtKind::Let(
             build_ast_from_let_stmt(pair).unwrap(),
         ))),

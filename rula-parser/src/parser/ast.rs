@@ -71,7 +71,6 @@ impl Program {
 // Not program can only include a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProgramKind {
-    Interface(Interface),
     Stmt(Stmt),
 }
 
@@ -126,6 +125,7 @@ impl Stmt {
 pub enum StmtKind {
     Let(Let),
     Expr(Expr),
+    Interface(Interface),
     PlaceHolder, // For initialization use
 }
 
