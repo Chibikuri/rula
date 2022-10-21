@@ -3,29 +3,30 @@ use crate::network::qubit_wrapper::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Action<T> {
+    pub name: Option<String>,
+    pub clauses: Vec<T>,
+}
+
+impl<T> Action<T> {
+    pub fn new(action_name: Option<String>) -> Self {
+        Action {
+            name: action_name,
+            clauses: vec![],
+        }
+    }
+    pub fn add_action_clause(&mut self, action_clause: T) {
+        self.clauses.push(action_clause);
+    }
+}
+
 #[deprecated(since = "0.2.0", note = "These actions are no longer valid.")]
 pub mod v1 {
     /// Version 1 actions
     use super::*;
     use mock_components::hardware::qnic::QnicType;
 
-    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Action {
-        pub name: Option<String>,
-        pub clauses: Vec<ActionClausesV1>,
-    }
-
-    impl Action {
-        pub fn new(action_name: Option<String>) -> Self {
-            Action {
-                name: action_name,
-                clauses: vec![],
-            }
-        }
-        pub fn add_action_clause(&mut self, action_clause: ActionClausesV1) {
-            self.clauses.push(action_clause);
-        }
-    }
     // old version of action clauses
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum ActionClausesV1 {
@@ -276,26 +277,7 @@ pub mod v1 {
 // Version 2 (Base actions)
 
 pub mod v2 {
-
     use super::*;
-
-    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Action {
-        pub name: Option<String>,
-        pub clauses: Vec<ActionClauses>,
-    }
-
-    impl Action {
-        pub fn new(action_name: Option<String>) -> Self {
-            Action {
-                name: action_name,
-                clauses: vec![],
-            }
-        }
-        pub fn add_action_clause(&mut self, action_clause: ActionClauses) {
-            self.clauses.push(action_clause);
-        }
-    }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum ActionClauses {

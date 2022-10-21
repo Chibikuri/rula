@@ -4,12 +4,15 @@ use uuid::{uuid, Uuid};
 
 use super::condition::*;
 use crate::network::qnic_wrapper::*;
+use crate::rulep::action::Action;
 
-fn generate_id() -> Uuid {
+fn generate_id() -> u128 {
     if cfg!(test) {
-        uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
+        1234567890
+        // uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
     } else {
-        Uuid::new_v4()
+        9876543210
+        // Uuid::new_v4()
     }
 }
 
@@ -19,15 +22,24 @@ pub struct RuleSet<T> {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
     /// Unique identifier for thie RuleSet. (This could be kept in private)
-    pub id: Uuid,
+    pub id: u128,
     /// Owner address can only be solved after the all network interface options are collected
-    pub owner_addr: Option<IpAddr>,
+    pub owner_addr: Option<AddressKind>,
     /// Default rule to be applied
     pub default_rule: Option<Rule<T>>,
     /// List of rules stored in this RuleSet
     pub rules: Vec<Rule<T>>,
     /// To give index to the rules sequentially
     rule_index: u32,
+}
+
+// For generating RuleSet for simulator or real world devices,
+// owner address will return integer value or ip address
+// This might be deprecated in the future
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum AddressKind {
+    IntegerKind(i32),
+    IpKind(IpAddr),
 }
 
 impl<T> RuleSet<T> {
@@ -44,6 +56,10 @@ impl<T> RuleSet<T> {
 
     pub fn update_name(&mut self, name: &str) {
         self.name = name.to_string();
+    }
+
+    pub fn update_owner_addr(&mut self, owner_addr: Option<AddressKind>) {
+        self.owner_addr = owner_addr;
     }
 
     pub fn add_default_rule(&mut self, rule: Option<Rule<T>>) {
@@ -65,12 +81,13 @@ pub struct Rule<T> {
     pub id: u32,
     /// Identifier for partner rules
     pub shared_tag: u32,
-    /// Interface information
+    /// Interface information (will be deprecated)
+    #[deprecated(since = "0.2.0", note = "old version ruleset")]
     pub qnic_interfaces: Option<Vec<Interface>>,
     /// A list of conditions to be met
     pub condition: Condition,
     /// A list of actions to be acted
-    pub actions: Vec<T>,
+    pub action: Action<T>,
     /// Next rule
     pub next_rule_id: u32,
     /// If this is the final rule or not
@@ -85,7 +102,7 @@ impl<T> Rule<T> {
             id: 0,
             shared_tag: 0,
             condition: Condition::new(None),
-            actions: vec![],
+            action: Action::new(None),
             next_rule_id: 0,
             is_finalized: false,
         }
@@ -93,8 +110,8 @@ impl<T> Rule<T> {
     pub fn set_condition(&mut self, condition: Condition) {
         self.condition = condition;
     }
-    pub fn add_action(&mut self, action: T) {
-        self.actions.push(action);
+    pub fn add_action(&mut self, action: Action<T>) {
+        self.action = action;
     }
     pub fn update_id(&mut self, new_id: u32) {
         self.id = new_id;
@@ -112,24 +129,22 @@ impl<T> Rule<T> {
 
 #[cfg(test)]
 pub mod tests {
-    use super::super::action::v2::Action as ActionV2;
+    use super::super::action::v2::ActionClauses;
+    use super::super::action::Action;
     use super::*;
     use mock_components::hardware::qnic::QnicType;
 
     #[test]
     fn test_ruleset_new() {
-        let ruleset = RuleSet::<ActionV2>::new("test");
+        let ruleset = RuleSet::<Action<ActionClauses>>::new("test");
         assert_eq!(ruleset.name, String::from("test"));
-        assert_eq!(
-            ruleset.id.to_string(),
-            "67e55044-10b1-426f-9247-bb680e5fe0c8"
-        );
+        assert_eq!(ruleset.id.to_string(), "1234567890");
         assert_eq!(ruleset.rules.len(), 0);
     }
 
     #[test]
     fn test_ruleset_add_rule() {
-        let mut ruleset = RuleSet::<ActionV2>::new("test");
+        let mut ruleset = RuleSet::<ActionClauses>::new("test");
         let rule = Rule::new("rule1");
         ruleset.add_rule(rule);
         assert_eq!(ruleset.rules.len(), 1);
@@ -142,11 +157,11 @@ pub mod tests {
 
     #[test]
     fn test_rule_new() {
-        let rule = Rule::<ActionV2>::new("test");
+        let rule = Rule::<ActionClauses>::new("test");
         assert_eq!(rule.name, String::from("test"));
         assert_eq!(rule.id, 0);
         assert_eq!(rule.condition, Condition::new(None));
-        assert_eq!(rule.actions.len(), 0);
+        assert_eq!(rule.action, Action::<ActionClauses>::new(None));
         assert_eq!(rule.next_rule_id, 0);
         assert_eq!(rule.shared_tag, 0);
         assert_eq!(rule.is_finalized, false);
@@ -154,13 +169,13 @@ pub mod tests {
 
     #[test]
     fn test_rule_add_condition_and_action() {
-        let mut rule = Rule::new("test");
+        let mut rule = Rule::<ActionClauses>::new("test");
         let condition = Condition::new(None);
-        let action = ActionV2::new(None);
+        let action = Action::new(None);
         rule.set_condition(condition);
         rule.add_action(action);
         assert_eq!(rule.condition, Condition::new(None));
-        assert_eq!(rule.actions.len(), 1);
+        assert_eq!(rule.action, Action::new(None));
     }
 
     #[test]

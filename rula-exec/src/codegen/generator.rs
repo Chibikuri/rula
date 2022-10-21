@@ -2,7 +2,8 @@
 use super::error::*;
 use super::IResult;
 
-use crate::rulep::action::v2::Action as ActionV2;
+use crate::rulep::action::v2::ActionClauses;
+use crate::rulep::action::Action;
 
 use crate::rulep::condition::Condition;
 use crate::rulep::ruleset::{Rule, RuleSet};
@@ -19,7 +20,7 @@ use mock_components::hardware::result::MeasResult;
 #[allow(unused_imports)]
 use std::net::SocketAddr;
 
-static RULESET_FORMAT: OnceCell<Mutex<RuleSet<ActionV2>>> = OnceCell::new();
+static RULESET_FORMAT: OnceCell<Mutex<RuleSet<ActionClauses>>> = OnceCell::new();
 static EVAL_FUNCS: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
@@ -121,7 +122,7 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
                     qubits: HashMap::new()
                 }
             }
-            pub fn get_free_qubit() -> QubitInterface{
+            pub fn request_resource() -> QubitInterface{
                 /// 0. Look up qubit states
                 QubitInterface{qubit_address:10}
             }
@@ -152,7 +153,7 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     ))
 }
 
-fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionV2>>) -> IResult<TokenStream> {
+fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
     match &*stmt.kind {
         StmtKind::Let(let_stmt) => {
             // struct Let {ident, expr}
@@ -168,7 +169,7 @@ fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionV2>>) -> IResult<Toke
         )),
     }
 }
-pub fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionV2>>) -> IResult<TokenStream> {
+pub fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
         ExprKind::If(if_expr) => Ok(generate_if(&if_expr).unwrap()),
@@ -391,7 +392,7 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // generate portable format with rule information
     let ruleset_name = &*ruleset_expr.name.name;
     let glob_ruleset =
-        RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionV2>::new("ruleset")));
+        RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
     // }
     Ok(quote!())
@@ -401,8 +402,9 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name = &*rule_expr.name;
     let rule_token = generate_ident(rule_name).unwrap();
 
-    let ruleset = RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionV2>::new("ruleset")));
-    let mut rule = Rule::<ActionV2>::new(&rule_name.name);
+    let ruleset =
+        RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
+    let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
 
     // for stmt in &rule_expr.rule_content {
     //     generate_stmt(&stmt, Some(&mut rule)).unwrap();
@@ -415,7 +417,10 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     ))
 }
 
-fn generate_cond(cond_expr: &CondExpr, rule: Option<&mut Rule<ActionV2>>) -> IResult<TokenStream> {
+fn generate_cond(
+    cond_expr: &CondExpr,
+    rule: Option<&mut Rule<ActionClauses>>,
+) -> IResult<TokenStream> {
     let condition = Condition::new(None);
     for clause in &cond_expr.clauses {}
     match rule {
@@ -425,7 +430,10 @@ fn generate_cond(cond_expr: &CondExpr, rule: Option<&mut Rule<ActionV2>>) -> IRe
     Ok(quote!())
 }
 
-fn generate_act(act_expr: &ActExpr, rule: Option<&mut Rule<ActionV2>>) -> IResult<TokenStream> {
+fn generate_act(
+    act_expr: &ActExpr,
+    rule: Option<&mut Rule<ActionClauses>>,
+) -> IResult<TokenStream> {
     Ok(quote!())
 }
 fn generate_array(array_expr: &Array) -> IResult<TokenStream> {

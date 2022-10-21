@@ -4,12 +4,13 @@ use std::io::Write;
 use std::net::Ipv4Addr;
 use std::process::Command;
 
-use super::action::v2::Action as ActionV2;
+use super::action::v2::ActionClauses;
+use super::action::Action;
 use super::ruleset::RuleSet;
 use super::IResult;
 use rula_parser::parser::ast::*;
 
-pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<ActionV2>> {
+pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<Action<ActionClauses>>> {
     // generate ruleset from rule_expr
     let ruleset_name = &*ruleset.name.name;
     let default_rule = match &*ruleset.default {
@@ -84,9 +85,9 @@ mod tests {
             ],
         );
 
-        let mut target_ruleset = RuleSet::<ActionV2>::new("entanglement_swapping");
-        target_ruleset.add_rule(Rule::<ActionV2>::new("swappping"));
-        target_ruleset.add_rule(Rule::<ActionV2>::new("pauli_correction"));
+        let mut target_ruleset = RuleSet::<Action<ActionClauses>>::new("entanglement_swapping");
+        target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("swappping"));
+        target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("pauli_correction"));
         let generated_ruleset = generate_ruleset(&test_ruleset).unwrap();
         // assert_eq!(target_ruleset, generated_ruleset);
         // assert_eq!(&generated_ruleset.rules[0].name, "swapping");

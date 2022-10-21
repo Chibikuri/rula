@@ -32,7 +32,7 @@ mod rula {
                 qubits: HashMap::new(),
             }
         }
-        pub fn get_free_qubit() -> QubitInterface {
+        pub fn request_resource() -> QubitInterface {
             #[doc = r" 0. Look up qubit states"]
             QubitInterface { qubit_address: 10 }
         }
