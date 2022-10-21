@@ -74,7 +74,7 @@ mod import_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
         let target_rust = "mod rula { use hello ; } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
@@ -88,7 +88,7 @@ mod import_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
         let target_rust = "mod rula { use hello :: world ; } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
@@ -105,7 +105,7 @@ mod import_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_paths))),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
         let target_rust =
             "mod rula { use hello :: world ; use hello :: there ; } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
@@ -136,7 +136,7 @@ mod if_ast_to_rust_tests {
                 None,
             )),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
         let target_rust = "mod rula { if block { expression } } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
         // Printing out this make an error
@@ -156,7 +156,7 @@ mod interface_to_rust_tests {
             )),
         ))))];
 
-        let generated_rust = generate(interface_ast).unwrap();
+        let (generated_rust, _) = generate(interface_ast, false).unwrap();
         let target_rust = get_correct_file_tokens("interface_def.rs");
         // assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]

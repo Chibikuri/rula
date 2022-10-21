@@ -36,8 +36,11 @@ pub struct RuleSet<T> {
 // For generating RuleSet for simulator or real world devices,
 // owner address will return integer value or ip address
 // This might be deprecated in the future
+// Note: This can be a generic type, but in the generator, the RuleSet is called
+// as a global singleton. For that purpose, this enum is defined.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum AddressKind {
+    // For connection to the simulator
     IntegerKind(i32),
     IpKind(IpAddr),
 }

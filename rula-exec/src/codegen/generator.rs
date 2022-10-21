@@ -20,12 +20,15 @@ use mock_components::hardware::result::MeasResult;
 #[allow(unused_imports)]
 use std::net::SocketAddr;
 
-static RULESET_FORMAT: OnceCell<Mutex<RuleSet<ActionClauses>>> = OnceCell::new();
-static EVAL_FUNCS: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
+type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
+static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns piece of TokenStream
-pub fn generate(ast_tree: Vec<AstNode>) -> IResult<TokenStream> {
+pub fn generate(
+    ast_tree: Vec<AstNode>,
+    with_ruleset: bool,
+) -> IResult<(TokenStream, Option<&'static MutexRuleSet>)> {
     let mut rula_program = quote!();
     for ast_node in ast_tree {
         match ast_node {
@@ -46,7 +49,12 @@ pub fn generate(ast_tree: Vec<AstNode>) -> IResult<TokenStream> {
 
         }
     );
-    Ok(rula_token_stream)
+    if with_ruleset {
+        let ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
+        Ok((rula_token_stream, Some(ruleset)))
+    } else {
+        Ok((rula_token_stream, None))
+    }
 }
 
 fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
@@ -391,8 +399,7 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // if cfg!(feature = "gen-ruleset") {
     // generate portable format with rule information
     let ruleset_name = &*ruleset_expr.name.name;
-    let glob_ruleset =
-        RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
+    let glob_ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
     // }
     Ok(quote!())
@@ -402,8 +409,7 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name = &*rule_expr.name;
     let rule_token = generate_ident(rule_name).unwrap();
 
-    let ruleset =
-        RULESET_FORMAT.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
+    let ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
 
     // for stmt in &rule_expr.rule_content {

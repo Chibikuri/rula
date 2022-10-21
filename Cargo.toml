@@ -5,5 +5,6 @@ members = [
     "rula-lib",
     "rula-parser",
     "rula-exec",
-    "mock-components"
+    "mock-components",
+    "tests-rulesetgen"
 ]
