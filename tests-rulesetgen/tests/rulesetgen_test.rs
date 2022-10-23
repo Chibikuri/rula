@@ -1,14 +1,8 @@
-use rula_exec::codegen::generator::*;
-use rula_parser::parser::ast::*;
-use rula_exec::rulep::ruleset::RuleSet;
-use rula_exec::rulep::action::Action;
 use rula_exec::rulep::action::v2::ActionClauses;
+use rula_exec::rulep::ruleset::RuleSet;
 
 use std::fs::File;
 use std::io::Read;
-use std::sync::Mutex;
-
-
 
 // E2E test for generating swapping RuleSet
 #[cfg(test)]
@@ -26,13 +20,16 @@ mod generate_swapping_ruleset {
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
         let ast = rula_parser::parse(&contents).unwrap();
-        
+        println!("{:#?}", &ast);
+
         // 2. generate ruleset (provide ruleset flag)
         let (_, ruleset) = rula_exec::codegen::generator::generate(ast, true).unwrap();
         let target_ruleset = RuleSet::<ActionClauses>::new("entanglement_swapping");
-        match ruleset{
-            Some(ruleset_contents) => {assert_eq!(target_ruleset, ruleset_contents.lock().unwrap().clone())}
-            None => panic!("No ruleset found in the test")
+        match ruleset {
+            Some(ruleset_contents) => {
+                assert_eq!(target_ruleset, ruleset_contents.lock().unwrap().clone())
+            }
+            None => panic!("No ruleset found in the test"),
         }
     }
 }

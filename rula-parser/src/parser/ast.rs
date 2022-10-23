@@ -57,14 +57,20 @@ pub enum RuLaKind {
 // Second layer AST called program and store a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
-    pub kind: Box<ProgramKind>, // Program Kind expr
+    pub programs: Vec<ProgramKind>, // Program Kind expr
 }
 
 impl Program {
-    pub fn new(program: ProgramKind) -> Program {
-        return Program {
-            kind: Box::new(program),
-        };
+    pub fn new(programs: Vec<ProgramKind>) -> Self {
+        Program { programs: programs }
+    }
+
+    pub fn place_holder() -> Self {
+        Program { programs: vec![] }
+    }
+
+    pub fn add_program(&mut self, program: ProgramKind) {
+        self.programs.push(program);
     }
 }
 

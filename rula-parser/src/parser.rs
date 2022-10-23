@@ -34,7 +34,7 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
                 return Ok(RuLa::ignore());
             } else {
                 return Ok(RuLa::new(RuLaKind::Program(
-                    build_ast_from_program(pair.into_inner().next().unwrap()).unwrap(),
+                    build_ast_from_program(pair).unwrap(),
                 )));
             }
         }
@@ -45,12 +45,16 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
 
 // Parse program <-> statement
 fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
-    match pair.as_rule() {
-        Rule::stmt => Ok(Program::new(ProgramKind::Stmt(
-            build_ast_from_stmt(pair.into_inner().next().unwrap()).unwrap(),
-        ))),
-        _ => Err(RuLaError::RuLaSyntaxError),
+    let mut program = Program::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::stmt => program.add_program(ProgramKind::Stmt(
+                build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap(),
+            )),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
     }
+    Ok(program)
 }
 
 fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {

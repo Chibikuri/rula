@@ -77,9 +77,12 @@ fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
 }
 
 fn generate_program(program: &Program) -> IResult<TokenStream> {
-    match &*program.kind {
-        ProgramKind::Stmt(stmt) => Ok(generate_stmt(&stmt, None).unwrap()),
+    for program_block in &program.programs {
+        match program_block {
+            ProgramKind::Stmt(stmt) => return Ok(generate_stmt(&stmt, None).unwrap()),
+        }
     }
+    Ok(quote!())
 }
 
 fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
@@ -396,12 +399,11 @@ fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
 
 fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // Generate RuleSet
-    // if cfg!(feature = "gen-ruleset") {
     // generate portable format with rule information
     let ruleset_name = &*ruleset_expr.name.name;
     let glob_ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
+    println!("ruleset name s{:#?}", ruleset_name);
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
-    // }
     Ok(quote!())
 }
 

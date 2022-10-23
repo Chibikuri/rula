@@ -88,7 +88,7 @@ mod tests {
         let mut target_ruleset = RuleSet::<Action<ActionClauses>>::new("entanglement_swapping");
         target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("swappping"));
         target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("pauli_correction"));
-        let generated_ruleset = generate_ruleset(&test_ruleset).unwrap();
+        let _generated_ruleset = generate_ruleset(&test_ruleset).unwrap();
         // assert_eq!(target_ruleset, generated_ruleset);
         // assert_eq!(&generated_ruleset.rules[0].name, "swapping");
         // assert_eq!(&generated_ruleset.rules[1].name, "pauli_correction");

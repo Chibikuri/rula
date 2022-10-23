@@ -2,9 +2,9 @@ extern crate rula_parser;
 
 use rula_parser::parser::ast::*;
 fn build_stmt_ast(statement: Stmt) -> AstNode {
-    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
         ProgramKind::Stmt(statement),
-    ))))
+    ]))))
 }
 
 mod interface_tests {
@@ -14,10 +14,9 @@ mod interface_tests {
         let interface_def = "#interface: {qn0, qn1};";
         let interface_def_ast = rula_parser::parse(interface_def).unwrap();
         let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
-                vec![Ident::new("qn0", None), Ident::new("qn1", None)],
-                None,
-            )))),
+            vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
+                Interface::new(vec![Ident::new("qn0", None), Ident::new("qn1", None)], None),
+            )))],
         ))))];
         assert_eq!(interface_def_ast, target_ast_nodes);
     }
@@ -27,10 +26,12 @@ mod interface_tests {
         let interface_def = "#interface: {qn0, qn1} => qnall;";
         let interface_def_ast = rula_parser::parse(interface_def).unwrap();
         let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
-                vec![Ident::new("qn0", None), Ident::new("qn1", None)],
-                Some(Ident::new("qnall", None)),
-            )))),
+            vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
+                Interface::new(
+                    vec![Ident::new("qn0", None), Ident::new("qn1", None)],
+                    Some(Ident::new("qnall", None)),
+                ),
+            )))],
         ))))];
         assert_eq!(interface_def_ast, target_ast_nodes)
     }
@@ -384,6 +385,7 @@ mod if_tests {
                 RuLa::new(
                     RuLaKind::Program(
                         Program::new(
+                            vec![
                             ProgramKind::Stmt(
                                 Stmt::new(
                                     StmtKind::Expr(
@@ -448,6 +450,7 @@ mod if_tests {
                                     )
                                 )
                             )
+                            ]
                         )
                     )
                 )
@@ -466,6 +469,7 @@ mod if_tests {
                 RuLa::new(
                     RuLaKind::Program(
                         Program::new(
+                            vec![
                             ProgramKind::Stmt(
                                 Stmt::new(
                                     StmtKind::Expr(
@@ -548,6 +552,7 @@ mod if_tests {
                                     )
                                 )
                             )
+                            ]
                         )
                     )
                 )

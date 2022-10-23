@@ -59,9 +59,9 @@ pub fn get_correct_file_tokens(file_name: &str) -> String {
 }
 
 fn build_stmt_ast(statement: Stmt) -> AstNode {
-    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
         ProgramKind::Stmt(statement),
-    ))))
+    ]))))
 }
 
 mod import_ast_to_rust_tests {
@@ -150,10 +150,12 @@ mod interface_to_rust_tests {
     #[test]
     fn test_simple_interface_expr() {
         let interface_ast = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
-                vec![Ident::new("qn0", None)],
-                Some(Ident::new("INTERFACE", None)),
-            )))),
+            vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
+                Interface::new(
+                    vec![Ident::new("qn0", None)],
+                    Some(Ident::new("INTERFACE", None)),
+                ),
+            )))],
         ))))];
 
         let (generated_rust, _) = generate(interface_ast, false).unwrap();
