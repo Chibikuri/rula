@@ -190,6 +190,7 @@ pub fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IRe
         ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(&fn_call_expr).unwrap()),
         ExprKind::Struct(struct_expr) => Ok(generate_struct(&struct_expr).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(&return_expr).unwrap()),
+        ExprKind::Match(match_expr) => Ok(generate_match(&match_expr).unwrap()),
         ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr).unwrap()),
         ExprKind::RuleSetExpr(ruleset_expr) => Ok(generate_ruleset_expr(&ruleset_expr).unwrap()),
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(&rule_expr).unwrap()),
@@ -381,6 +382,11 @@ fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
         return #expr;
     ))
 }
+
+fn generate_match(match_expr: &Match) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+
 fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
     let lhs = generate_expr(&comp_expr.lhs, None).unwrap();
     let rhs = generate_expr(&comp_expr.rhs, None).unwrap();

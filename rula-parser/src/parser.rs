@@ -176,6 +176,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::return_expr => Ok(Expr::new(ExprKind::Return(
             build_ast_from_return_expr(pair).unwrap(),
         ))),
+        Rule::match_expr => Ok(Expr::new(ExprKind::Match(
+            build_ast_from_match_expr(pair).unwrap(),
+        ))),
         Rule::ruleset_expr => Ok(Expr::new(ExprKind::RuleSetExpr(
             build_ast_from_ruleset_expr(pair).unwrap(),
         ))),
@@ -407,6 +410,60 @@ fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
     Ok(return_expr)
 }
 
+fn build_ast_from_match_expr(pair: Pair<Rule>) -> IResult<Match> {
+    let mut match_expr = Match::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => match_expr.add_temp_val(Some(build_ast_from_ident(block).unwrap())),
+            Rule::expr => match_expr
+                .add_expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
+            Rule::match_arm => match_expr.add_match_arm(build_ast_from_match_arm(block).unwrap()),
+            // Here this can only be finally:
+            Rule::match_action => {
+                match_expr.add_finally(Some(build_ast_from_match_action(block).unwrap()))
+            }
+            // Rule::ident => match_expr.
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(match_expr)
+}
+
+fn build_ast_from_match_arm(pair: Pair<Rule>) -> IResult<MatchArm> {
+    let mut match_arm = MatchArm::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::match_condition => match_arm.add_condition(
+                build_ast_from_match_condition(block.into_inner().next().unwrap()).unwrap(),
+            ),
+            Rule::match_action => match_arm.add_action(build_ast_from_match_action(block).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(match_arm)
+}
+
+fn build_ast_from_match_condition(pair: Pair<Rule>) -> IResult<MatchCondition> {
+    let mut match_condition = MatchCondition::place_holder();
+    match pair.as_rule() {
+        Rule::expr => match_condition
+            .add_satisfiable(build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap()),
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
+    Ok(match_condition)
+}
+fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
+    let mut match_action = MatchAction::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::expr => match_action
+                .add_actionable(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(match_action)
+}
+
 fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     let mut comp_op = CompOpKind::PlaceHolder;
     let mut comp_expr = Comp::place_holder();
@@ -442,6 +499,7 @@ fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
     let mut ruleset_expr = RuleSetExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
+            Rule::ruleset_config => {}
             Rule::ident => {
                 ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
             }
@@ -602,9 +660,9 @@ fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
             Rule::ident => {
                 fnc_call.add_name(build_ast_from_ident(block).unwrap());
             }
-            Rule::ident_list => {
+            Rule::expr => {
                 for arg in block.into_inner() {
-                    fnc_call.add_argument(build_ast_from_ident(arg).unwrap());
+                    fnc_call.add_argument(build_ast_from_expr(arg).unwrap());
                 }
             }
             _ => return Err(RuLaError::RuLaSyntaxError),

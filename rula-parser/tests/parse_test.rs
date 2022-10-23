@@ -1414,6 +1414,7 @@ mod test_ruleset_expr {
                                         "entanglement_swapping",
                                         None,
                                     ),
+                                    None,
                                     None, 
                                     vec![Stmt::new(
                                         StmtKind::Expr(
@@ -1457,6 +1458,7 @@ mod test_ruleset_expr {
                                         "entanglement_swapping",
                                         None,
                                     ),
+                                    None,
                                     Some(
                                         FnCall::new(
                                             Ident::new(

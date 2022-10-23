@@ -216,6 +216,7 @@ pub enum ExprKind {
     FnCall(FnCall),
     Struct(Struct),
     Return(Return),
+    Match(Match),
     Comp(Comp),
     RuleSetExpr(RuleSetExpr),
     RuleExpr(RuleExpr),
@@ -461,11 +462,11 @@ impl FnDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnCall {
     pub func_name: Box<Ident>,
-    pub arguments: Vec<Ident>,
+    pub arguments: Vec<Expr>,
 }
 
 impl FnCall {
-    pub fn new(name: Ident, arguments: Vec<Ident>) -> Self {
+    pub fn new(name: Ident, arguments: Vec<Expr>) -> Self {
         FnCall {
             func_name: Box::new(name),
             arguments: arguments,
@@ -482,7 +483,7 @@ impl FnCall {
     pub fn add_name(&mut self, name: Ident) {
         self.func_name = Box::new(name);
     }
-    pub fn add_argument(&mut self, arg: Ident) {
+    pub fn add_argument(&mut self, arg: Expr) {
         self.arguments.push(arg);
     }
 }
@@ -537,6 +538,119 @@ impl Return {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Match {
+    pub temp_val: Box<Option<Ident>>,
+    pub expr: Box<Expr>,
+    pub match_arms: Vec<MatchArm>,
+    pub finally: Box<Option<MatchAction>>,
+}
+
+impl Match {
+    pub fn new(
+        temp_val: Option<Ident>,
+        expr: Expr,
+        match_arms: Vec<MatchArm>,
+        finally: Option<MatchAction>,
+    ) -> Self {
+        Match {
+            temp_val: Box::new(temp_val),
+            expr: Box::new(expr),
+            match_arms: match_arms,
+            finally: Box::new(finally),
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        Match {
+            temp_val: Box::new(None),
+            expr: Box::new(Expr::place_holder()),
+            match_arms: vec![],
+            finally: Box::new(None),
+        }
+    }
+    pub fn add_temp_val(&mut self, temp_val: Option<Ident>) {
+        self.temp_val = Box::new(temp_val);
+    }
+    pub fn add_expr(&mut self, expr: Expr) {
+        self.expr = Box::new(expr);
+    }
+    pub fn add_match_arm(&mut self, match_arm: MatchArm) {
+        self.match_arms.push(match_arm);
+    }
+    pub fn add_finally(&mut self, finally: Option<MatchAction>) {
+        self.finally = Box::new(finally);
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub condition: Box<MatchCondition>,
+    pub action: Box<MatchAction>,
+}
+
+impl MatchArm {
+    pub fn new(match_condition: MatchCondition, match_action: MatchAction) -> Self {
+        MatchArm {
+            condition: Box::new(match_condition),
+            action: Box::new(match_action),
+        }
+    }
+    pub fn place_holder() -> Self {
+        MatchArm {
+            condition: Box::new(MatchCondition::place_holder()),
+            action: Box::new(MatchAction::place_holder()),
+        }
+    }
+    pub fn add_condition(&mut self, match_condition: MatchCondition) {
+        self.condition = Box::new(match_condition);
+    }
+    pub fn add_action(&mut self, match_action: MatchAction) {
+        self.action = Box::new(match_action);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchCondition {
+    pub satisfiable: Box<Expr>,
+}
+
+impl MatchCondition {
+    pub fn new(satisfiable: Expr) -> Self {
+        MatchCondition {
+            satisfiable: Box::new(satisfiable),
+        }
+    }
+    pub fn place_holder() -> Self {
+        MatchCondition {
+            satisfiable: Box::new(Expr::place_holder()),
+        }
+    }
+    pub fn add_satisfiable(&mut self, satisfiable: Expr) {
+        self.satisfiable = Box::new(satisfiable);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchAction {
+    pub actionable: Box<Expr>,
+}
+
+impl MatchAction {
+    pub fn new(actionable: Expr) -> Self {
+        MatchAction {
+            actionable: Box::new(actionable),
+        }
+    }
+    pub fn place_holder() -> Self {
+        MatchAction {
+            actionable: Box::new(Expr::place_holder()),
+        }
+    }
+    pub fn add_actionable(&mut self, actionable: Expr) {
+        self.actionable = Box::new(actionable);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Comp {
     pub lhs: Box<Expr>, // comparable expression (should be traited later)
     pub comp_op: Box<CompOpKind>,
@@ -571,14 +685,21 @@ impl Comp {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleSetExpr {
     pub name: Box<Ident>,
+    pub config: Box<Option<Ident>>,
     pub default: Box<Option<FnCall>>,
     pub rules: Vec<Stmt>, // This could be the vector of Rules
 }
 
 impl RuleSetExpr {
-    pub fn new(name: Ident, default: Option<FnCall>, rules: Vec<Stmt>) -> Self {
+    pub fn new(
+        name: Ident,
+        config: Option<Ident>,
+        default: Option<FnCall>,
+        rules: Vec<Stmt>,
+    ) -> Self {
         RuleSetExpr {
             name: Box::new(name),
+            config: Box::new(config),
             default: Box::new(default),
             rules: rules,
         }
@@ -586,6 +707,7 @@ impl RuleSetExpr {
     pub fn place_holder() -> Self {
         RuleSetExpr {
             name: Box::new(Ident::place_holder()),
+            config: Box::new(None),
             default: Box::new(None),
             rules: vec![],
         }

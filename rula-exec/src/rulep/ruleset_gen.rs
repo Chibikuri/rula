@@ -69,6 +69,7 @@ mod tests {
         // }
         let test_ruleset = RuleSetExpr::new(
             Ident::new("entanglement_swapping", None),
+            None,
             Some(FnCall::new(Ident::new("default", None), vec![])),
             vec![
                 Stmt::new(StmtKind::Let(Let::new(
@@ -80,7 +81,9 @@ mod tests {
                 ))),
                 Stmt::new(StmtKind::Expr(Expr::new(ExprKind::FnCall(FnCall::new(
                     Ident::new("pauli_correction", None),
-                    vec![Ident::new("q1_entangled", None)],
+                    vec![Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
+                        Ident::new("q1_entangled", None),
+                    ))))],
                 ))))),
             ],
         );
