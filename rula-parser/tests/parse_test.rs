@@ -1802,3 +1802,47 @@ mod test_literals {
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
+
+#[cfg(test)]
+mod test_variable_call {
+    use super::*;
+
+    #[test]
+    fn test_simple_variable_call() {
+        let var_call = "test.hello";
+        let var_call_ast = rula_parser::parse(var_call).unwrap();
+        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
+                Callable::Ident(Ident::new("test", None)),
+                Callable::Ident(Ident::new("hello", None)),
+            ])),
+        ))))];
+        assert_eq!(target_ast_nodes, var_call_ast);
+    }
+
+    #[test]
+    fn test_simple_variable_fnc_call() {
+        let var_call = "test.hello()";
+        let var_call_ast = rula_parser::parse(var_call).unwrap();
+        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
+                Callable::Ident(Ident::new("test", None)),
+                Callable::FnCall(FnCall::new(Ident::new("hello", None), vec![])),
+            ])),
+        ))))];
+        assert_eq!(target_ast_nodes, var_call_ast);
+    }
+
+    #[test]
+    fn test_simple_variable_fnc_call_first() {
+        let var_call = "test().hello";
+        let var_call_ast = rula_parser::parse(var_call).unwrap();
+        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+            ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
+                Callable::FnCall(FnCall::new(Ident::new("test", None), vec![])),
+                Callable::Ident(Ident::new("hello", None)),
+            ])),
+        ))))];
+        assert_eq!(target_ast_nodes, var_call_ast);
+    }
+}

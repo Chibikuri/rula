@@ -191,6 +191,9 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::fn_call_expr => Ok(Expr::new(ExprKind::FnCall(
             build_ast_from_fn_call_expr(pair).unwrap(),
         ))),
+        Rule::variable_call_expr => Ok(Expr::new(ExprKind::VariableCallExpr(
+            build_ast_from_variable_call_expr(pair).unwrap(),
+        ))),
         Rule::braket_expr => Ok(Expr::new(ExprKind::Array(
             build_ast_from_braket_expr(pair).unwrap(),
         ))),
@@ -201,6 +204,29 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::literal_expr => Ok(Expr::new(ExprKind::Lit(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
         ))),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
+fn build_ast_from_variable_call_expr(pair: Pair<Rule>) -> IResult<VariableCallExpr> {
+    let mut variable_call = VariableCallExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::callable => {
+                variable_call.add_variable(
+                    build_ast_from_callable(block.into_inner().next().unwrap()).unwrap(),
+                );
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(variable_call)
+}
+
+fn build_ast_from_callable(pair: Pair<Rule>) -> IResult<Callable> {
+    match pair.as_rule() {
+        Rule::ident => Ok(Callable::Ident(build_ast_from_ident(pair).unwrap())),
+        Rule::fn_call_expr => Ok(Callable::FnCall(build_ast_from_fn_call_expr(pair).unwrap())),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -464,9 +490,9 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
     let mut rule_content_expr = RuleContentExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::monitor_expr => rule_content_expr.add_monitor_expr(
-                build_ast_from_monitor_expr(block.into_inner().next().unwrap()).unwrap(),
-            ),
+            Rule::monitor_expr => {
+                rule_content_expr.add_monitor_expr(build_ast_from_monitor_expr(block).unwrap())
+            }
             Rule::cond_expr => {
                 rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
             }
@@ -484,7 +510,9 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
 fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<MonitorExpr>> {
     let mut monitor_expr = MonitorExpr::place_holder();
     for let_stmt in pair.into_inner() {
-        monitor_expr.add_monitor_value(build_ast_from_let_stmt(let_stmt).unwrap());
+        monitor_expr.add_monitor_value(
+            build_ast_from_let_stmt(let_stmt.into_inner().next().unwrap()).unwrap(),
+        );
     }
     Ok(Some(monitor_expr))
 }
@@ -492,7 +520,6 @@ fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<MonitorExpr>>
 fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     let mut cond_expr = CondExpr::place_holder();
     for block in pair.into_inner() {
-        println!("block {:#?}", &block);
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
             Rule::stmt => cond_expr

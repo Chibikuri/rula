@@ -28,8 +28,8 @@ expr = { ( import_expr
            | act_expr
            | comp_expr
            | braket_expr
-           | fn_call_expr
            | variable_call_expr
+           | fn_call_expr
            | term_expr
            | literal_expr
             ) }
@@ -61,7 +61,8 @@ fn_call_expr = { ident ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
 fn_call_args = { expr | ident }
 
 // Variable call
-variable_call_expr = { ( fn_call_expr | ident ) ~ "." ~ ( fn_call_expr | ident ) ~ ("." ~ ( fn_call_expr | ident ))*}
+variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
+callable = { fn_call_expr | ident }
 
 // Struct expression to define ordinary structure
 struct_expr = {^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}

@@ -195,6 +195,9 @@ pub fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IRe
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(&rule_expr).unwrap()),
         ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule).unwrap()),
         ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr, rule).unwrap()),
+        ExprKind::VariableCallExpr(variable_call_expr) => {
+            Ok(generate_variable_call(&variable_call_expr).unwrap())
+        }
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
         ExprKind::Term(term_expr) => Ok(generate_term(*term_expr).unwrap()),
@@ -444,6 +447,11 @@ fn generate_act(
 ) -> IResult<TokenStream> {
     Ok(quote!())
 }
+
+fn generate_variable_call(variable_call_expr: &VariableCallExpr) -> IResult<TokenStream> {
+    Ok(quote!())
+}
+
 fn generate_array(array_expr: &Array) -> IResult<TokenStream> {
     let mut items = vec![];
     for lits in array_expr.items.iter() {

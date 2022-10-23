@@ -221,6 +221,7 @@ pub enum ExprKind {
     RuleExpr(RuleExpr),
     CondExpr(CondExpr),
     ActExpr(ActExpr),
+    VariableCallExpr(VariableCallExpr),
     Array(Array), // [..]
     Lit(Lit),
     Term(f64),   // There could be better way. Leave this for now.
@@ -761,6 +762,31 @@ impl ActExpr {
     pub fn add_operatable(&mut self, stmt: Stmt) {
         self.operatable.push(stmt);
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VariableCallExpr {
+    pub variables: Vec<Callable>,
+}
+
+impl VariableCallExpr {
+    pub fn new(variables: Vec<Callable>) -> Self {
+        VariableCallExpr {
+            variables: variables,
+        }
+    }
+    pub fn place_holder() -> Self {
+        VariableCallExpr { variables: vec![] }
+    }
+    pub fn add_variable(&mut self, callable: Callable) {
+        self.variables.push(callable);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Callable {
+    FnCall(FnCall),
+    Ident(Ident),
 }
 
 #[derive(Debug, Clone, PartialEq)]
