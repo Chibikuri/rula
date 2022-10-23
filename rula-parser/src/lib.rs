@@ -36,7 +36,6 @@ pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
                 ));
             }
             _ => {
-                println!("Not Rula proram");
                 return Err(RuLaError::RuLaSyntaxError);
             }
         }

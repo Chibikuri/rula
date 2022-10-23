@@ -58,7 +58,5 @@ fn main(){
     // rule entanglement_swapping <qn0, qn1>(){}
     let interface = qnicinterfaces.get_or_init(|| Mutex::new(InterfaceGroup::new()));
     interface.lock().unwrap().add_interface("qn0", QNicInterface::new());
-    println!("{:#?}", interface);
     // take 
-
 }

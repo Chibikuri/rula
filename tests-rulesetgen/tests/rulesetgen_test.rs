@@ -20,14 +20,14 @@ mod generate_swapping_ruleset {
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
         let ast = rula_parser::parse(&contents).unwrap();
-        println!("{:#?}", &ast);
+        // println!("{:#?}", &ast);
 
         // 2. generate ruleset (provide ruleset flag)
         let (_, ruleset) = rula_exec::codegen::generator::generate(ast, true).unwrap();
         let target_ruleset = RuleSet::<ActionClauses>::new("entanglement_swapping");
         match ruleset {
             Some(ruleset_contents) => {
-                assert_eq!(target_ruleset, ruleset_contents.lock().unwrap().clone())
+                assert_eq!(target_ruleset, ruleset_contents)
             }
             None => panic!("No ruleset found in the test"),
         }

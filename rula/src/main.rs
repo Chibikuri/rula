@@ -31,7 +31,7 @@ fn main() {
     // parse rula program
     let ast = rula_parser::parse(&contents).unwrap();
     let (rust, _ruleset) = rula_exec::codegen::generator::generate(ast, args.ruleset).unwrap();
-    println!("{:#?}", rust);
+    // println!("{:#?}", rust);
     // println!("{:#?}", ast);
     if !args.ruleset {
         println!("Generating RuleSet...");

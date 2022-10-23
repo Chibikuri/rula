@@ -3,7 +3,6 @@ use super::error::*;
 use super::IResult;
 
 use crate::rulep::action::v2::ActionClauses;
-use crate::rulep::action::Action;
 
 use crate::rulep::condition::Condition;
 use crate::rulep::ruleset::{Rule, RuleSet};
@@ -28,7 +27,12 @@ static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 pub fn generate(
     ast_tree: Vec<AstNode>,
     with_ruleset: bool,
-) -> IResult<(TokenStream, Option<&'static MutexRuleSet>)> {
+) -> IResult<(TokenStream, Option<RuleSet<ActionClauses>>)> {
+    // Set the initial RuleSet so that other RuleSet call can only get without init
+    assert!(RULESET.get().is_none());
+    let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
+    let _ = RULESET.get_or_init(empty_ruleset);
+
     let mut rula_program = quote!();
     for ast_node in ast_tree {
         match ast_node {
@@ -50,8 +54,11 @@ pub fn generate(
         }
     );
     if with_ruleset {
-        let ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
-        Ok((rula_token_stream, Some(ruleset)))
+        let opt_ruleset = RULESET.get();
+        match opt_ruleset {
+            Some(ruleset) => Ok((rula_token_stream, Some(ruleset.lock().unwrap().clone()))),
+            None => panic!("failed to generate RuleSet"),
+        }
     } else {
         Ok((rula_token_stream, None))
     }
@@ -410,9 +417,9 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // Generate RuleSet
     // generate portable format with rule information
     let ruleset_name = &*ruleset_expr.name.name;
-    let glob_ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
-    println!("ruleset name s{:#?}", ruleset_name);
-    glob_ruleset.lock().unwrap().update_name(ruleset_name);
+    // let glob_ruleset = RULESET.get_or_init(|| RuleSet::<ActionClauses>::new("ruleset"));
+    // println!("ruleset name s{:#?}", ruleset_name);
+    // glob_ruleset.lock().unwrap().update_name(ruleset_name);
     Ok(quote!())
 }
 
@@ -420,13 +427,13 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name = &*rule_expr.name;
     let rule_token = generate_ident(rule_name).unwrap();
 
-    let ruleset = RULESET.get_or_init(|| Mutex::new(RuleSet::<ActionClauses>::new("ruleset")));
+    // let ruleset = RULESET.get_or_init(|| RuleSet::<ActionClauses>::new("ruleset"));
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
 
     // for stmt in &rule_expr.rule_content {
     //     generate_stmt(&stmt, Some(&mut rule)).unwrap();
     // }
-    ruleset.lock().unwrap().add_rule(rule);
+    // ruleset.lock().unwrap().add_rule(rule);
 
     Ok(quote!(
         struct #rule_token{
