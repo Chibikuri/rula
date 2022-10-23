@@ -84,12 +84,13 @@ fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
 }
 
 fn generate_program(program: &Program) -> IResult<TokenStream> {
+    let mut stmts = vec![];
     for program_block in &program.programs {
         match program_block {
-            ProgramKind::Stmt(stmt) => return Ok(generate_stmt(&stmt, None).unwrap()),
+            ProgramKind::Stmt(stmt) => stmts.push(generate_stmt(&stmt, None).unwrap()),
         }
     }
-    Ok(quote!())
+    Ok(quote!(#(#stmts )*))
 }
 
 fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
@@ -187,7 +188,8 @@ fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionClauses>>) -> IResult
         )),
     }
 }
-pub fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
+
+fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
         ExprKind::If(if_expr) => Ok(generate_if(&if_expr).unwrap()),
@@ -247,7 +249,6 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
     ))
 }
 
-#[allow(unused)]
 fn generate_if(if_expr: &If) -> IResult<TokenStream> {
     // block could have invalid expression here.
     let block_quote = generate_expr(&*if_expr.block, None).unwrap();
@@ -417,9 +418,8 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // Generate RuleSet
     // generate portable format with rule information
     let ruleset_name = &*ruleset_expr.name.name;
-    // let glob_ruleset = RULESET.get_or_init(|| RuleSet::<ActionClauses>::new("ruleset"));
-    // println!("ruleset name s{:#?}", ruleset_name);
-    // glob_ruleset.lock().unwrap().update_name(ruleset_name);
+    let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
+    glob_ruleset.lock().unwrap().update_name(ruleset_name);
     Ok(quote!())
 }
 

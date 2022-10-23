@@ -23,7 +23,8 @@ mod generate_swapping_ruleset {
         // println!("{:#?}", &ast);
 
         // 2. generate ruleset (provide ruleset flag)
-        let (_, ruleset) = rula_exec::codegen::generator::generate(ast, true).unwrap();
+        let (generated, ruleset) = rula_exec::codegen::generator::generate(ast, true).unwrap();
+        println!("generated{:#?}", generated);
         let target_ruleset = RuleSet::<ActionClauses>::new("entanglement_swapping");
         match ruleset {
             Some(ruleset_contents) => {
