@@ -451,9 +451,9 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
                     rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
                 }
             }
-            Rule::rule_contents => rule_expr.add_rule_content(
-                build_ast_from_rule_contents(block.into_inner().next().unwrap()).unwrap(),
-            ),
+            Rule::rule_contents => {
+                rule_expr.add_rule_content(build_ast_from_rule_contents(block).unwrap())
+            }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
@@ -467,12 +467,12 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
             Rule::monitor_expr => rule_content_expr.add_monitor_expr(
                 build_ast_from_monitor_expr(block.into_inner().next().unwrap()).unwrap(),
             ),
-            Rule::cond_expr => rule_content_expr.add_condition_expr(
-                build_ast_from_cond_expr(block.into_inner().next().unwrap()).unwrap(),
-            ),
-            Rule::act_expr => rule_content_expr.add_action_expr(
-                build_ast_from_act_expr(block.into_inner().next().unwrap()).unwrap(),
-            ),
+            Rule::cond_expr => {
+                rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
+            }
+            Rule::act_expr => {
+                rule_content_expr.add_action_expr(build_ast_from_act_expr(block).unwrap())
+            }
             Rule::stmt => rule_content_expr
                 .add_post_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -492,6 +492,7 @@ fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<MonitorExpr>>
 fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     let mut cond_expr = CondExpr::place_holder();
     for block in pair.into_inner() {
+        println!("block {:#?}", &block);
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
             Rule::stmt => cond_expr
