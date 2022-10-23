@@ -442,7 +442,7 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
                     rule_expr.add_interface(build_ast_from_ident(interface).unwrap());
                 }
             }
-            Rule::arguments => {
+            Rule::argument_def => {
                 for arg in block.into_inner() {
                     rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
                 }
@@ -548,7 +548,7 @@ fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
     let mut fnc_def = FnDef::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::arguments => {
+            Rule::argument_def => {
                 // loop over all arguments
                 for arg in block.into_inner() {
                     fnc_def.add_arg(build_ast_from_ident_typed(arg).unwrap());

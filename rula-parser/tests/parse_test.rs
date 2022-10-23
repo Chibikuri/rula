@@ -1395,7 +1395,7 @@ mod test_ruleset_expr {
     #[test]
     #[rustfmt::skip]
     fn test_simple_ruleset(){
-        let ruleset_expr = "ruleset entanglement_swapping{rules()}";
+        let ruleset_expr = "ruleset() entanglement_swapping{rules()}";
         let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
 
         let target_ast_nodes = vec![
@@ -1438,7 +1438,7 @@ mod test_ruleset_expr {
     #[test]
     #[rustfmt::skip]
     fn test_simple_ruleset_with_default(){
-        let ruleset_expr = "ruleset entanglement_swapping{default: default() rules()}";
+        let ruleset_expr = "ruleset() entanglement_swapping{default: default() rules()}";
         let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
 
         let target_ast_nodes = vec![

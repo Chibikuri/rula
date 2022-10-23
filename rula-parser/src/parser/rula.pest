@@ -21,6 +21,7 @@ expr = { ( import_expr
            | while_expr
            | struct_expr
            | return_expr
+           | match_expr
            | ruleset_expr
            | rule_expr
            | cond_expr
@@ -28,6 +29,7 @@ expr = { ( import_expr
            | comp_expr
            | braket_expr
            | fn_call_expr
+           | variable_call_expr
            | term_expr
            | literal_expr
             ) }
@@ -51,11 +53,15 @@ generator = { braket_expr | fn_call_expr | literal_expr }
 while_expr = { ^"while" ~ paren_expr ~ brace_stmt }
 
 // Function definition expression (e.g. fn hello(){world})
-fn_def_expr = { ^"fn" ~ arguments ~ brace_stmt }
-arguments = { "(" ~ ( (ident_typed|ident)? ~ ( "," ~ (ident_typed|ident) )* ) ~ ")" }
+fn_def_expr = { ^"fn" ~ argument_def ~ brace_stmt }
+argument_def = { "(" ~ ( ( ident_typed | ident )? ~ ( "," ~ ( ident_typed | ident ) )* ) ~ ")" }
 
 // Fnction call expression with parenthesis
-fn_call_expr = { ident ~ "(" ~ ident_list? ~ ")" }
+fn_call_expr = { ident ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
+fn_call_args = { expr | ident }
+
+// Variable call
+variable_call_expr = { ( fn_call_expr | ident ) ~ "." ~ ( fn_call_expr | ident ) ~ ("." ~ ( fn_call_expr | ident ))*}
 
 // Struct expression to define ordinary structure
 struct_expr = {^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}
@@ -65,16 +71,23 @@ struct_name = {ident} // for parser use
 return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
 tuple = {"(" ~ literal_list? ~ ")"}
 
+// Match expression to do pattern matching
+match_expr = {^"match" ~ (ident ~ ":")? ~ expr ~ "{" ~ (match_condition ~ "=>" ~ match_action ~ ",")* ~ (^"finally" ~ "=>" ~ match_action)? ~ "}"}
+match_condition = {"(" ~ expr ~ ")"}
+match_action = {"{" ~ expr? ~ ("," ~ expr)* ~ "}"}
+
 // RuleSet expression that holds multiple rules
-ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ rules? ~ "}" }
+ruleset_expr = {^"ruleset" ~ "(" ~ ruleset_config?~ ")" ~ ident ~ "{" ~ rules? ~ "}" }
+// This should be flex
+ruleset_config = {"CONFIG"}
 rules = _{("default:" ~ fn_call_expr)? ~ (stmt)*}
 
 // Rule expression to define RuLa rule
-rule_expr = {^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ arguments ~ "{" ~ rule_contents ~ "}"}
+rule_expr = { ^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ argument_def ~ "{" ~ rule_contents ~ "}" }
 // Should have better way to do preprocessing
-rule_contents = {monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)*}
+rule_contents = { monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)* }
 
-monitor_expr = {^"watch:" ~ (let_stmt)* }
+monitor_expr = { ^"watch:" ~ (let_stmt)* }
 // Condition expression for qubit to wait until all meet
 // brace_stmt is a little vague?
 cond_expr = { ^"cond" ~ ident? ~ "{" ~ stmt? ~ ("," ~ stmt)* ~ ","? ~ "}" }
@@ -98,7 +111,7 @@ caret = { "^" }
 
 // Comparison (no chain comparison allowed)
 comp_expr = { comparable ~ comp_op ~ comparable }
-comparable = { fn_call_expr | term_expr | literal_expr }
+comparable = { variable_call_expr | fn_call_expr | term_expr | literal_expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!="}
 
 // Braket expression
