@@ -10,6 +10,7 @@ use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use syn::LitFloat;
 
@@ -22,17 +23,19 @@ use std::net::SocketAddr;
 type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
 static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
+type MutexRuleHashMap = Mutex<HashMap<String, Rule<ActionClauses>>>;
+static RULE_TABLE: OnceCell<MutexRuleHashMap> = OnceCell::new();
+
 /// Generate corresponding rust code from ast
 /// Every nested generators returns piece of TokenStream
 pub fn generate(
     ast_tree: Vec<AstNode>,
     with_ruleset: bool,
 ) -> IResult<(TokenStream, Option<RuleSet<ActionClauses>>)> {
-    // Set the initial RuleSet so that other RuleSet call can only get without init
-    assert!(RULESET.get().is_none());
-    let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
-    let _ = RULESET.get_or_init(empty_ruleset);
+    // initialize all the global values (RULESET, RULE_TABLE)
+    initialize_singleton();
 
+    // RuLa starts here
     let mut rula_program = quote!();
     for ast_node in ast_tree {
         match ast_node {
@@ -62,6 +65,20 @@ pub fn generate(
     } else {
         Ok((rula_token_stream, None))
     }
+}
+
+fn initialize_singleton() {
+    // Set the initial RuleSet so that other RuleSet call can only get without init
+    assert!(RULESET.get().is_none());
+    assert!(RULE_TABLE.get().is_none());
+
+    // closure to initialize with empty ruleset
+    let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
+    let _ = RULESET.get_or_init(empty_ruleset);
+
+    // Rule tables to store rule instances
+    let initialize_rule_table = || Mutex::new(HashMap::<String, Rule<ActionClauses>>::new());
+    let _ = RULE_TABLE.get_or_init(initialize_rule_table);
 }
 
 fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
@@ -420,25 +437,52 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     let ruleset_name = &*ruleset_expr.name.name;
     let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
+    for rule in &ruleset_expr.rules {
+        // generate rule here?
+        // generate_stmt(rule, )
+    }
     Ok(quote!())
 }
 
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name = &*rule_expr.name;
-    let rule_token = generate_ident(rule_name).unwrap();
+    let rule_name_token = generate_ident(rule_name).unwrap();
 
-    // let ruleset = RULESET.get_or_init(|| RuleSet::<ActionClauses>::new("ruleset"));
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
 
-    // for stmt in &rule_expr.rule_content {
-    //     generate_stmt(&stmt, Some(&mut rule)).unwrap();
-    // }
-    // ruleset.lock().unwrap().add_rule(rule);
+    // generate the rule content expression with this
+    let generated = generate_rule_content(&rule_expr.rule_content, Some(&mut rule)).unwrap();
+
+    // create a rule and store it to the table
+    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    rule_table
+        .lock()
+        .unwrap()
+        .insert(rule_name.name.to_string(), rule);
 
     Ok(quote!(
-        struct #rule_token{
+        struct #rule_name_token{
         }
     ))
+}
+
+fn generate_rule_content(
+    rule_content_expr: &RuleContentExpr,
+    rule: Option<&mut Rule<ActionClauses>>,
+) -> IResult<TokenStream> {
+    // monitor expression is only used for RuLa runtime with interaction with RE
+    let monitor_expr = &rule_content_expr.monitor_expr;
+    let condition_expr = &*rule_content_expr.condition_expr;
+    let action_expr = &rule_content_expr.action_expr;
+    let (generated_cond, generated_act) = match rule {
+        Some(rule_contents) => (
+            generate_cond(condition_expr, Some(rule_contents)).unwrap(),
+            generate_act(action_expr, Some(rule_contents)).unwrap(),
+        ),
+        None => (quote!(), quote!()),
+    };
+    let post_process = &rule_content_expr.post_processing;
+    Ok(quote!())
 }
 
 fn generate_cond(

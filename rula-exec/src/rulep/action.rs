@@ -1,7 +1,7 @@
 use crate::network::qnic_wrapper::Interface;
 use crate::network::qubit_wrapper::Qubit;
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Action<T> {
@@ -16,6 +16,11 @@ impl<T> Action<T> {
             clauses: vec![],
         }
     }
+
+    pub fn update_action_name(&mut self, action_name: Option<String>) {
+        self.name = action_name;
+    }
+
     pub fn add_action_clause(&mut self, action_clause: T) {
         self.clauses.push(action_clause);
     }
@@ -26,6 +31,7 @@ pub mod v1 {
     /// Version 1 actions
     use super::*;
     use mock_components::hardware::qnic::QnicType;
+    use std::net::Ipv4Addr;
 
     // old version of action clauses
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -286,7 +292,7 @@ pub mod v2 {
         /// Measurement operations that takes calssical information from qubits
         Measure(Measure),
         /// Send classical message from one place to another
-        Send(Message),
+        Send(Send),
         /// Free consumed resource for later use
         Free(Qubit),
         /// Update the status of qubit
@@ -295,12 +301,12 @@ pub mod v2 {
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct QGate {
-        pub kind: GateType,
+        pub kind: QGateType,
         pub target: Qubit,
     }
 
     impl QGate {
-        pub fn new(gate_kind: GateType, target_qubit: Qubit) -> Self {
+        pub fn new(gate_kind: QGateType, target_qubit: Qubit) -> Self {
             QGate {
                 kind: gate_kind,
                 target: target_qubit,
@@ -309,13 +315,15 @@ pub mod v2 {
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub enum GateType {
+    pub enum QGateType {
         X,
         Y,
         Z,
         H,
-        Cx,
-        Cz,
+        CxControl,
+        CxTarget,
+        CzControl,
+        CzTarget,
         Rx(f64),
         Ry(f64),
         Rz(f64),
@@ -334,6 +342,18 @@ pub mod v2 {
                 basis: basis,
                 target: target,
             }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Send {
+        pub src: IpAddr,
+        pub dst: IpAddr,
+    }
+
+    impl Send {
+        pub fn new(src: IpAddr, dst: IpAddr) -> Self {
+            Send { src: src, dst: dst }
         }
     }
 
@@ -391,7 +411,7 @@ pub mod v2 {
         #[test]
         fn test_action_clause() {
             let mut action = Action::new(None);
-            let qgate = QGate::new(GateType::H, Qubit::new());
+            let qgate = QGate::new(QGateType::H, Qubit::new());
             let clause = ActionClauses::Gate(qgate.clone());
             action.add_action_clause(clause);
             assert_eq!(action.name, None);

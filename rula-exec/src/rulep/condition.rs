@@ -18,9 +18,12 @@ impl Condition {
     pub fn add_condition_clause(&mut self, condition_clause: v1::ConditionClauses) {
         self.clauses.push(condition_clause);
     }
+    pub fn update_condition_name(&mut self, new_name: &str) {
+        self.name = Some(String::from(new_name));
+    }
 }
 
-mod v1 {
+pub mod v1 {
     use super::*;
     // Awaitable conditions that can be met in the future
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

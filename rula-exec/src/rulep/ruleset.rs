@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr};
-use uuid::{uuid, Uuid};
+use std::net::IpAddr;
 
 use super::condition::*;
 use crate::network::qnic_wrapper::*;
@@ -113,7 +112,7 @@ impl<T> Rule<T> {
     pub fn set_condition(&mut self, condition: Condition) {
         self.condition = condition;
     }
-    pub fn add_action(&mut self, action: Action<T>) {
+    pub fn set_action(&mut self, action: Action<T>) {
         self.action = action;
     }
     pub fn update_id(&mut self, new_id: u32) {
@@ -136,6 +135,7 @@ pub mod tests {
     use super::super::action::Action;
     use super::*;
     use mock_components::hardware::qnic::QnicType;
+    use std::net::Ipv4Addr;
 
     #[test]
     fn test_ruleset_new() {
@@ -176,7 +176,7 @@ pub mod tests {
         let condition = Condition::new(None);
         let action = Action::new(None);
         rule.set_condition(condition);
-        rule.add_action(action);
+        rule.set_action(action);
         assert_eq!(rule.condition, Condition::new(None));
         assert_eq!(rule.action, Action::new(None));
     }

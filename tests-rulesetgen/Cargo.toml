@@ -9,3 +9,4 @@ edition = "2021"
 rula = {path = "../rula"}
 rula_parser = { path = "../rula-parser" }
 rula-exec = {path="../rula-exec"}
+mock_components = {path = "../mock-components"}
