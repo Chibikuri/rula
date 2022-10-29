@@ -770,7 +770,7 @@ impl RuleExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleContentExpr {
-    pub monitor_expr: Box<Option<MonitorExpr>>,
+    pub monitor_expr: Box<Option<WatchExpr>>,
     pub condition_expr: Box<CondExpr>,
     pub action_expr: Box<ActExpr>,
     pub post_processing: Vec<Stmt>,
@@ -778,7 +778,7 @@ pub struct RuleContentExpr {
 
 impl RuleContentExpr {
     pub fn new(
-        monitor_expr: Option<MonitorExpr>,
+        monitor_expr: Option<WatchExpr>,
         condition_expr: CondExpr,
         action_expr: ActExpr,
         post_processing: Vec<Stmt>,
@@ -798,7 +798,7 @@ impl RuleContentExpr {
             post_processing: vec![],
         }
     }
-    pub fn add_monitor_expr(&mut self, monitor_expr: Option<MonitorExpr>) {
+    pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
         self.monitor_expr = Box::new(monitor_expr);
     }
     pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
@@ -813,18 +813,18 @@ impl RuleContentExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MonitorExpr {
+pub struct WatchExpr {
     pub monitored_values: Vec<Let>,
 }
 
-impl MonitorExpr {
+impl WatchExpr {
     pub fn new(monitored_values: Vec<Let>) -> Self {
-        MonitorExpr {
+        WatchExpr {
             monitored_values: monitored_values,
         }
     }
     pub fn place_holder() -> Self {
-        MonitorExpr {
+        WatchExpr {
             monitored_values: vec![],
         }
     }
@@ -835,14 +835,14 @@ impl MonitorExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
-    pub clauses: Vec<Stmt>,
+    pub clauses: Vec<Awaitable>,
 }
 
 impl CondExpr {
-    pub fn new(name: Option<Ident>, stmts: Vec<Stmt>) -> Self {
+    pub fn new(name: Option<Ident>, awaitables: Vec<Awaitable>) -> Self {
         CondExpr {
             name: Box::new(name),
-            clauses: stmts,
+            clauses: awaitables,
         }
     }
     pub fn place_holder() -> Self {
@@ -854,9 +854,16 @@ impl CondExpr {
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
     }
-    pub fn add_awaitable(&mut self, stmt: Stmt) {
-        self.clauses.push(stmt);
+    pub fn add_awaitable(&mut self, awaitable: Awaitable) {
+        self.clauses.push(awaitable);
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Awaitable{
+    FnCall(FnCall),
+    VariableCallExpr(VariableCallExpr),
+    Comp(Comp),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -91,9 +91,8 @@ rule_contents = { monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)* }
 
 monitor_expr = { ^"watch:" ~ (let_stmt)* }
 // Condition expression for qubit to wait until all meet
-// brace_stmt is a little vague?
-cond_expr = { ^"cond" ~ ident? ~ "{" ~ stmt? ~ ("," ~ stmt)* ~ ","? ~ "}" }
-// awaitable = {expr} // for now, awaitable could be expression?
+cond_expr = { ^"cond" ~ ident? ~ "{" ~ awaitable? ~ ("," ~ awaitable)* ~ ","? ~ "}" }
+awaitable = { comp_expr | fn_call_expr | variable_call_expr}
 
 // Action expression for qubit to act on operations
 act_expr = { ^"act" ~ ident? ~ "{" ~ (stmt)* ~ "}"}

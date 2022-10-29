@@ -1560,7 +1560,7 @@ mod test_condition_expr {
     #[test]
     #[rustfmt::skip]
     fn test_simple_cond_expr() {
-        let cond_expr = "cond condition1 {awaitables}";
+        let cond_expr = "cond condition1 { awaitable()}";
         let fn_def_asts = rula_parser::parse(cond_expr).unwrap();
         let target_ast_nodes = vec![
             build_stmt_ast(
@@ -1576,20 +1576,13 @@ mod test_condition_expr {
                                         )
                                     ),
                                     vec![
-                                        Stmt::new(
-                                            StmtKind::Expr(
-                                                Expr::new(
-                                                    ExprKind::Lit(
-                                                        Lit::new(
-                                                            LitKind::Ident(
-                                                                Ident::new(
-                                                                    "awaitables",
-                                                                    None
-                                                                )
-                                                            )
-                                                        )
-                                                    )
-                                                )
+                                        Awaitable::FnCall(
+                                            FnCall::new(
+                                                Ident::new(
+                                                    "awaitable",
+                                                    None
+                                                ),
+                                                vec![]
                                             )
                                         )
                                     ]

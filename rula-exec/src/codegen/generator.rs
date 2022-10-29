@@ -5,6 +5,7 @@ use super::IResult;
 use crate::rulep::action::v2::ActionClauses;
 
 use crate::rulep::condition::Condition;
+use crate::rulep::condition::v1::*;
 use crate::rulep::ruleset::{Rule, RuleSet};
 use rula_parser::parser::ast::*;
 
@@ -27,7 +28,7 @@ type MutexRuleHashMap = Mutex<HashMap<String, Rule<ActionClauses>>>;
 static RULE_TABLE: OnceCell<MutexRuleHashMap> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
-/// Every nested generators returns piece of TokenStream
+/// Every nested generators returns a piece of TokenStream
 pub fn generate(
     ast_tree: Vec<AstNode>,
     with_ruleset: bool,
@@ -213,7 +214,7 @@ fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult
         ExprKind::For(for_expr) => Ok(generate_for(&for_expr).unwrap()),
         ExprKind::While(while_expr) => Ok(generate_while(&while_expr).unwrap()),
         ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(&fn_def_expr).unwrap()),
-        ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(&fn_call_expr).unwrap()),
+        ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(&fn_call_expr, rule).unwrap()),
         ExprKind::Struct(struct_expr) => Ok(generate_struct(&struct_expr).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(&return_expr).unwrap()),
         ExprKind::Match(match_expr) => Ok(generate_match(&match_expr).unwrap()),
@@ -383,8 +384,15 @@ fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
         }
     ))
 }
-fn generate_fn_call(fn_call_expr: &FnCall) -> IResult<TokenStream> {
+fn generate_fn_call(
+    fn_call_expr: &FnCall,
+    rule: Option<&mut Rule<ActionClauses>>,
+) -> IResult<TokenStream> {
     let fn_name = generate_ident(&fn_call_expr.func_name).unwrap();
+    match rule {
+        Some(rule_content) => {}
+        None => {}
+    }
     Ok(quote!(
         #fn_name ()
     ))
@@ -449,7 +457,6 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name_token = generate_ident(rule_name).unwrap();
 
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
-
     // generate the rule content expression with this
     let generated = generate_rule_content(&rule_expr.rule_content, Some(&mut rule)).unwrap();
 
@@ -471,17 +478,36 @@ fn generate_rule_content(
     rule: Option<&mut Rule<ActionClauses>>,
 ) -> IResult<TokenStream> {
     // monitor expression is only used for RuLa runtime with interaction with RE
-    let monitor_expr = &rule_content_expr.monitor_expr;
+    let watch_expr = &*rule_content_expr.monitor_expr;
     let condition_expr = &*rule_content_expr.condition_expr;
     let action_expr = &rule_content_expr.action_expr;
-    let (generated_cond, generated_act) = match rule {
-        Some(rule_contents) => (
-            generate_cond(condition_expr, Some(rule_contents)).unwrap(),
-            generate_act(action_expr, Some(rule_contents)).unwrap(),
-        ),
-        None => (quote!(), quote!()),
+    let (generated_watch, generated_cond, generated_act) = match rule {
+        Some(rule_contents) => {
+            let (w, c, a) = match watch_expr{
+                Some(watcher) => {
+                    (generate_watch(watcher, Some(rule_contents)).unwrap(),
+                    generate_cond(condition_expr, Some(rule_contents)).unwrap(),
+                    generate_act(action_expr, Some(rule_contents)).unwrap())
+                },
+                None => {
+                (quote!(),
+                    generate_cond(condition_expr, Some(rule_contents)).unwrap(),
+                    generate_act(action_expr, Some(rule_contents)).unwrap())
+                }
+            };
+            (w, c, a)
+        },
+        None => (quote!(), quote!(), quote!()),
     };
     let post_process = &rule_content_expr.post_processing;
+    Ok(quote!())
+}
+
+fn generate_watch(
+    watch_expr: &WatchExpr,
+    rule: Option<&mut Rule<ActionClauses>>
+) -> IResult<TokenStream>{
+
     Ok(quote!())
 }
 
@@ -489,11 +515,54 @@ fn generate_cond(
     cond_expr: &CondExpr,
     rule: Option<&mut Rule<ActionClauses>>,
 ) -> IResult<TokenStream> {
-    let condition = Condition::new(None);
-    for clause in &cond_expr.clauses {}
-    match rule {
-        Some(rule) => rule.set_condition(condition),
-        None => {}
+    let mut condition = Condition::new(None);
+    let generated_clauses = match rule {
+        Some(rule_clause) => {
+            for clause in &cond_expr.clauses {
+                generate_awaitable(&clause, Some(&mut condition)).unwrap();
+            }
+            rule_clause.set_condition(condition);
+        }
+        None => {
+            for clause in &cond_expr.clauses {
+                generate_awaitable(&clause, None).unwrap();
+            }
+        }
+    };
+    Ok(quote!())
+}
+
+fn generate_awaitable(awaitable_expr: &Awaitable, condition: Option<&mut Condition>) -> IResult<TokenStream>{
+    // these must be condition clauses
+    match condition{
+        Some(condition_set) => {
+            match awaitable_expr{
+                Awaitable::FnCall(fn_call) => {
+                    // This should be flex
+                    todo!("builtin functions used for conditions should be here")
+                },
+                Awaitable::VariableCallExpr(val_call) =>{
+                    // This should also be flexible
+                    match val_call.variables.last() {
+                        Some(val) => {
+                            match val{
+                                Callable::FnCall(fn_call) =>{
+                                    if *fn_call.func_name.name == "ready" {
+                                        // EnoughResource can be done in watch expression
+                                    }
+                                },
+                                _ => todo!(),
+                            }
+                        },
+                        None => {todo!()}
+                    }
+                },
+                Awaitable::Comp(comp) => {},
+            }
+        },
+        None => {
+
+        }
     }
     Ok(quote!())
 }
@@ -750,7 +819,7 @@ mod tests {
     fn test_simple_fn_call() {
         // range()
         let simple_fn_call = FnCall::new(Ident::new("range", None), vec![]);
-        let test_stream = generate_fn_call(&simple_fn_call).unwrap();
+        let test_stream = generate_fn_call(&simple_fn_call, None).unwrap();
         assert_eq!("range ()", test_stream.to_string());
     }
 
