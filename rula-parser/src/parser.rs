@@ -579,9 +579,7 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
 fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
     let mut monitor_expr = WatchExpr::place_holder();
     for let_stmt in pair.into_inner() {
-        monitor_expr.add_watch_value(
-            build_ast_from_let_stmt(let_stmt.into_inner().next().unwrap()).unwrap(),
-        );
+        monitor_expr.add_watch_value(build_ast_from_let_stmt(let_stmt).unwrap());
     }
     Ok(Some(monitor_expr))
 }

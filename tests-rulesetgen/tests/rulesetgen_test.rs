@@ -5,7 +5,7 @@ use rula_exec::rulep::condition::Condition;
 use rula_exec::rulep::ruleset::{Rule, RuleSet};
 
 // Interface wrapper
-use rula_exec::network::qnic_wrapper::QnicInterface;
+use rula_exec::network::qnic_wrapper::QnicInterfaceWrapper;
 use rula_exec::network::qubit_wrapper::Qubit;
 
 // Is this proper one?
@@ -88,12 +88,12 @@ mod generate_swapping_ruleset {
         let enough_resource_clause_qn0 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
             Some(0.8),
-            Some(QnicInterface::from(QnicType::QnicE, 0, None)),
+            Some(QnicInterfaceWrapper::from(QnicType::QnicE, 0, None)),
         ));
         let enough_resource_clause_qn1 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
             Some(0.8),
-            Some(QnicInterface::from(QnicType::QnicE, 0, None)),
+            Some(QnicInterfaceWrapper::from(QnicType::QnicE, 0, None)),
         ));
         let mut condition = Condition::new(None);
         condition.add_condition_clause(enough_resource_clause_qn0);

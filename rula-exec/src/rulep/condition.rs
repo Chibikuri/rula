@@ -1,4 +1,4 @@
-use crate::network::qnic_wrapper::QnicInterface;
+use crate::network::qnic_wrapper::QnicInterfaceWrapper;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -45,14 +45,14 @@ pub mod v1 {
         name: String,
         pub num_required_resource: u32,
         pub required_fidelity: Option<f64>,
-        pub qnic_interface: Option<QnicInterface>,
+        pub qnic_interface: Option<QnicInterfaceWrapper>,
     }
 
     impl EnoughResource {
         pub fn new(
             num_resource: u32,
             required_fidelity: Option<f64>,
-            qnic_interface: Option<QnicInterface>,
+            qnic_interface: Option<QnicInterfaceWrapper>,
         ) -> Self {
             EnoughResource {
                 name: String::from("enough_resource"),
@@ -67,11 +67,11 @@ pub mod v1 {
     pub struct MeasureCount {
         name: String,
         pub count: u32,
-        pub qnic_interface: Option<QnicInterface>,
+        pub qnic_interface: Option<QnicInterfaceWrapper>,
     }
 
     impl MeasureCount {
-        pub fn new(count: u32, qnic_interface: Option<QnicInterface>) -> Self {
+        pub fn new(count: u32, qnic_interface: Option<QnicInterfaceWrapper>) -> Self {
             MeasureCount {
                 name: String::from("measure_count"),
                 count: count,
@@ -84,11 +84,11 @@ pub mod v1 {
     pub struct Fidelity {
         name: String,
         pub required_fidelity: f64,
-        pub qnic_interface: Option<QnicInterface>,
+        pub qnic_interface: Option<QnicInterfaceWrapper>,
     }
 
     impl Fidelity {
-        pub fn new(fidelity: f64, qnic_interface: Option<QnicInterface>) -> Self {
+        pub fn new(fidelity: f64, qnic_interface: Option<QnicInterfaceWrapper>) -> Self {
             Fidelity {
                 name: String::from("fidelity"),
                 required_fidelity: fidelity,
@@ -100,11 +100,11 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Wait {
         name: String,
-        pub qnic_interface: Option<QnicInterface>,
+        pub qnic_interface: Option<QnicInterfaceWrapper>,
     }
 
     impl Wait {
-        pub fn new(qnic_interface: Option<QnicInterface>) -> Self {
+        pub fn new(qnic_interface: Option<QnicInterfaceWrapper>) -> Self {
             Wait {
                 name: String::from("wait"),
                 qnic_interface: qnic_interface,
@@ -119,7 +119,7 @@ pub mod v1 {
         #[test]
         fn test_condition_clause() {
             let mut condition = Condition::new(None);
-            let interface = QnicInterface::place_holder();
+            let interface = QnicInterfaceWrapper::place_holder();
             // from(fidelity: f64, qnic_interface: Interface)
             let fidelity_clause = v1::ConditionClauses::Fidelity(v1::Fidelity::new(0.95, None));
             condition.add_condition_clause(fidelity_clause);

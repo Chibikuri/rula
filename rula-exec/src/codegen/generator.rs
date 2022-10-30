@@ -2,7 +2,7 @@
 use super::error::*;
 use super::IResult;
 
-use crate::network::qnic_wrapper::QnicInterface;
+use crate::network::qnic_wrapper::QnicInterfaceWrapper;
 use crate::rulep::action::v2::ActionClauses;
 use crate::rulep::action::Action;
 use crate::rulep::condition::v1::*;
@@ -191,21 +191,27 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
 }
 
 fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
-    match &*stmt.kind {
-        StmtKind::Let(let_stmt) => {
-            // struct Let {ident, expr}
-            let identifier = generate_ident(&*let_stmt.ident).unwrap();
-            let expr = generate_expr(&*let_stmt.expr, None).unwrap();
-            Ok(quote!(
-                let mut #identifier = #expr;
-            ))
-        }
+    let generated_stmt = match &*stmt.kind {
+        StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule).unwrap()),
         StmtKind::Interface(interface) => Ok(generate_interface(&interface).unwrap()),
         StmtKind::Expr(expr) => Ok(generate_expr(&expr, rule).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
         )),
     }
+    .unwrap();
+    Ok(quote!(#generated_stmt))
+}
+
+fn generate_let(let_stmt: &Let, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
+    if &*let_stmt.ident == &Ident::place_holder() {
+        return Err(RuLaCompileError::FailedToSetValueError);
+    }
+    let identifier = generate_ident(&*let_stmt.ident).unwrap();
+    let expr = generate_expr(&*let_stmt.expr, rule).unwrap();
+    Ok(quote!(
+        let mut #identifier = #expr;
+    ))
 }
 
 fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
@@ -507,7 +513,7 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // Setup interface placeholder
     for interface in rule_interfaces {
         // Interface wrapper
-        rule.add_interface(QnicInterface::place_holder());
+        rule.add_interface(&interface.name, QnicInterfaceWrapper::place_holder());
     }
 
     // Set empty condition and action to be updated in the different functions
@@ -569,18 +575,21 @@ fn generate_watch(
     rule: Option<&mut Rule<ActionClauses>>,
 ) -> IResult<TokenStream> {
     // watch clauses should be the same as conditions not yet be met
-    for value in &watch_expr.watched_values {
-        println!("{:#?}", value);
-    }
     // Get the rule instance in RULE_TABLE and add condition
     match rule {
-        Some(rule) => rule
-            .condition
-            .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
-                1,
-                Some(0.8),
-                None,
-            ))),
+        Some(rule_some) => {
+            for value in &watch_expr.watched_values {
+                generate_let(value, Some(rule_some)).unwrap();
+                // watch can be
+            }
+            rule_some
+                .condition
+                .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
+                    1,
+                    Some(0.8),
+                    None,
+                )))
+        }
         None => todo!(),
     };
     Ok(quote!())
