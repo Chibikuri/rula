@@ -568,7 +568,7 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
 fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
     let mut monitor_expr = WatchExpr::place_holder();
     for let_stmt in pair.into_inner() {
-        monitor_expr.add_monitor_value(
+        monitor_expr.add_watch_value(
             build_ast_from_let_stmt(let_stmt.into_inner().next().unwrap()).unwrap(),
         );
     }
@@ -580,19 +580,25 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            Rule::awaitable => cond_expr.add_awaitable(build_ast_from_awaitable_expr(block.into_inner().next().unwrap()).unwrap()),
+            Rule::awaitable => cond_expr.add_awaitable(
+                build_ast_from_awaitable_expr(block.into_inner().next().unwrap()).unwrap(),
+            ),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(cond_expr)
 }
 
-fn build_ast_from_awaitable_expr(pair: Pair<Rule>) -> IResult<Awaitable>{
-    match pair.as_rule(){
-        Rule::fn_call_expr => Ok(Awaitable::FnCall(build_ast_from_fn_call_expr(pair).unwrap())),
-        Rule::variable_call_expr => Ok(Awaitable::VariableCallExpr(build_ast_from_variable_call_expr(pair).unwrap())),
+fn build_ast_from_awaitable_expr(pair: Pair<Rule>) -> IResult<Awaitable> {
+    match pair.as_rule() {
+        Rule::fn_call_expr => Ok(Awaitable::FnCall(
+            build_ast_from_fn_call_expr(pair).unwrap(),
+        )),
+        Rule::variable_call_expr => Ok(Awaitable::VariableCallExpr(
+            build_ast_from_variable_call_expr(pair).unwrap(),
+        )),
         Rule::comp_expr => Ok(Awaitable::Comp(build_ast_from_comp_expr(pair).unwrap())),
-        _=> unreachable!("No more awaitable conditions allowed"),
+        _ => unreachable!("No more awaitable conditions allowed"),
     }
 }
 

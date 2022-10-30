@@ -814,22 +814,22 @@ impl RuleContentExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WatchExpr {
-    pub monitored_values: Vec<Let>,
+    pub watched_values: Vec<Let>,
 }
 
 impl WatchExpr {
-    pub fn new(monitored_values: Vec<Let>) -> Self {
+    pub fn new(watched_values: Vec<Let>) -> Self {
         WatchExpr {
-            monitored_values: monitored_values,
+            watched_values: watched_values,
         }
     }
     pub fn place_holder() -> Self {
         WatchExpr {
-            monitored_values: vec![],
+            watched_values: vec![],
         }
     }
-    pub fn add_monitor_value(&mut self, monitor_value: Let) {
-        self.monitored_values.push(monitor_value);
+    pub fn add_watch_value(&mut self, watched_value: Let) {
+        self.watched_values.push(watched_value);
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -860,7 +860,7 @@ impl CondExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Awaitable{
+pub enum Awaitable {
     FnCall(FnCall),
     VariableCallExpr(VariableCallExpr),
     Comp(Comp),

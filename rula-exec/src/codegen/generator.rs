@@ -3,9 +3,9 @@ use super::error::*;
 use super::IResult;
 
 use crate::rulep::action::v2::ActionClauses;
-
-use crate::rulep::condition::Condition;
+use crate::rulep::action::Action;
 use crate::rulep::condition::v1::*;
+use crate::rulep::condition::Condition;
 use crate::rulep::ruleset::{Rule, RuleSet};
 use rula_parser::parser::ast::*;
 
@@ -457,6 +457,13 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     let rule_name_token = generate_ident(rule_name).unwrap();
 
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
+
+    // Set empty condition and action to be updated in the different functions
+    let empty_condition = Condition::new(None);
+    let empty_action = Action::<ActionClauses>::new(None);
+    rule.set_condition(empty_condition);
+    rule.set_action(empty_action);
+
     // generate the rule content expression with this
     let generated = generate_rule_content(&rule_expr.rule_content, Some(&mut rule)).unwrap();
 
@@ -483,20 +490,20 @@ fn generate_rule_content(
     let action_expr = &rule_content_expr.action_expr;
     let (generated_watch, generated_cond, generated_act) = match rule {
         Some(rule_contents) => {
-            let (w, c, a) = match watch_expr{
-                Some(watcher) => {
-                    (generate_watch(watcher, Some(rule_contents)).unwrap(),
+            let (w, c, a) = match watch_expr {
+                Some(watcher) => (
+                    generate_watch(watcher, Some(rule_contents)).unwrap(),
                     generate_cond(condition_expr, Some(rule_contents)).unwrap(),
-                    generate_act(action_expr, Some(rule_contents)).unwrap())
-                },
-                None => {
-                (quote!(),
+                    generate_act(action_expr, Some(rule_contents)).unwrap(),
+                ),
+                None => (
+                    quote!(),
                     generate_cond(condition_expr, Some(rule_contents)).unwrap(),
-                    generate_act(action_expr, Some(rule_contents)).unwrap())
-                }
+                    generate_act(action_expr, Some(rule_contents)).unwrap(),
+                ),
             };
             (w, c, a)
-        },
+        }
         None => (quote!(), quote!(), quote!()),
     };
     let post_process = &rule_content_expr.post_processing;
@@ -505,9 +512,28 @@ fn generate_rule_content(
 
 fn generate_watch(
     watch_expr: &WatchExpr,
-    rule: Option<&mut Rule<ActionClauses>>
-) -> IResult<TokenStream>{
-
+    rule: Option<&mut Rule<ActionClauses>>,
+) -> IResult<TokenStream> {
+    // watch clauses should be the same as conditions not yet be met
+    for value in &watch_expr.watched_values {
+        println!("{:#?}", value);
+    }
+    // Get the rule instance in RULE_TABLE and add condition
+    let rule_name = match rule {
+        Some(rule) => &rule.name,
+        None => todo!(),
+    };
+    let rule_table = RULE_TABLE.get().expect("Unable to get rule table");
+    let mut taken_rule = rule_table.lock().unwrap();
+    taken_rule
+        .get_mut(&*rule_name)
+        .unwrap()
+        .condition
+        .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
+            1,
+            Some(0.8),
+            None,
+        )));
     Ok(quote!())
 }
 
@@ -532,37 +558,40 @@ fn generate_cond(
     Ok(quote!())
 }
 
-fn generate_awaitable(awaitable_expr: &Awaitable, condition: Option<&mut Condition>) -> IResult<TokenStream>{
+fn generate_awaitable(
+    awaitable_expr: &Awaitable,
+    condition: Option<&mut Condition>,
+) -> IResult<TokenStream> {
     // these must be condition clauses
-    match condition{
+    match condition {
         Some(condition_set) => {
-            match awaitable_expr{
+            match awaitable_expr {
                 Awaitable::FnCall(fn_call) => {
                     // This should be flex
                     todo!("builtin functions used for conditions should be here")
-                },
-                Awaitable::VariableCallExpr(val_call) =>{
+                }
+                Awaitable::VariableCallExpr(val_call) => {
                     // This should also be flexible
                     match val_call.variables.last() {
                         Some(val) => {
-                            match val{
-                                Callable::FnCall(fn_call) =>{
+                            match val {
+                                Callable::FnCall(fn_call) => {
                                     if *fn_call.func_name.name == "ready" {
                                         // EnoughResource can be done in watch expression
                                     }
-                                },
+                                }
                                 _ => todo!(),
                             }
-                        },
-                        None => {todo!()}
+                        }
+                        None => {
+                            todo!()
+                        }
                     }
-                },
-                Awaitable::Comp(comp) => {},
+                }
+                Awaitable::Comp(comp) => {}
             }
-        },
-        None => {
-
         }
+        None => {}
     }
     Ok(quote!())
 }

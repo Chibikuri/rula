@@ -61,8 +61,6 @@ pub(crate) fn create_action(
 mod generate_swapping_ruleset {
     use std::net::Ipv4Addr;
 
-    use mock_components::hardware::qubit::GateType;
-
     use super::*;
     // target: examples/entanglment_swapping.rula
 
@@ -90,20 +88,20 @@ mod generate_swapping_ruleset {
         let enough_resource_clause_qn0 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
             0.8,
-            Interface::from(
+            Some(Interface::from(
                 QnicType::QnicE,
                 0,
                 IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
-            ),
+            )),
         ));
         let enough_resource_clause_qn1 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
             0.8,
-            Interface::from(
+            Some(Interface::from(
                 QnicType::QnicE,
                 0,
                 IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3)),
-            ),
+            )),
         ));
         let mut condition = Condition::new(None);
         condition.add_condition_clause(enough_resource_clause_qn0);
