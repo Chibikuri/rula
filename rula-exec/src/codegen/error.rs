@@ -4,6 +4,7 @@ use std::fmt::Debug;
 pub enum RuLaCompileError {
     RuLaGenerationError,
     RuLaInitializationError(InitializationError),
+    NoRuleFoundError,
 }
 
 #[derive(PartialEq)]

@@ -687,7 +687,8 @@ pub struct RuleSetExpr {
     pub name: Box<Ident>,
     pub config: Box<Option<Ident>>,
     pub default: Box<Option<FnCall>>,
-    pub rules: Vec<RuleIdentifier>, // This could be the vector of Rules
+    // RuleIdentifier could just be an identifier or some let statement that can pass the return value from one rule to other rule
+    pub rules: Vec<RuleIdentifier>,
 }
 
 impl RuleSetExpr {

@@ -445,16 +445,41 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     let ruleset_name = &*ruleset_expr.name.name;
     let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
+
+    // Rules must be defined beforehand
+    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+
+    // Closure that gets rule_name and evaluate if the rule is inside the table or not
+    // If that Rule is in the table, add it to RuleSet
+    let rule_add_evaluater = |rule_name: &String| {
+        if !rule_table.lock().unwrap().contains_key(rule_name) {
+            return Err(RuLaCompileError::NoRuleFoundError);
+        } else {
+            let corr_rule = rule_table.lock().unwrap().get(rule_name).unwrap().clone();
+            glob_ruleset.lock().unwrap().add_rule(corr_rule);
+            Ok(())
+        }
+    };
+
     for rule in &ruleset_expr.rules {
         // generate rule here?
-    }
-    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
-    for (_, generated_rule) in &*rule_table.lock().unwrap() {
-        // Do we need to copy here?
-        glob_ruleset
-            .lock()
-            .unwrap()
-            .add_rule(generated_rule.clone());
+        match rule {
+            RuleIdentifier::FnCall(fn_call_expr) => {
+                // Rule without any return values
+                rule_add_evaluater(&*fn_call_expr.func_name.name).unwrap();
+            }
+            RuleIdentifier::Let(let_stmt) => {
+                // Rule with return value
+                // The name of the function must be in RULE_TABLE
+                let expr = &*let_stmt.expr;
+                match &*expr.kind {
+                    ExprKind::FnCall(fn_call) => {
+                        rule_add_evaluater(&*fn_call.func_name.name).unwrap();
+                    }
+                    _ => unreachable!("So far RuleIdentifier can only be FnCall"),
+                }
+            }
+        }
     }
     Ok(quote!())
 }
