@@ -1507,7 +1507,7 @@ mod test_rule_expr {
                                         "qn0",
                                         None
                                     ),
-                                ],
+                                ].into_iter().collect(),
                                 vec![
                                     Ident::new(
                                         "q2",

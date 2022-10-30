@@ -5,6 +5,7 @@ pub enum RuLaError {
     // Should be detailed
     RuLaSyntaxError,
     RuLaPathConstructionError,
+    InterfaceDuplicationError,
 }
 
 #[derive(Debug, Clone, PartialEq)]

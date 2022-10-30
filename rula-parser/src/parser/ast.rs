@@ -1,7 +1,10 @@
+use crate::parser::error::RuLaError;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
+type IResult<T> = std::result::Result<T, RuLaError>;
 /**
  * Top AST node starts from RuLa
 */
@@ -735,7 +738,7 @@ pub enum RuleIdentifier {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleExpr {
     pub name: Box<Ident>,
-    pub interface: Vec<Ident>,
+    pub interface: HashSet<Ident>,
     pub args: Vec<Ident>,
     pub rule_content: Box<RuleContentExpr>,
 }
@@ -743,7 +746,7 @@ pub struct RuleExpr {
 impl RuleExpr {
     pub fn new(
         name: Ident,
-        interfaces: Vec<Ident>,
+        interfaces: HashSet<Ident>,
         arg_vec: Vec<Ident>,
         rule_content: RuleContentExpr,
     ) -> Self {
@@ -757,7 +760,7 @@ impl RuleExpr {
     pub fn place_holder() -> Self {
         RuleExpr {
             name: Box::new(Ident::place_holder()),
-            interface: vec![],
+            interface: HashSet::new(),
             args: vec![],
             rule_content: Box::new(RuleContentExpr::place_holder()),
         }
@@ -765,9 +768,16 @@ impl RuleExpr {
     pub fn add_name(&mut self, name: Ident) {
         self.name = Box::new(name);
     }
-    pub fn add_interface(&mut self, interface_name: Ident) {
-        self.interface.push(interface_name);
+    pub fn add_interface(&mut self, interface_name: Ident) -> IResult<()> {
+        // If there is the same interface name, this will return error
+        if self.interface.contains(&interface_name) {
+            // Can we avoid error call here?
+            return Err(RuLaError::InterfaceDuplicationError);
+        }
+        self.interface.insert(interface_name);
+        Ok(())
     }
+
     pub fn add_arg(&mut self, arg: Ident) {
         self.args.push(arg);
     }
@@ -1058,7 +1068,7 @@ impl UnicordLit {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident {
     pub name: Box<String>,
     pub type_hint: Box<Option<TypeDef>>,
@@ -1092,7 +1102,7 @@ impl Ident {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
     Integer32,
     Integer64,

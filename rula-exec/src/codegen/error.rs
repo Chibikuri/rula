@@ -5,6 +5,7 @@ pub enum RuLaCompileError {
     RuLaGenerationError,
     RuLaInitializationError(InitializationError),
     NoRuleFoundError,
+    RuleDuplicationError,
 }
 
 #[derive(PartialEq)]

@@ -443,10 +443,15 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // Generate RuleSet
     // generate portable format with rule information
     let ruleset_name = &*ruleset_expr.name.name;
+
+    // Need to evaluate configuration here to generate multiple ruleset
+    let config = &*ruleset_expr.config;
+
+    // Static RuleSet that can be output of this compiler
     let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
 
-    // Rules must be defined beforehand
+    // Rules must be defined beforehand in this table
     let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
 
     // Closure that gets rule_name and evaluate if the rule is inside the table or not
@@ -462,7 +467,6 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     };
 
     for rule in &ruleset_expr.rules {
-        // generate rule here?
         match rule {
             RuleIdentifier::FnCall(fn_call_expr) => {
                 // Rule without any return values
@@ -485,9 +489,18 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
 }
 
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
+    // Prepare RULE_TABLE reference for later use
+    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    // Get the basis information of Rule
     let rule_name = &*rule_expr.name;
-    let rule_name_token = generate_ident(rule_name).unwrap();
 
+    // Check if there is a Rule with the same name
+    if rule_table.lock().unwrap().contains_key(&*rule_name.name) {
+        return Err(RuLaCompileError::RuleDuplicationError);
+    }
+
+    // When the RuleSet is finalized, this information indicates it
+    let rule_interfaces = &rule_expr.interface;
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
 
     // Set empty condition and action to be updated in the different functions
@@ -499,12 +512,14 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // generate the rule content expression with this
     let generated = generate_rule_content(&rule_expr.rule_content, Some(&mut rule)).unwrap();
 
-    // create a rule and store it to the table
-    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    // Shouldn't be better way?
     rule_table
         .lock()
         .unwrap()
-        .insert(rule_name.name.to_string(), rule);
+        .insert(String::from(&*rule_name.name), rule);
+
+    // RuLa runtime generation
+    let rule_name_token = generate_ident(rule_name).unwrap();
 
     Ok(quote!(
         struct #rule_name_token{
