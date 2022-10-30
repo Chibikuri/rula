@@ -20,19 +20,19 @@ pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<Action<ActionC
     let rules = &*ruleset.rules;
     for stmt in rules {
         // statement
-        match &*stmt.kind {
-            // get return value from rule
-            StmtKind::Let(let_stmt) => {
-                // This info might not be used at this moment
-                let return_val_store = &*let_stmt.ident;
-                let rule_expr = match &*let_stmt.expr.kind {
-                    ExprKind::FnCall(rule_name) => &*rule_name.func_name,
-                    _ => todo!("error"),
-                };
-            }
-            StmtKind::Expr(expr) => {}
-            _ => todo!("Here ruleset suppose to be a set of rules."),
-        }
+        // match &*stmt.kind {
+        //     // get return value from rule
+        //     StmtKind::Let(let_stmt) => {
+        //         // This info might not be used at this moment
+        //         let return_val_store = &*let_stmt.ident;
+        //         let rule_expr = match &*let_stmt.expr.kind {
+        //             ExprKind::FnCall(rule_name) => &*rule_name.func_name,
+        //             _ => todo!("error"),
+        //         };
+        //     }
+        //     StmtKind::Expr(expr) => {}
+        //     _ => todo!("Here ruleset suppose to be a set of rules."),
+        // }
     }
     // let rule_table = vec![];
 
@@ -72,19 +72,19 @@ mod tests {
             None,
             Some(FnCall::new(Ident::new("default", None), vec![])),
             vec![
-                Stmt::new(StmtKind::Let(Let::new(
+                RuleIdentifier::Let(Let::new(
                     Ident::new("q1_entangled", None),
                     Expr::new(ExprKind::FnCall(FnCall::new(
                         Ident::new("swapping", None),
                         vec![],
                     ))),
-                ))),
-                Stmt::new(StmtKind::Expr(Expr::new(ExprKind::FnCall(FnCall::new(
+                )),
+                RuleIdentifier::FnCall(FnCall::new(
                     Ident::new("pauli_correction", None),
                     vec![Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
                         Ident::new("q1_entangled", None),
                     ))))],
-                ))))),
+                )),
             ],
         );
 

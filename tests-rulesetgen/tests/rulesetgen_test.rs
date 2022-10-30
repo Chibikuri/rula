@@ -87,7 +87,7 @@ mod generate_swapping_ruleset {
         // Entanglement Swapping Condition
         let enough_resource_clause_qn0 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
-            0.8,
+            Some(0.8),
             Some(Interface::from(
                 QnicType::QnicE,
                 0,
@@ -96,7 +96,7 @@ mod generate_swapping_ruleset {
         ));
         let enough_resource_clause_qn1 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
-            0.8,
+            Some(0.8),
             Some(Interface::from(
                 QnicType::QnicE,
                 0,

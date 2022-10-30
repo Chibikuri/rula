@@ -687,7 +687,7 @@ pub struct RuleSetExpr {
     pub name: Box<Ident>,
     pub config: Box<Option<Ident>>,
     pub default: Box<Option<FnCall>>,
-    pub rules: Vec<Stmt>, // This could be the vector of Rules
+    pub rules: Vec<RuleIdentifier>, // This could be the vector of Rules
 }
 
 impl RuleSetExpr {
@@ -695,7 +695,7 @@ impl RuleSetExpr {
         name: Ident,
         config: Option<Ident>,
         default: Option<FnCall>,
-        rules: Vec<Stmt>,
+        rules: Vec<RuleIdentifier>,
     ) -> Self {
         RuleSetExpr {
             name: Box::new(name),
@@ -718,9 +718,16 @@ impl RuleSetExpr {
     pub fn add_default(&mut self, default: Option<FnCall>) {
         self.default = Box::new(default);
     }
-    pub fn add_rules(&mut self, rules: Stmt) {
+    pub fn add_rule(&mut self, rules: RuleIdentifier) {
         self.rules.push(rules);
     }
+}
+
+// This could be more specified
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuleIdentifier {
+    FnCall(FnCall),
+    Let(Let),
 }
 
 // rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}

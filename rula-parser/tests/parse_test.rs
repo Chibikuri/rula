@@ -1416,19 +1416,13 @@ mod test_ruleset_expr {
                                     ),
                                     None,
                                     None, 
-                                    vec![Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::FnCall(
-                                                    FnCall::new(
-                                                        Ident::new(
-                                                            "rules",
-                                                            None
-                                                        ),
-                                                        vec![],
-                                                    )
-                                                )
-                                            )
+                                    vec![RuleIdentifier::FnCall(
+                                        FnCall::new(
+                                            Ident::new(
+                                                "rules",
+                                                None
+                                            ),
+                                            vec![],
                                         )
                                     )]
                                 )
@@ -1468,20 +1462,13 @@ mod test_ruleset_expr {
                                             vec![]
                                         )
                                     ),
-                                    vec![
-                                        Stmt::new(
-                                            StmtKind::Expr(
-                                                Expr::new(
-                                                    ExprKind::FnCall(
-                                                        FnCall::new(
-                                                            Ident::new(
-                                                                "rules",
-                                                                None
-                                                            ),
-                                                            vec![]
-                                                        )
-                                                    )
-                                                )
+                                    vec![RuleIdentifier::FnCall(
+                                            FnCall::new(
+                                                Ident::new(
+                                                    "rules",
+                                                    None
+                                                ),
+                                                vec![]
                                             )
                                         )
                                     ]

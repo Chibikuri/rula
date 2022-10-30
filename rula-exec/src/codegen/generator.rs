@@ -447,7 +447,14 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
     for rule in &ruleset_expr.rules {
         // generate rule here?
-        // generate_stmt(rule, )
+    }
+    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    for (_, generated_rule) in &*rule_table.lock().unwrap() {
+        // Do we need to copy here?
+        glob_ruleset
+            .lock()
+            .unwrap()
+            .add_rule(generated_rule.clone());
     }
     Ok(quote!())
 }
@@ -519,21 +526,16 @@ fn generate_watch(
         println!("{:#?}", value);
     }
     // Get the rule instance in RULE_TABLE and add condition
-    let rule_name = match rule {
-        Some(rule) => &rule.name,
+    match rule {
+        Some(rule) => rule
+            .condition
+            .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
+                1,
+                Some(0.8),
+                None,
+            ))),
         None => todo!(),
     };
-    let rule_table = RULE_TABLE.get().expect("Unable to get rule table");
-    let mut taken_rule = rule_table.lock().unwrap();
-    taken_rule
-        .get_mut(&*rule_name)
-        .unwrap()
-        .condition
-        .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
-            1,
-            Some(0.8),
-            None,
-        )));
     Ok(quote!())
 }
 

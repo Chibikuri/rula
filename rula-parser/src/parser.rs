@@ -506,14 +506,25 @@ fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
             Rule::fn_call_expr => {
                 ruleset_expr.add_default(Some(build_ast_from_fn_call_expr(block).unwrap()));
             }
-            Rule::stmt => {
-                ruleset_expr
-                    .add_rules(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
+            Rule::rule_idents => {
+                ruleset_expr.add_rule(
+                    build_ast_from_rule_idents(block.into_inner().next().unwrap()).unwrap(),
+                );
             }
             _ => unreachable!(),
         }
     }
     Ok(ruleset_expr)
+}
+
+fn build_ast_from_rule_idents(pair: Pair<Rule>) -> IResult<RuleIdentifier> {
+    match pair.as_rule() {
+        Rule::fn_call_expr => Ok(RuleIdentifier::FnCall(
+            build_ast_from_fn_call_expr(pair).unwrap(),
+        )),
+        Rule::let_stmt => Ok(RuleIdentifier::Let(build_ast_from_let_stmt(pair).unwrap())),
+        _ => unreachable!(),
+    }
 }
 
 fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
