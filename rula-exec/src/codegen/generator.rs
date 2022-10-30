@@ -2,6 +2,7 @@
 use super::error::*;
 use super::IResult;
 
+use crate::network::qnic_wrapper::QnicInterface;
 use crate::rulep::action::v2::ActionClauses;
 use crate::rulep::action::Action;
 use crate::rulep::condition::v1::*;
@@ -499,9 +500,15 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
         return Err(RuLaCompileError::RuleDuplicationError);
     }
 
-    // When the RuleSet is finalized, this information indicates it
-    let rule_interfaces = &rule_expr.interface;
+    // Prepare an empty Rule
     let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
+    // When the ruleset is finalized, this interface name is replaced by actual interface name
+    let rule_interfaces = &rule_expr.interface;
+    // Setup interface placeholder
+    for interface in rule_interfaces {
+        // Interface wrapper
+        rule.add_interface(QnicInterface::place_holder());
+    }
 
     // Set empty condition and action to be updated in the different functions
     let empty_condition = Condition::new(None);

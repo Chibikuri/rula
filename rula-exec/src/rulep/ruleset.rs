@@ -84,8 +84,8 @@ pub struct Rule<T> {
     /// Identifier for partner rules
     pub shared_tag: u32,
     /// Interface information (will be deprecated)
-    #[deprecated(since = "0.2.0", note = "old version ruleset")]
-    pub qnic_interfaces: Option<Vec<Interface>>,
+    // #[deprecated(since = "0.2.0", note = "old version ruleset")]
+    pub qnic_interfaces: Vec<QnicInterface>,
     /// A list of conditions to be met
     pub condition: Condition,
     /// A list of actions to be acted
@@ -100,7 +100,7 @@ impl<T> Rule<T> {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
-            qnic_interfaces: None,
+            qnic_interfaces: vec![],
             id: 0,
             shared_tag: 0,
             condition: Condition::new(None),
@@ -114,6 +114,9 @@ impl<T> Rule<T> {
     }
     pub fn set_action(&mut self, action: Action<T>) {
         self.action = action;
+    }
+    pub fn add_interface(&mut self, interface: QnicInterface) {
+        self.qnic_interfaces.push(interface);
     }
     pub fn update_id(&mut self, new_id: u32) {
         self.id = new_id;
@@ -180,14 +183,4 @@ pub mod tests {
         assert_eq!(rule.condition, Condition::new(None));
         assert_eq!(rule.action, Action::new(None));
     }
-
-    #[test]
-    fn test_interface_place_holder() {
-        let interface = Interface::place_holder();
-        assert_eq!(interface.qnic_type, QnicType::QnicN);
-        assert_eq!(interface.qnic_id, 0);
-        assert_eq!(interface.qnic_address, Ipv4Addr::new(0, 0, 0, 0));
-    }
-
-    // #[test]
 }

@@ -1,4 +1,4 @@
-use crate::network::qnic_wrapper::Interface;
+use crate::network::qnic_wrapper::QnicInterface;
 use crate::network::qubit_wrapper::Qubit;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
@@ -47,7 +47,7 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Purification {
         pub purification_type: PurType,
-        pub qnic_interface: Interface,
+        pub qnic_interface: QnicInterface,
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -77,7 +77,7 @@ pub mod v1 {
     }
 
     impl Purification {
-        pub fn from(pur_type: PurType, interface: Interface) -> Self {
+        pub fn from(pur_type: PurType, interface: QnicInterface) -> Self {
             Purification {
                 purification_type: pur_type,
                 qnic_interface: interface,
@@ -88,9 +88,9 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct EntanglementSwapping {
         /// QNIC interface information placed inside the node
-        pub self_qnic_interfaces: Vec<Interface>,
+        pub self_qnic_interfaces: Vec<QnicInterface>,
         /// QNIC interface information of left and right nodes
-        pub remote_qnic_interfaces: Vec<Interface>,
+        pub remote_qnic_interfaces: Vec<QnicInterface>,
     }
 
     impl EntanglementSwapping {
@@ -101,8 +101,8 @@ pub mod v1 {
             }
         }
         pub fn from(
-            qnic_interfaces: Vec<Interface>,
-            remote_qnic_interfaces: Vec<Interface>,
+            qnic_interfaces: Vec<QnicInterface>,
+            remote_qnic_interfaces: Vec<QnicInterface>,
         ) -> Self {
             EntanglementSwapping {
                 self_qnic_interfaces: qnic_interfaces,
@@ -110,11 +110,11 @@ pub mod v1 {
             }
         }
 
-        pub fn add_qnic_interface(&mut self, qnic_interface: Interface) {
+        pub fn add_qnic_interface(&mut self, qnic_interface: QnicInterface) {
             self.self_qnic_interfaces.push(qnic_interface);
         }
 
-        pub fn add_remote_qnic_interface(&mut self, qnic_interface: Interface) {
+        pub fn add_remote_qnic_interface(&mut self, qnic_interface: QnicInterface) {
             self.remote_qnic_interfaces.push(qnic_interface);
         }
     }
@@ -123,18 +123,18 @@ pub mod v1 {
     pub struct Tomography {
         pub num_measure: u32,
         /// Should be deprecated in the near future
-        pub qnic_interface: Interface,
+        pub qnic_interface: QnicInterface,
     }
 
     impl Tomography {
         pub fn new() -> Self {
             Tomography {
                 num_measure: 0,
-                qnic_interface: Interface::place_holder(),
+                qnic_interface: QnicInterface::place_holder(),
             }
         }
 
-        pub fn from(num_measure: u32, qnic_interface: Interface) -> Self {
+        pub fn from(num_measure: u32, qnic_interface: QnicInterface) -> Self {
             Tomography {
                 num_measure: num_measure,
                 qnic_interface: qnic_interface,
@@ -147,18 +147,18 @@ pub mod v1 {
         // pub fn add_owner_address(&mut self, owner_addr: u32) {
         //     self.owner_address = owner_addr;
         // }
-        pub fn add_interface(&mut self, qnic_interface: Interface) {
+        pub fn add_interface(&mut self, qnic_interface: QnicInterface) {
             self.qnic_interface = qnic_interface;
         }
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Wait {
-        pub qnic_interface: Interface,
+        pub qnic_interface: QnicInterface,
     }
 
     impl Wait {
-        pub fn new(qnic_interface: Interface) -> Self {
+        pub fn new(qnic_interface: QnicInterface) -> Self {
             Wait {
                 qnic_interface: qnic_interface,
             }
@@ -171,17 +171,17 @@ pub mod v1 {
 
         #[test]
         fn test_purification_action() {
-            let test_interface = Interface::from(
+            let test_interface = QnicInterface::from(
                 QnicType::QnicE,
                 2,
-                IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+                Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
             );
             let pur_action = Purification::from(PurType::Double, test_interface);
             assert_eq!(pur_action.purification_type, PurType::Double);
             assert_eq!(pur_action.qnic_interface.qnic_type, QnicType::QnicE);
             assert_eq!(pur_action.qnic_interface.qnic_id, 2);
             assert_eq!(
-                pur_action.qnic_interface.qnic_address.to_string(),
+                pur_action.qnic_interface.qnic_address.unwrap().to_string(),
                 "192.168.0.1"
             );
         }
@@ -189,27 +189,27 @@ pub mod v1 {
         #[test]
         fn test_swapping_action() {
             let test_self_interfaces = vec![
-                Interface::from(
+                QnicInterface::from(
                     QnicType::QnicE,
                     1,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
                 ),
-                Interface::from(
+                QnicInterface::from(
                     QnicType::QnicP,
                     2,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))),
                 ),
             ];
             let test_remote_interfaces = vec![
-                Interface::from(
+                QnicInterface::from(
                     QnicType::QnicE,
                     0,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))),
                 ),
-                Interface::from(
+                QnicInterface::from(
                     QnicType::QnicP,
                     0,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1))),
                 ),
             ];
             let swapping_action =
@@ -222,6 +222,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.self_qnic_interfaces[0]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.0.1"
             );
@@ -233,6 +234,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.self_qnic_interfaces[1]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.0.2"
             );
@@ -245,6 +247,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.remote_qnic_interfaces[0]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.1.1"
             );
@@ -256,6 +259,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.remote_qnic_interfaces[1]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.2.1"
             );
@@ -264,17 +268,17 @@ pub mod v1 {
 
     #[test]
     fn test_tomography_action() {
-        let test_interface = Interface::from(
+        let test_interface = QnicInterface::from(
             QnicType::QnicRp,
             0,
-            IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+            Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
         );
         let tomography = Tomography::from(8000, test_interface);
         assert_eq!(tomography.num_measure, 8000);
         assert_eq!(tomography.qnic_interface.qnic_type, QnicType::QnicRp);
         assert_eq!(tomography.qnic_interface.qnic_id, 0);
         assert_eq!(
-            tomography.qnic_interface.qnic_address.to_string(),
+            tomography.qnic_interface.qnic_address.unwrap().to_string(),
             "192.168.0.1"
         );
     }
@@ -390,7 +394,7 @@ pub mod v2 {
     pub struct MeasResult {
         pub basis: MeasBasis,
         pub result: MeasOutput,
-        pub interface_info: Interface,
+        pub interface_info: QnicInterface,
         pub qubit_info: Qubit,
     }
 
