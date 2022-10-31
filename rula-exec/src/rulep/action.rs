@@ -171,7 +171,7 @@ pub mod v1 {
 
         #[test]
         fn test_purification_action() {
-            let test_interface = QnicInterfaceWrapper::from(
+            let test_interface = QnicInterfaceWrapper::new(
                 QnicType::QnicE,
                 2,
                 Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
@@ -189,24 +189,24 @@ pub mod v1 {
         #[test]
         fn test_swapping_action() {
             let test_self_interfaces = vec![
-                QnicInterfaceWrapper::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicE,
                     1,
                     Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
                 ),
-                QnicInterfaceWrapper::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicP,
                     2,
                     Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))),
                 ),
             ];
             let test_remote_interfaces = vec![
-                QnicInterfaceWrapper::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicE,
                     0,
                     Some(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))),
                 ),
-                QnicInterfaceWrapper::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicP,
                     0,
                     Some(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1))),
@@ -268,7 +268,7 @@ pub mod v1 {
 
     #[test]
     fn test_tomography_action() {
-        let test_interface = QnicInterfaceWrapper::from(
+        let test_interface = QnicInterfaceWrapper::new(
             QnicType::QnicRp,
             0,
             Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),

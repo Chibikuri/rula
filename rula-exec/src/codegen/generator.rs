@@ -28,6 +28,9 @@ static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 type MutexRuleHashMap = Mutex<HashMap<String, Rule<ActionClauses>>>;
 static RULE_TABLE: OnceCell<MutexRuleHashMap> = OnceCell::new();
 
+static QNIC_INTERFACE_TABLE: OnceCell<Mutex<HashMap<String, QnicInterfaceWrapper>>> =
+    OnceCell::new();
+
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
 pub fn generate(
@@ -73,6 +76,7 @@ fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     assert!(RULESET.get().is_none());
     assert!(RULE_TABLE.get().is_none());
+    assert!(QNIC_INTERFACE_TABLE.get().is_none());
 
     // closure to initialize with empty ruleset
     let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
@@ -81,6 +85,10 @@ fn initialize_singleton() {
     // Rule tables to store rule instances
     let initialize_rule_table = || Mutex::new(HashMap::<String, Rule<ActionClauses>>::new());
     let _ = RULE_TABLE.get_or_init(initialize_rule_table);
+
+    // Interface wrapper table that is an endpoint of qnic function call
+    let initialize_interface_table = || Mutex::new(HashMap::<String, QnicInterfaceWrapper>::new());
+    let _ = QNIC_INTERFACE_TABLE.get_or_init(initialize_interface_table);
 }
 
 fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
@@ -114,8 +122,15 @@ fn generate_program(program: &Program) -> IResult<TokenStream> {
 
 fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     let mut interface_names = vec![];
+    let interface_table = QNIC_INTERFACE_TABLE
+        .get()
+        .expect("Failed to get qnic interface table");
     for i in &interface.interface {
-        interface_names.push(generate_ident(i).unwrap())
+        interface_table
+            .lock()
+            .unwrap()
+            .insert(*i.name.clone(), QnicInterfaceWrapper::place_holder());
+        interface_names.push(generate_ident(i).unwrap());
     }
     let interface_group_name = match &*interface.group_name {
         Some(group_name) => generate_ident(&group_name).unwrap(),
@@ -386,7 +401,7 @@ fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
     let stmt = generate_stmt(&fn_def_expr.stmt, None).unwrap();
     // Here could have generics in the future
     Ok(quote!(
-        fn ( #(#arguments),* ) {
+        pub fn ( #(#arguments),* ) {
             #stmt
         }
     ))
@@ -498,6 +513,10 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // Prepare RULE_TABLE reference for later use
     let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    let interface_table = QNIC_INTERFACE_TABLE
+        .get()
+        .expect("Failed to get interface table");
+
     // Get the basis information of Rule
     let rule_name = &*rule_expr.name;
 
@@ -513,7 +532,21 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // Setup interface placeholder
     for interface in rule_interfaces {
         // Interface wrapper
-        rule.add_interface(&interface.name, QnicInterfaceWrapper::place_holder());
+        if !interface_table
+            .lock()
+            .unwrap()
+            .contains_key(&*interface.name)
+        {
+            return Err(RuLaCompileError::NoInterfaceFoundError);
+        } else {
+            match interface_table.lock().unwrap().get(&*interface.name) {
+                // Providing ref would be better
+                Some(target_interface) => {
+                    rule.add_interface(&interface.name, target_interface.clone());
+                }
+                None => return Err(RuLaCompileError::UnknownError),
+            }
+        }
     }
 
     // Set empty condition and action to be updated in the different functions

@@ -7,6 +7,9 @@ pub enum RuLaCompileError {
     NoRuleFoundError,
     RuleDuplicationError,
     FailedToSetValueError,
+    // Todo: provide interface name to it
+    NoInterfaceFoundError,
+    UnknownError,
 }
 
 #[derive(PartialEq)]

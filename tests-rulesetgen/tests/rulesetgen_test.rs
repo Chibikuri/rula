@@ -88,12 +88,12 @@ mod generate_swapping_ruleset {
         let enough_resource_clause_qn0 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
             Some(0.8),
-            Some(QnicInterfaceWrapper::from(QnicType::QnicE, 0, None)),
+            Some(QnicInterfaceWrapper::new(QnicType::QnicE, 0, None)),
         ));
         let enough_resource_clause_qn1 = ConditionClauses::EnoughResource(EnoughResource::new(
             1,
             Some(0.8),
-            Some(QnicInterfaceWrapper::from(QnicType::QnicE, 0, None)),
+            Some(QnicInterfaceWrapper::new(QnicType::QnicE, 0, None)),
         ));
         let mut condition = Condition::new(None);
         condition.add_condition_clause(enough_resource_clause_qn0);

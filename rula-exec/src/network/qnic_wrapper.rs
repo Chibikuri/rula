@@ -15,7 +15,7 @@ pub struct QnicInterfaceWrapper {
 
 /// This should be a wrapper of actual QNIC interface
 impl QnicInterfaceWrapper {
-    pub fn from(qnic_type: QnicType, qnic_id: u32, qnic_address: Option<IpAddr>) -> Self {
+    pub fn new(qnic_type: QnicType, qnic_id: u32, qnic_address: Option<IpAddr>) -> Self {
         QnicInterfaceWrapper {
             qnic_type: qnic_type,
             qnic_id: qnic_id,

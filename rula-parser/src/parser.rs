@@ -538,7 +538,9 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
             Rule::ident_list => {
                 for interface in block.into_inner() {
                     // Interface names
-                    rule_expr.add_interface(build_ast_from_ident(interface).unwrap());
+                    rule_expr
+                        .add_interface(build_ast_from_ident(interface).unwrap())
+                        .unwrap();
                 }
             }
             Rule::argument_def => {
