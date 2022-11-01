@@ -1,11 +1,18 @@
 extern crate rula_derive;
 
+use proc_macro2::TokenStream;
+use quote::quote;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr};
 
+use crate::rulep::condition::v1::*;
 use mock_components::hardware::qnic::QnicType;
 
-use crate::rulep::condition::v1::EnoughResource;
+type IResult<T> = Result<T, QnicInterfaceWrapperError>;
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum QnicInterfaceWrapperError {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct QnicInterfaceWrapper {
@@ -37,8 +44,10 @@ impl QnicInterfaceWrapper {
     // pub fn gen_ruleset_instruction()
     // This function supposed to be an builtin function for quantum interface
     // wrapper functin to request resource to resource allocator
-    pub fn request_resource(self, gen_ruleset: bool) -> Option<EnoughResource> {
-        None
+    pub fn request_resource(&self, gen_ruleset: bool) -> IResult<ConditionClauses> {
+        Ok(ConditionClauses::EnoughResource(EnoughResource::new(
+            1, None, None,
+        )))
     }
 }
 

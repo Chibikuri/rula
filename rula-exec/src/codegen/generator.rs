@@ -14,6 +14,7 @@ use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::format;
 use std::rc::Rc;
 use std::sync::Mutex;
 use syn::LitFloat;
@@ -209,10 +210,7 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     ))
 }
 
-fn generate_stmt(
-    stmt: &Stmt,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-) -> IResult<TokenStream> {
+fn generate_stmt(stmt: &Stmt, rule: Option<&String>) -> IResult<TokenStream> {
     let generated_stmt = match &*stmt.kind {
         StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule, false).unwrap()),
         StmtKind::Interface(interface) => Ok(generate_interface(&interface).unwrap()),
@@ -234,11 +232,7 @@ fn generate_stmt(
 /// * 'in_watch' - (bool) boolean value if this let statement is in watch or not.
 ///                 this can be included AST Node later
 ///
-fn generate_let(
-    let_stmt: &Let,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-    in_watch: bool,
-) -> IResult<TokenStream> {
+fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResult<TokenStream> {
     if &*let_stmt.ident == &Ident::place_holder() {
         return Err(RuLaCompileError::FailedToSetValueError);
     }
@@ -249,10 +243,7 @@ fn generate_let(
     ))
 }
 
-fn generate_expr(
-    expr: &Expr,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-) -> IResult<TokenStream> {
+fn generate_expr(expr: &Expr, rule: Option<&String>) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
         ExprKind::If(if_expr) => Ok(generate_if(&if_expr).unwrap()),
@@ -429,10 +420,7 @@ fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
         }
     ))
 }
-fn generate_fn_call(
-    fn_call_expr: &FnCall,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-) -> IResult<TokenStream> {
+fn generate_fn_call(fn_call_expr: &FnCall, rule: Option<&String>) -> IResult<TokenStream> {
     let fn_name = generate_ident(&fn_call_expr.func_name).unwrap();
     match rule {
         Some(rule_content) => {}
@@ -581,16 +569,15 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     rule.set_condition(empty_condition);
     rule.set_action(empty_action);
 
-    // generate the rule content expression with this
-    let rc_rule = Rc::new(RefCell::new(rule));
-    let generated =
-        generate_rule_content(&rule_expr.rule_content, Some(Rc::clone(&rc_rule))).unwrap();
-
+    let rule_name_string = String::from(&*rule_name.name);
     // Shouldn't be better way?
     rule_table
         .lock()
         .unwrap()
-        .insert(String::from(&*rule_name.name), rc_rule.borrow().to_owned());
+        .insert(rule_name_string.clone(), rule);
+    // generate the rule content expression with this
+    let generated =
+        generate_rule_content(&rule_expr.rule_content, Some(&rule_name_string)).unwrap();
 
     // RuLa runtime generation
     let rule_name_token = generate_ident(rule_name).unwrap();
@@ -603,7 +590,7 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
 
 fn generate_rule_content(
     rule_content_expr: &RuleContentExpr,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
+    rule: Option<&String>,
 ) -> IResult<TokenStream> {
     // monitor expression is only used for RuLa runtime with interaction with RE
     let watch_expr = &*rule_content_expr.monitor_expr;
@@ -613,14 +600,14 @@ fn generate_rule_content(
         Some(rule_contents) => {
             let (w, c, a) = match watch_expr {
                 Some(watcher) => (
-                    generate_watch(watcher, Some(Rc::clone(&rule_contents))).unwrap(),
-                    generate_cond(condition_expr, Some(Rc::clone(&rule_contents))).unwrap(),
-                    generate_act(action_expr, Some(Rc::clone(&rule_contents))).unwrap(),
+                    generate_watch(watcher, Some(&rule_contents)).unwrap(),
+                    generate_cond(condition_expr, Some(&rule_contents)).unwrap(),
+                    generate_act(action_expr, Some(&rule_contents)).unwrap(),
                 ),
                 None => (
                     quote!(),
-                    generate_cond(condition_expr, Some(Rc::clone(&rule_contents))).unwrap(),
-                    generate_act(action_expr, Some(Rc::clone(&rule_contents))).unwrap(),
+                    generate_cond(condition_expr, Some(&rule_contents)).unwrap(),
+                    generate_act(action_expr, Some(&rule_contents)).unwrap(),
                 ),
             };
             (w, c, a)
@@ -631,43 +618,39 @@ fn generate_rule_content(
     Ok(quote!())
 }
 
-fn generate_watch(
-    watch_expr: &WatchExpr,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-) -> IResult<TokenStream> {
+fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult<TokenStream> {
     // watch clauses should be the same as conditions not yet be met
     // Get the rule instance in RULE_TABLE and add condition
-    match rule {
-        Some(rule_some) => {
+    let rule_table = RULE_TABLE.get().expect("Failed to get Rule table");
+
+    match rule_name {
+        Some(name) => {
             for value in &watch_expr.watched_values {
-                generate_let(value, Some(Rc::clone(&rule_some)), true).unwrap();
+                generate_let(value, Some(&name), true).unwrap();
                 // watch can be
             }
-            rule_some
-                .borrow_mut()
+            let condition_clause =
+                ConditionClauses::EnoughResource(EnoughResource::new(1, None, None));
+            rule_table
+                .lock()
+                .unwrap()
+                .get_mut(name)
+                .unwrap_or_else(|| panic!("Failed to get Rule {}", name))
                 .condition
-                .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
-                    1,
-                    Some(0.8),
-                    None,
-                )))
+                .add_condition_clause(condition_clause);
         }
         None => todo!(),
     };
     Ok(quote!())
 }
 
-fn generate_cond(
-    cond_expr: &CondExpr,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-) -> IResult<TokenStream> {
+fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<TokenStream> {
     let mut condition = Condition::new(None);
-    let generated_clauses = match rule {
-        Some(rule_clause) => {
+    let generated_clauses = match rule_name {
+        Some(name) => {
             for clause in &cond_expr.clauses {
-                generate_awaitable(&clause, Some(&mut condition)).unwrap();
+                generate_awaitable(&clause, Some(name)).unwrap();
             }
-            rule_clause.borrow_mut().set_condition(condition);
         }
         None => {
             for clause in &cond_expr.clauses {
@@ -680,11 +663,12 @@ fn generate_cond(
 
 fn generate_awaitable(
     awaitable_expr: &Awaitable,
-    condition: Option<&mut Condition>,
+    rule_name: Option<&String>,
 ) -> IResult<TokenStream> {
     // these must be condition clauses
-    match condition {
-        Some(condition_set) => {
+    let rule_table = RULE_TABLE.get().expect("Failed to get Rule Table");
+    match rule_name {
+        Some(name) => {
             match awaitable_expr {
                 Awaitable::FnCall(fn_call) => {
                     // This should be flex
@@ -716,27 +700,27 @@ fn generate_awaitable(
     Ok(quote!())
 }
 
-fn generate_act(
-    act_expr: &ActExpr,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
-) -> IResult<TokenStream> {
+fn generate_act(act_expr: &ActExpr, rule: Option<&String>) -> IResult<TokenStream> {
     Ok(quote!())
 }
 
 fn generate_variable_call(
     variable_call_expr: &VariableCallExpr,
-    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
+    rule_name: Option<&String>,
 ) -> IResult<TokenStream> {
     let interface_table = QNIC_INTERFACE_TABLE
         .get()
         .expect("Failed to get interface table");
 
+    // Singleton Rule ref here
+    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+
     let mut val_calls = vec![];
     // if the first variable is interface name, that supposed to be interface function call
-    let mut eval_first_two = |rule_inside: Option<Rc<RefCell<Rule<ActionClauses>>>>| {
+    let mut eval_first_two = |rule_name: Option<&String>| {
         match &variable_call_expr.variables[0] {
             Callable::FnCall(fn_call) => {
-                val_calls.push(generate_fn_call(fn_call, rule_inside).unwrap())
+                val_calls.push(generate_fn_call(fn_call, rule_name).unwrap())
             }
             Callable::Ident(identifier) => {
                 if interface_table
@@ -753,12 +737,30 @@ fn generate_variable_call(
                             match builtin_qnic_fn.func_name.name.as_str() {
                                 // Todo: Generate list of builtin function here
                                 "request_resource" => {
-
-                                    // let enough_resurce = interface_table
-                                    // .lock()
-                                    // .unwrap()
-                                    // .get(&*identifier.name)
-                                    // .unwrap().request_resource(true).unwrap();
+                                    let enough_resource = interface_table
+                                        .lock()
+                                        .unwrap()
+                                        .get(&*identifier.name)
+                                        .unwrap()
+                                        .request_resource(true)
+                                        .unwrap();
+                                    // Todo: refactoring
+                                    match rule_name {
+                                        Some(name) => {
+                                            rule_table
+                                                .lock()
+                                                .unwrap()
+                                                .get_mut(name)
+                                                .unwrap_or_else(|| {
+                                                    panic!("Unable to find the Rule {}", name)
+                                                })
+                                                .condition
+                                                .add_condition_clause(enough_resource);
+                                        }
+                                        None => {
+                                            todo!()
+                                        }
+                                    }
                                 }
                                 _ => todo!(),
                             }
@@ -776,16 +778,17 @@ fn generate_variable_call(
             }
         }
     };
-    match rule {
-        Some(rule_inside) => {
-            eval_first_two(Some(Rc::clone(&rule_inside)));
+
+    match rule_name {
+        Some(name) => {
+            eval_first_two(Some(name));
             // FIXME: should combine these
             if variable_call_expr.variables.len() > 2 {
                 for val in &variable_call_expr.variables[2..] {
                     match val {
-                        Callable::FnCall(fn_call) => val_calls.push(
-                            generate_fn_call(fn_call, Some(Rc::clone(&rule_inside))).unwrap(),
-                        ),
+                        Callable::FnCall(fn_call) => {
+                            val_calls.push(generate_fn_call(fn_call, Some(name)).unwrap())
+                        }
                         Callable::Ident(ident) => {
                             val_calls.push(generate_ident(ident).unwrap());
                         }
