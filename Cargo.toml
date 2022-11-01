@@ -3,6 +3,7 @@
 members = [
     "rula",
     "rula-lib",
+    "rula-derive",
     "rula-parser",
     "rula-exec",
     "mock-components",

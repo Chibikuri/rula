@@ -1,3 +1,5 @@
+extern crate rula_derive;
+
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -32,8 +34,10 @@ impl QnicInterfaceWrapper {
         }
     }
 
+    // pub fn gen_ruleset_instruction()
+    // This function supposed to be an builtin function for quantum interface
     // wrapper functin to request resource to resource allocator
-    pub fn request_resource(gen_ruleset: bool) -> Option<EnoughResource> {
+    pub fn request_resource(self, gen_ruleset: bool) -> Option<EnoughResource> {
         None
     }
 }

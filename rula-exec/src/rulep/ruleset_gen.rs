@@ -10,6 +10,9 @@ use super::ruleset::RuleSet;
 use super::IResult;
 use rula_parser::parser::ast::*;
 
+// Trait that tells translation from expressions to Rule isntructions
+pub trait RuleSetTranslatable {}
+
 pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<Action<ActionClauses>>> {
     // generate ruleset from rule_expr
     let ruleset_name = &*ruleset.name.name;

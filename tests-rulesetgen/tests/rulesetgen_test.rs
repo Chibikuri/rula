@@ -121,8 +121,8 @@ mod generate_swapping_ruleset {
 
         match ruleset {
             Some(ruleset_contents) => {
-                println!("left: {:#?}", target_ruleset);
-                println!("right: {:#?}", ruleset_contents);
+                // println!("left: {:#?}", target_ruleset);
+                // println!("right: {:#?}", ruleset_contents);
                 assert_eq!(target_ruleset, ruleset_contents)
             }
             None => panic!("No ruleset found in the test"),

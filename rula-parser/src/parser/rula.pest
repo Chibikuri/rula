@@ -5,7 +5,7 @@ rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 program = { ( stmt )* }
 
 // Statement includes {let, braced statement, expression}
-stmt = {interface_def| let_stmt | brace_stmt | expr }
+stmt = { interface_def| let_stmt | brace_stmt | expr }
 
 // Interface_def 
 interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
@@ -65,8 +65,8 @@ variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
 callable = { fn_call_expr | ident }
 
 // Struct expression to define ordinary structure
-struct_expr = {^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}
-struct_name = {ident} // for parser use
+struct_expr = { ^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_typed)* ~ ","? ~ "}"}
+struct_name = { ident } // for parser use
 
 // Return expression to return variables
 return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
@@ -93,7 +93,7 @@ rule_contents = { monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)* }
 monitor_expr = { ^"watch:" ~ (let_stmt)* }
 // Condition expression for qubit to wait until all meet
 cond_expr = { ^"cond" ~ ident? ~ "{" ~ awaitable? ~ ("," ~ awaitable)* ~ ","? ~ "}" }
-awaitable = { comp_expr | fn_call_expr | variable_call_expr}
+awaitable = { comp_expr | fn_call_expr | variable_call_expr }
 
 // Action expression for qubit to act on operations
 act_expr = { ^"act" ~ ident? ~ "{" ~ (stmt)* ~ "}"}
@@ -135,7 +135,7 @@ ident = @{ "#"? ~ ASCII_ALPHA~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
 literal_expr = { ( bool | string | ident | number | binary | hex | unicord ) }
-literal_list = {literal_expr ~ ("," ~ literal_expr)*}
+literal_list = { literal_expr ~ ("," ~ literal_expr)* }
 
 // Boolean literal
 bool = { true_lit | false_lit }

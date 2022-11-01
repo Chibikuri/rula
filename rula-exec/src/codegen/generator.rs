@@ -12,7 +12,9 @@ use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Mutex;
 use syn::LitFloat;
 
@@ -22,6 +24,8 @@ use mock_components::hardware::result::MeasResult;
 #[allow(unused_imports)]
 use std::net::SocketAddr;
 
+// Right now, compilation is all single thread. In the future, this could be multi thread.
+// Mutex would be a good choice for that.
 type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
 static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
@@ -205,9 +209,12 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     ))
 }
 
-fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
+fn generate_stmt(
+    stmt: &Stmt,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
+) -> IResult<TokenStream> {
     let generated_stmt = match &*stmt.kind {
-        StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule).unwrap()),
+        StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule, false).unwrap()),
         StmtKind::Interface(interface) => Ok(generate_interface(&interface).unwrap()),
         StmtKind::Expr(expr) => Ok(generate_expr(&expr, rule).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
@@ -218,7 +225,20 @@ fn generate_stmt(stmt: &Stmt, rule: Option<&mut Rule<ActionClauses>>) -> IResult
     Ok(quote!(#generated_stmt))
 }
 
-fn generate_let(let_stmt: &Let, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
+/// Generate 'let' statement
+///
+/// # Arguments:
+///
+/// * 'let_stmt' - (Let) Ast node for Let statement
+/// * 'rule' - (Rule) Static Rule definition
+/// * 'in_watch' - (bool) boolean value if this let statement is in watch or not.
+///                 this can be included AST Node later
+///
+fn generate_let(
+    let_stmt: &Let,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
+    in_watch: bool,
+) -> IResult<TokenStream> {
     if &*let_stmt.ident == &Ident::place_holder() {
         return Err(RuLaCompileError::FailedToSetValueError);
     }
@@ -229,7 +249,10 @@ fn generate_let(let_stmt: &Let, rule: Option<&mut Rule<ActionClauses>>) -> IResu
     ))
 }
 
-fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult<TokenStream> {
+fn generate_expr(
+    expr: &Expr,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
+) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
         ExprKind::If(if_expr) => Ok(generate_if(&if_expr).unwrap()),
@@ -246,7 +269,7 @@ fn generate_expr(expr: &Expr, rule: Option<&mut Rule<ActionClauses>>) -> IResult
         ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule).unwrap()),
         ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr, rule).unwrap()),
         ExprKind::VariableCallExpr(variable_call_expr) => {
-            Ok(generate_variable_call(&variable_call_expr).unwrap())
+            Ok(generate_variable_call(&variable_call_expr, rule).unwrap())
         }
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
@@ -408,7 +431,7 @@ fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
 }
 fn generate_fn_call(
     fn_call_expr: &FnCall,
-    rule: Option<&mut Rule<ActionClauses>>,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
 ) -> IResult<TokenStream> {
     let fn_name = generate_ident(&fn_call_expr.func_name).unwrap();
     match rule {
@@ -537,11 +560,14 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
             .unwrap()
             .contains_key(&*interface.name)
         {
+            // If the interface is not properly defined in the file,
+            // this returns no interface found error
             return Err(RuLaCompileError::NoInterfaceFoundError);
         } else {
             match interface_table.lock().unwrap().get(&*interface.name) {
                 // Providing ref would be better
                 Some(target_interface) => {
+                    // This can be just a reference to the interface
                     rule.add_interface(&interface.name, target_interface.clone());
                 }
                 None => return Err(RuLaCompileError::UnknownError),
@@ -556,13 +582,15 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     rule.set_action(empty_action);
 
     // generate the rule content expression with this
-    let generated = generate_rule_content(&rule_expr.rule_content, Some(&mut rule)).unwrap();
+    let rc_rule = Rc::new(RefCell::new(rule));
+    let generated =
+        generate_rule_content(&rule_expr.rule_content, Some(Rc::clone(&rc_rule))).unwrap();
 
     // Shouldn't be better way?
     rule_table
         .lock()
         .unwrap()
-        .insert(String::from(&*rule_name.name), rule);
+        .insert(String::from(&*rule_name.name), rc_rule.borrow().to_owned());
 
     // RuLa runtime generation
     let rule_name_token = generate_ident(rule_name).unwrap();
@@ -575,7 +603,7 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
 
 fn generate_rule_content(
     rule_content_expr: &RuleContentExpr,
-    rule: Option<&mut Rule<ActionClauses>>,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
 ) -> IResult<TokenStream> {
     // monitor expression is only used for RuLa runtime with interaction with RE
     let watch_expr = &*rule_content_expr.monitor_expr;
@@ -585,14 +613,14 @@ fn generate_rule_content(
         Some(rule_contents) => {
             let (w, c, a) = match watch_expr {
                 Some(watcher) => (
-                    generate_watch(watcher, Some(rule_contents)).unwrap(),
-                    generate_cond(condition_expr, Some(rule_contents)).unwrap(),
-                    generate_act(action_expr, Some(rule_contents)).unwrap(),
+                    generate_watch(watcher, Some(Rc::clone(&rule_contents))).unwrap(),
+                    generate_cond(condition_expr, Some(Rc::clone(&rule_contents))).unwrap(),
+                    generate_act(action_expr, Some(Rc::clone(&rule_contents))).unwrap(),
                 ),
                 None => (
                     quote!(),
-                    generate_cond(condition_expr, Some(rule_contents)).unwrap(),
-                    generate_act(action_expr, Some(rule_contents)).unwrap(),
+                    generate_cond(condition_expr, Some(Rc::clone(&rule_contents))).unwrap(),
+                    generate_act(action_expr, Some(Rc::clone(&rule_contents))).unwrap(),
                 ),
             };
             (w, c, a)
@@ -605,17 +633,18 @@ fn generate_rule_content(
 
 fn generate_watch(
     watch_expr: &WatchExpr,
-    rule: Option<&mut Rule<ActionClauses>>,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
 ) -> IResult<TokenStream> {
     // watch clauses should be the same as conditions not yet be met
     // Get the rule instance in RULE_TABLE and add condition
     match rule {
         Some(rule_some) => {
             for value in &watch_expr.watched_values {
-                generate_let(value, Some(rule_some)).unwrap();
+                generate_let(value, Some(Rc::clone(&rule_some)), true).unwrap();
                 // watch can be
             }
             rule_some
+                .borrow_mut()
                 .condition
                 .add_condition_clause(ConditionClauses::EnoughResource(EnoughResource::new(
                     1,
@@ -630,7 +659,7 @@ fn generate_watch(
 
 fn generate_cond(
     cond_expr: &CondExpr,
-    rule: Option<&mut Rule<ActionClauses>>,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
 ) -> IResult<TokenStream> {
     let mut condition = Condition::new(None);
     let generated_clauses = match rule {
@@ -638,7 +667,7 @@ fn generate_cond(
             for clause in &cond_expr.clauses {
                 generate_awaitable(&clause, Some(&mut condition)).unwrap();
             }
-            rule_clause.set_condition(condition);
+            rule_clause.borrow_mut().set_condition(condition);
         }
         None => {
             for clause in &cond_expr.clauses {
@@ -689,13 +718,100 @@ fn generate_awaitable(
 
 fn generate_act(
     act_expr: &ActExpr,
-    rule: Option<&mut Rule<ActionClauses>>,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
 ) -> IResult<TokenStream> {
     Ok(quote!())
 }
 
-fn generate_variable_call(variable_call_expr: &VariableCallExpr) -> IResult<TokenStream> {
-    Ok(quote!())
+fn generate_variable_call(
+    variable_call_expr: &VariableCallExpr,
+    rule: Option<Rc<RefCell<Rule<ActionClauses>>>>,
+) -> IResult<TokenStream> {
+    let interface_table = QNIC_INTERFACE_TABLE
+        .get()
+        .expect("Failed to get interface table");
+
+    let mut val_calls = vec![];
+    // if the first variable is interface name, that supposed to be interface function call
+    let mut eval_first_two = |rule_inside: Option<Rc<RefCell<Rule<ActionClauses>>>>| {
+        match &variable_call_expr.variables[0] {
+            Callable::FnCall(fn_call) => {
+                val_calls.push(generate_fn_call(fn_call, rule_inside).unwrap())
+            }
+            Callable::Ident(identifier) => {
+                if interface_table
+                    .lock()
+                    .unwrap()
+                    .contains_key(&*identifier.name)
+                {
+                    // This is an interface definition with this name
+                    // get function name for this interface
+                    // FIXME: All the information call be access by function for now.
+                    // This is supposed to be a builtin function of qnic interface
+                    match &variable_call_expr.variables[1] {
+                        Callable::FnCall(builtin_qnic_fn) => {
+                            match builtin_qnic_fn.func_name.name.as_str() {
+                                // Todo: Generate list of builtin function here
+                                "request_resource" => {
+
+                                    // let enough_resurce = interface_table
+                                    // .lock()
+                                    // .unwrap()
+                                    // .get(&*identifier.name)
+                                    // .unwrap().request_resource(true).unwrap();
+                                }
+                                _ => todo!(),
+                            }
+                        }
+                        _ => unreachable!("Qnic interface can only take functions"),
+                    }
+                } else {
+                    // If this is not a qnic interface, just treat as usual identifier
+                    val_calls.push(generate_ident(identifier).unwrap());
+                    match &variable_call_expr.variables[1] {
+                        Callable::FnCall(fn_call_expr) => {}
+                        Callable::Ident(ident_expr) => {}
+                    }
+                }
+            }
+        }
+    };
+    match rule {
+        Some(rule_inside) => {
+            eval_first_two(Some(Rc::clone(&rule_inside)));
+            // FIXME: should combine these
+            if variable_call_expr.variables.len() > 2 {
+                for val in &variable_call_expr.variables[2..] {
+                    match val {
+                        Callable::FnCall(fn_call) => val_calls.push(
+                            generate_fn_call(fn_call, Some(Rc::clone(&rule_inside))).unwrap(),
+                        ),
+                        Callable::Ident(ident) => {
+                            val_calls.push(generate_ident(ident).unwrap());
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            eval_first_two(None);
+            if variable_call_expr.variables.len() > 2 {
+                for val in &variable_call_expr.variables[2..] {
+                    match val {
+                        Callable::FnCall(fn_call) => {
+                            val_calls.push(generate_fn_call(fn_call, None).unwrap());
+                        }
+                        Callable::Ident(ident) => {
+                            val_calls.push(generate_ident(ident).unwrap());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(quote!(
+        #(#val_calls).*
+    ))
 }
 
 fn generate_array(array_expr: &Array) -> IResult<TokenStream> {
@@ -747,6 +863,8 @@ fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
 
 #[cfg(test)]
 mod tests {
+    use rula_derive::trace;
+
     use super::*;
 
     // ident tests
@@ -929,7 +1047,7 @@ mod tests {
         );
         let test_stream = generate_fn_def(&simple_fn_def).unwrap();
         assert_eq!(
-            "fn (block : i32 , hello : String) { expression }",
+            "pub fn (block : i32 , hello : String) { expression }",
             test_stream.to_string()
         );
     }

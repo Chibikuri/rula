@@ -2,7 +2,7 @@ import std::qubit::free;
 import std::time::time;
 import std::message::{Message, get_message};
 import std::result::Result;
-import std::operations::bsm;
+import std::operation::bsm;
 
 // automatic assignment for qnic interfaces
 #interface: {qn0, qn1} => qnall;
