@@ -1,7 +1,4 @@
 use clap::Parser;
-use rula_exec;
-use rula_parser::parse as rula_parse;
-use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -16,9 +13,11 @@ struct Args {
     /// Name of the person to greet
     #[arg(short, long, default_value = "false")]
     ruleset: bool,
-    // Number of times to greet
-    // #[arg(short, long, default_value_t = 1)]
-    // count: u8,
+
+    /// In the case where the condition never satisfy,
+    /// if this value is false, that rule is not included in RuleSet
+    #[arg(short, long, default_value = "false")]
+    never_satisfy: bool,
 }
 
 fn main() {
@@ -30,10 +29,8 @@ fn main() {
         .expect("Something went wrong reading the file");
     // parse rula program
     let ast = rula_parser::parse(&contents).unwrap();
-    let (rust, _ruleset) = rula_exec::codegen::generator::generate(ast, args.ruleset).unwrap();
-    // println!("{:#?}", rust);
-    // println!("{:#?}", ast);
-    if !args.ruleset {
+    let (_rust, _ruleset) = rula_exec::codegen::generator::generate(ast, args.ruleset).unwrap();
+    if args.ruleset {
         println!("Generating RuleSet...");
     }
     println!("Hello {}!", args.ruleset);

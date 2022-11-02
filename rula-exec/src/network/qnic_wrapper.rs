@@ -44,10 +44,20 @@ impl QnicInterfaceWrapper {
     // pub fn gen_ruleset_instruction()
     // This function supposed to be an builtin function for quantum interface
     // wrapper functin to request resource to resource allocator
-    pub fn request_resource(&self, gen_ruleset: bool) -> IResult<ConditionClauses> {
+    pub fn request_resource(&self, _gen_ruleset: bool) -> IResult<ConditionClauses> {
         Ok(ConditionClauses::EnoughResource(EnoughResource::new(
             1, None, None,
         )))
+    }
+
+    pub fn get_qubit_by_partner() {}
+    pub fn get_message(&self) -> IResult<ConditionClauses> {
+        // This needs to be updated
+        Ok(ConditionClauses::Wait)
+    }
+
+    pub fn get_partner_by_hop(&self, _distance: u32) {
+        // If the distance is 0, that means
     }
 }
 

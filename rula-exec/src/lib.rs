@@ -7,6 +7,7 @@ pub mod codegen {
     mod error;
 
     pub mod generator;
+    pub mod rule_meta;
 
     use error::RuLaCompileError;
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;

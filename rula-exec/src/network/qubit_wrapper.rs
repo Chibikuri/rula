@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 
 // Qubit interface wrapper
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Qubit {
+pub struct QubitInterfaceWrapper {
     // address: QubitAddress,
 }
 
-impl Qubit {
+impl QubitInterfaceWrapper {
     pub fn new() -> Self {
-        Qubit {}
+        QubitInterfaceWrapper {}
     }
 }

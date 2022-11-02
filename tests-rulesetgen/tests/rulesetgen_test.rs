@@ -6,7 +6,7 @@ use rula_exec::rulep::ruleset::{Rule, RuleSet};
 
 // Interface wrapper
 use rula_exec::network::qnic_wrapper::QnicInterfaceWrapper;
-use rula_exec::network::qubit_wrapper::Qubit;
+use rula_exec::network::qubit_wrapper::QubitInterfaceWrapper;
 
 // Is this proper one?
 use mock_components::hardware::qnic::QnicType;
@@ -100,8 +100,14 @@ mod generate_swapping_ruleset {
         condition.add_condition_clause(enough_resource_clause_qn1);
 
         // Entanglement Swapping Action
-        let cnot_control_gate = ActionClauses::Gate(QGate::new(QGateType::CxControl, Qubit::new()));
-        let cnot_target_gate = ActionClauses::Gate(QGate::new(QGateType::CxControl, Qubit::new()));
+        let cnot_control_gate = ActionClauses::Gate(QGate::new(
+            QGateType::CxControl,
+            QubitInterfaceWrapper::new(),
+        ));
+        let cnot_target_gate = ActionClauses::Gate(QGate::new(
+            QGateType::CxControl,
+            QubitInterfaceWrapper::new(),
+        ));
         let send_result_qn0 = ActionClauses::Send(Send::new(
             IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)),
             IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
@@ -123,6 +129,7 @@ mod generate_swapping_ruleset {
             Some(ruleset_contents) => {
                 // println!("left: {:#?}", target_ruleset);
                 // println!("right: {:#?}", ruleset_contents);
+                println!("generated: {:#?}", ruleset_contents);
                 assert_eq!(target_ruleset, ruleset_contents)
             }
             None => panic!("No ruleset found in the test"),

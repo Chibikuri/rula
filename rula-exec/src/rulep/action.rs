@@ -1,5 +1,5 @@
 use crate::network::qnic_wrapper::QnicInterfaceWrapper;
-use crate::network::qubit_wrapper::Qubit;
+use crate::network::qubit_wrapper::QubitInterfaceWrapper;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 
@@ -298,7 +298,7 @@ pub mod v2 {
         /// Send classical message from one place to another
         Send(Send),
         /// Free consumed resource for later use
-        Free(Qubit),
+        Free(QubitInterfaceWrapper),
         /// Update the status of qubit
         Update(Update),
     }
@@ -306,11 +306,11 @@ pub mod v2 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct QGate {
         pub kind: QGateType,
-        pub target: Qubit,
+        pub target: QubitInterfaceWrapper,
     }
 
     impl QGate {
-        pub fn new(gate_kind: QGateType, target_qubit: Qubit) -> Self {
+        pub fn new(gate_kind: QGateType, target_qubit: QubitInterfaceWrapper) -> Self {
             QGate {
                 kind: gate_kind,
                 target: target_qubit,
@@ -337,11 +337,11 @@ pub mod v2 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Measure {
         pub basis: MeasBasis,
-        pub target: Qubit,
+        pub target: QubitInterfaceWrapper,
     }
 
     impl Measure {
-        pub fn new(basis: MeasBasis, target: Qubit) -> Self {
+        pub fn new(basis: MeasBasis, target: QubitInterfaceWrapper) -> Self {
             Measure {
                 basis: basis,
                 target: target,
@@ -395,7 +395,7 @@ pub mod v2 {
         pub basis: MeasBasis,
         pub result: MeasOutput,
         pub interface_info: QnicInterfaceWrapper,
-        pub qubit_info: Qubit,
+        pub qubit_info: QubitInterfaceWrapper,
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -405,7 +405,7 @@ pub mod v2 {
     }
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Update {
-        pub target: Qubit,
+        pub target: QubitInterfaceWrapper,
     }
 
     #[cfg(test)]
@@ -415,7 +415,7 @@ pub mod v2 {
         #[test]
         fn test_action_clause() {
             let mut action = Action::new(None);
-            let qgate = QGate::new(QGateType::H, Qubit::new());
+            let qgate = QGate::new(QGateType::H, QubitInterfaceWrapper::new());
             let clause = ActionClauses::Gate(qgate.clone());
             action.add_action_clause(clause);
             assert_eq!(action.name, None);
@@ -425,9 +425,9 @@ pub mod v2 {
 
         #[test]
         fn test_measure_clause() {
-            let measure_clause = Measure::new(MeasBasis::X, Qubit::new());
+            let measure_clause = Measure::new(MeasBasis::X, QubitInterfaceWrapper::new());
             assert_eq!(measure_clause.basis, MeasBasis::X);
-            assert_eq!(measure_clause.target, Qubit::new())
+            assert_eq!(measure_clause.target, QubitInterfaceWrapper::new())
         }
     }
 }

@@ -788,7 +788,7 @@ impl RuleExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleContentExpr {
-    pub monitor_expr: Box<Option<WatchExpr>>,
+    pub watch_expr: Box<Option<WatchExpr>>,
     pub condition_expr: Box<CondExpr>,
     pub action_expr: Box<ActExpr>,
     pub post_processing: Vec<Stmt>,
@@ -796,13 +796,13 @@ pub struct RuleContentExpr {
 
 impl RuleContentExpr {
     pub fn new(
-        monitor_expr: Option<WatchExpr>,
+        watch_expr: Option<WatchExpr>,
         condition_expr: CondExpr,
         action_expr: ActExpr,
         post_processing: Vec<Stmt>,
     ) -> Self {
         RuleContentExpr {
-            monitor_expr: Box::new(monitor_expr),
+            watch_expr: Box::new(watch_expr),
             condition_expr: Box::new(condition_expr),
             action_expr: Box::new(action_expr),
             post_processing: post_processing,
@@ -810,14 +810,14 @@ impl RuleContentExpr {
     }
     pub fn place_holder() -> Self {
         RuleContentExpr {
-            monitor_expr: Box::new(None),
+            watch_expr: Box::new(None),
             condition_expr: Box::new(CondExpr::place_holder()),
             action_expr: Box::new(ActExpr::place_holder()),
             post_processing: vec![],
         }
     }
     pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
-        self.monitor_expr = Box::new(monitor_expr);
+        self.watch_expr = Box::new(monitor_expr);
     }
     pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
         self.condition_expr = Box::new(condition_expr);
