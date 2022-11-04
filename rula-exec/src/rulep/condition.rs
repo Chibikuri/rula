@@ -38,6 +38,8 @@ pub mod v1 {
         Wait,
         /// Trigger timer message (Not implemented on quisp)
         Time(f64),
+        /// Variable comparison
+        Cmp(Cmp),
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -111,6 +113,9 @@ pub mod v1 {
             }
         }
     }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Cmp {}
 
     #[cfg(test)]
     mod tests {

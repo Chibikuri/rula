@@ -42,9 +42,9 @@ rule swapping<qn0, qn1>(distance) {
 }
 
 // Fix here to qnall
-rule pauli_correction<qn0>(){
+rule pauli_correction<qn0>(distance){
     watch:
-        let message = qn0.get_message();
+        let message = qn0.get_message(qn0.get_partner_by_hop);
     cond {
         message.kind == "swapping",
     } => act{
@@ -62,6 +62,6 @@ rule pauli_correction<qn0>(){
 
 ruleset(CONFIG) entanglement_swapping{
     default: default()
-    swapping(CONFIG.distance, CONFIG.destination)
-    pauli_correction()
+    swapping(CONFIG.distance)
+    pauli_correction(CONFIG.distance)
 }

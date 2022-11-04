@@ -41,10 +41,20 @@ impl QnicInterfaceWrapper {
         }
     }
 
-    // pub fn gen_ruleset_instruction()
+    pub fn builtin_functions<F>(&self, func_name: &String, f: F)
+    where
+        F: FnOnce() -> IResult<ConditionClauses>,
+    {
+        match func_name.as_str() {
+            "request_resource" => {
+                self.request_resource(f);
+            }
+            _ => todo!("Not yet implemented"),
+        }
+    }
     // This function supposed to be an builtin function for quantum interface
     // wrapper functin to request resource to resource allocator
-    pub fn request_resource(&self, _gen_ruleset: bool) -> IResult<ConditionClauses> {
+    pub fn request_resource<F>(&self, f: F) -> IResult<ConditionClauses> {
         Ok(ConditionClauses::EnoughResource(EnoughResource::new(
             1, None, None,
         )))
