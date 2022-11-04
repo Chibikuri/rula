@@ -285,6 +285,7 @@ impl PathKind {
             ident_vec.push(Ident::new(
                 p.clone().into_os_string().to_str().unwrap(),
                 None,
+                IdentType::Other,
             ))
         }
         ident_vec
@@ -1024,7 +1025,7 @@ pub struct NumberLit {
 impl NumberLit {
     pub fn new(val: &str) -> Self {
         NumberLit {
-            value: Box::new(Ident::new(val, None)),
+            value: Box::new(Ident::new(val, None, IdentType::Other)),
         }
     }
 }
@@ -1072,13 +1073,22 @@ impl UnicordLit {
 pub struct Ident {
     pub name: Box<String>,
     pub type_hint: Box<Option<TypeDef>>,
+    pub ident_type: Box<IdentType>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum IdentType {
+    QnicInterface,
+    WatchedVal,
+    Other,
 }
 
 impl Ident {
-    pub fn new(name: &str, type_def: Option<TypeDef>) -> Ident {
+    pub fn new(name: &str, type_def: Option<TypeDef>, ident_type: IdentType) -> Ident {
         Ident {
             name: Box::new(String::from(name)),
             type_hint: Box::new(type_def),
+            ident_type: Box::new(ident_type),
         }
     }
     // Do we have better way?
@@ -1086,6 +1096,7 @@ impl Ident {
         Ident {
             name: Box::new(String::from("")),
             type_hint: Box::new(None),
+            ident_type: Box::new(IdentType::Other),
         }
     }
     pub fn add_name(&mut self, name: &str) {
@@ -1094,6 +1105,9 @@ impl Ident {
 
     pub fn add_type_hint(&mut self, type_hint: Option<TypeDef>) {
         self.type_hint = Box::new(type_hint);
+    }
+    pub fn update_ident_type(&mut self, new_ident_type: IdentType) {
+        self.ident_type = Box::new(new_ident_type);
     }
     pub fn check(&self) {
         if *self.name == String::from("") {

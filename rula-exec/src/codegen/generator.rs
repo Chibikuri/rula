@@ -1,6 +1,6 @@
 // This is entory point to generate code from AST
 use super::error::*;
-use super::rule_meta::{RuleMeta, Watchable};
+use super::rule_meta::*;
 use super::IResult;
 
 use crate::network::qnic_wrapper::QnicInterfaceWrapper;
@@ -255,8 +255,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
                     .expect("Unable to find the Rule meta")
                     .insert_watch_value(String::from(&*let_stmt.ident.name), Watchable::UnSet);
                 identifier = generate_ident(&*let_stmt.ident).unwrap();
-                expr = generate_expr(&*let_stmt.expr, rule, Some(&*let_stmt.ident.name.clone()))
-                    .unwrap();
+                expr = generate_expr(&*let_stmt.expr, rule, Some(&*let_stmt.ident.name)).unwrap();
             }
             None => {
                 todo!("No rule found")
@@ -274,7 +273,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
 fn generate_expr(
     expr: &Expr,
     rule: Option<&String>,
-    watch_ident: Option<&String>,
+    watched_value: Option<&String>,
 ) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
@@ -292,7 +291,7 @@ fn generate_expr(
         ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule).unwrap()),
         ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr, rule).unwrap()),
         ExprKind::VariableCallExpr(variable_call_expr) => {
-            Ok(generate_variable_call(&variable_call_expr, rule).unwrap())
+            Ok(generate_variable_call(&variable_call_expr, rule, watched_value).unwrap())
         }
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
@@ -315,7 +314,7 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
             let splitted = path_ident.name.split("/");
             // This is not clean
             for sp in splitted.into_iter() {
-                let new_ident = Ident::new(sp, None);
+                let new_ident = Ident::new(sp, None, IdentType::Other);
                 let path_fragment = generate_ident(&new_ident).unwrap();
                 single_path.push(path_fragment)
             }
@@ -683,6 +682,7 @@ fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult
     match rule_name {
         Some(name) => {
             for value in &watch_expr.watched_values {
+                // start watch value generation process with `in_watch=true`
                 generated_watch.push(generate_let(value, Some(&name), true).unwrap());
                 // watch can be
             }
@@ -699,6 +699,22 @@ fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult
 
 fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<TokenStream> {
     let mut generated_clauses = vec![];
+    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    let (in_rule, r_name) = helper::check_in(rule_name);
+    let condition_clause_addr = |rule_name: Option<&String>, condition_clause: ConditionClauses| {
+        if in_rule {
+            rule_table
+                .lock()
+                .unwrap()
+                .get_mut(&r_name)
+                .unwrap_or_else(|| panic!("Unable to find the Rule {}", r_name))
+                .condition
+                .add_condition_clause(condition_clause);
+        } else {
+            todo!()
+        }
+    };
+
     match rule_name {
         Some(name) => {
             for clause in &cond_expr.clauses {
@@ -734,7 +750,7 @@ fn generate_awaitable(
                 }
                 Awaitable::VariableCallExpr(val_call) => {
                     // Check if the value is properly watched or not
-                    awaitables.push(generate_variable_call(val_call, Some(name)).unwrap());
+                    awaitables.push(generate_variable_call(val_call, Some(name), None).unwrap());
                 }
                 Awaitable::Comp(comp) => {
                     todo!("Variable comparison goes here")
@@ -753,15 +769,21 @@ fn generate_act(act_expr: &ActExpr, rule: Option<&String>) -> IResult<TokenStrea
 fn generate_variable_call(
     variable_call_expr: &VariableCallExpr,
     rule_name: Option<&String>,
+    watched_value: Option<&String>,
 ) -> IResult<TokenStream> {
-    let interface_table = QNIC_INTERFACE_TABLE
-        .get()
-        .expect("Failed to get interface table");
+    // Check status (in_rule, in_watch)
+    let (in_rule, r_name) = helper::check_in(rule_name);
+    let (in_watch, watched_val) = helper::check_in(watched_value);
 
     // Singleton Rule ref here
     let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
     let rule_meta = RULE_META.get().expect("Failed to get Rule meta table");
+    // Interface name tables
+    let interface_table = QNIC_INTERFACE_TABLE
+        .get()
+        .expect("Failed to get interface table");
 
+    // Look up if the value is registered in the table
     let check_watched = |val_name| match rule_name {
         Some(name) => rule_meta
             .lock()
@@ -772,6 +794,7 @@ fn generate_variable_call(
             .contains_key(val_name),
         None => false,
     };
+    // Start generating
     let mut val_calls = vec![];
     // if the first variable is interface name, that supposed to be interface function call
     let mut eval_first_two = |rule_name: Option<&String>| {
@@ -786,29 +809,14 @@ fn generate_variable_call(
                     .unwrap()
                     .contains_key(&*identifier.name)
                 {
-                    // This is an interface definition with this name
-                    // get function name for this interface
                     // FIXME: All the information call be access by function for now.
                     // This is supposed to be a builtin function of qnic interface
-                    let condition_clause_addr =
-                        |rule_name: Option<&String>, condition_clause: ConditionClauses| {
-                            match rule_name {
-                                Some(name) => {
-                                    rule_table
-                                        .lock()
-                                        .unwrap()
-                                        .get_mut(name)
-                                        .unwrap_or_else(|| {
-                                            panic!("Unable to find the Rule {}", name)
-                                        })
-                                        .condition
-                                        .add_condition_clause(condition_clause);
-                                }
-                                None => {
-                                    todo!()
-                                }
-                            }
-                        };
+                    // If this is in watch process, the variable information needs to be registerd in Rule meta
+                    if in_watch {
+                        // Register value
+                    } else {
+                        // Call builtin function
+                    }
                     match &variable_call_expr.variables[1] {
                         Callable::FnCall(builtin_qnic_fn) => {
                             // interface_table.lock().unwrap().get(&*identifier.name).unwrap().builtin_functions(builtin_qnic_fn.func_name.name, f);
@@ -844,9 +852,27 @@ fn generate_variable_call(
                         }
                         _ => unreachable!("Qnic interface can only take functions"),
                     }
-                } else if check_watched(&*identifier.name) {
-                    // This is watched value that needs to be treated differently
-                    // Do we need this?
+                    // Verify if the value is inside the table or not
+                } else if in_watch && check_watched(&*identifier.name) {
+                    // If this variable is in watched list, here we need to update watchable
+                    // let watchable_q = Watchable::Quantum(QuantumProp::place_holder());
+                    // let watchable_c = Watchable::Classical(ClassicalProp:)
+                    // let watchable =
+                    // q1.ready()
+                    // Rule -> Watchable
+                    if in_rule {
+                        rule_meta
+                            .lock()
+                            .unwrap()
+                            .get_mut(&r_name)
+                            .unwrap()
+                            .watched_values
+                            .get_mut(&*identifier.name)
+                            .unwrap()
+                            .update_quantum_prop(QuantumProp::place_holder());
+                    } else {
+                        todo!()
+                    }
                 } else {
                     // If this is not a qnic interface or watched value, just treat as usual identifier
                     val_calls.push(generate_ident(identifier).unwrap());
@@ -866,7 +892,7 @@ fn generate_variable_call(
     match rule_name {
         Some(name) => {
             eval_first_two(Some(name));
-            // FIXME: should combine these
+            // FIXME: should combine these or do recursively
             if variable_call_expr.variables.len() > 2 {
                 for val in &variable_call_expr.variables[2..] {
                     match val {
@@ -948,6 +974,15 @@ fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
     }
 }
 
+pub mod helper {
+    pub fn check_in(named: Option<&String>) -> (bool, String) {
+        match named {
+            Some(name) => (true, name.clone()),
+            None => (false, String::from("")),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -955,13 +990,13 @@ mod tests {
     // ident tests
     #[test]
     fn test_ident_no_type_hint() {
-        let test_ident = Ident::new("hello", None);
+        let test_ident = Ident::new("hello", None, IdentType::Other);
         let test_stream = generate_ident(&test_ident).unwrap();
         assert_eq!("hello", test_stream.to_string());
     }
     #[test]
     fn test_ident_with_type_hint() {
-        let test_ident = Ident::new("hello", Some(TypeDef::Boolean));
+        let test_ident = Ident::new("hello", Some(TypeDef::Boolean), IdentType::Other);
         let test_stream = generate_ident(&test_ident).unwrap();
         assert_eq!("hello : bool", test_stream.to_string());
     }
@@ -983,11 +1018,13 @@ mod tests {
         let simple_if = If::new(
             // (block)
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "block", None,
+                "block",
+                None,
+                IdentType::Other,
             ))))),
             // {expression}
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None)),
+                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
             ))))),
             // elif ~
             None,
@@ -1004,17 +1041,23 @@ mod tests {
         let if_else = If::new(
             // (block)
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "block", None,
+                "block",
+                None,
+                IdentType::Other,
             ))))),
             // {expression}
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None)),
+                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
             ))))),
             // elif ~
             None,
             // else ~
             Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
-                Lit::new(LitKind::Ident(Ident::new("expression2", None))),
+                Lit::new(LitKind::Ident(Ident::new(
+                    "expression2",
+                    None,
+                    IdentType::Other,
+                ))),
             ))))),
         );
         let test_stream = generate_if(&if_else).unwrap();
@@ -1030,28 +1073,36 @@ mod tests {
         let if_elif_else = If::new(
             // (block)
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "block", None,
+                "block",
+                None,
+                IdentType::Other,
             ))))),
             // {expression}
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None)),
+                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
             ))))),
             // elif ~
             Some(If::new(
                 // else if (block)
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block2", None,
+                    "block2",
+                    None,
+                    IdentType::Other,
                 ))))),
                 // else if () {statement2;};
                 Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                    LitKind::Ident(Ident::new("expression2", None)),
+                    LitKind::Ident(Ident::new("expression2", None, IdentType::Other)),
                 ))))),
                 None,
                 None,
             )),
             // else ~
             Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
-                Lit::new(LitKind::Ident(Ident::new("expression3", None))),
+                Lit::new(LitKind::Ident(Ident::new(
+                    "expression3",
+                    None,
+                    IdentType::Other,
+                ))),
             ))))),
         );
         let test_stream = generate_if(&if_elif_else).unwrap();
@@ -1066,13 +1117,14 @@ mod tests {
     fn test_simple_for_generation() {
         // for (i) in generator {hello}
         let simple_for = For::new(
-            vec![Ident::new("i", None)],
+            vec![Ident::new("i", None, IdentType::Other)],
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                 "generator",
                 None,
+                IdentType::Other,
             ))))),
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("hello", None)),
+                LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
             ))))),
         );
         let test_stream = generate_for(&simple_for).unwrap();
@@ -1084,16 +1136,17 @@ mod tests {
         // for (a, b, c) in generator{hello}
         let multi_for = For::new(
             vec![
-                Ident::new("a", None),
-                Ident::new("b", None),
-                Ident::new("c", None),
+                Ident::new("a", None, IdentType::Other),
+                Ident::new("b", None, IdentType::Other),
+                Ident::new("c", None, IdentType::Other),
             ],
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                 "generator",
                 None,
+                IdentType::Other,
             ))))),
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("hello", None)),
+                LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
             ))))),
         );
         let test_stream = generate_for(&multi_for).unwrap();
@@ -1107,10 +1160,12 @@ mod tests {
     fn test_simple_while() {
         let simple_while = While::new(
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "count", None,
+                "count",
+                None,
+                IdentType::Other,
             ))))),
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None)),
+                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
             ))))),
         );
         let test_stream = generate_while(&simple_while).unwrap();
@@ -1123,11 +1178,11 @@ mod tests {
         // fn(block:i32, hello:str){expression}
         let simple_fn_def = FnDef::new(
             vec![
-                Ident::new("block", Some(TypeDef::Integer32)),
-                Ident::new("hello", Some(TypeDef::Str)),
+                Ident::new("block", Some(TypeDef::Integer32), IdentType::Other),
+                Ident::new("hello", Some(TypeDef::Str), IdentType::Other),
             ],
             Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None)),
+                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
             ))))),
         );
         let test_stream = generate_fn_def(&simple_fn_def).unwrap();
@@ -1141,7 +1196,7 @@ mod tests {
     #[test]
     fn test_simple_fn_call() {
         // range()
-        let simple_fn_call = FnCall::new(Ident::new("range", None), vec![]);
+        let simple_fn_call = FnCall::new(Ident::new("range", None, IdentType::Other), vec![]);
         let test_stream = generate_fn_call(&simple_fn_call, None).unwrap();
         assert_eq!("range ()", test_stream.to_string());
     }
@@ -1151,8 +1206,8 @@ mod tests {
     fn test_simple_struct() {
         // struct Test{flag: bool}
         let simple_struct = Struct::new(
-            Ident::new("Test", None),
-            vec![Ident::new("flag", Some(TypeDef::Boolean))],
+            Ident::new("Test", None, IdentType::Other),
+            vec![Ident::new("flag", Some(TypeDef::Boolean), IdentType::Other)],
         );
         let test_stream = generate_struct(&simple_struct).unwrap();
         assert_eq!("struct Test { flag : bool }", test_stream.to_string());
@@ -1163,7 +1218,7 @@ mod tests {
     fn test_simple_return() {
         // return hello
         let simple_return = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
-            Ident::new("hello", None),
+            Ident::new("hello", None, IdentType::Other),
         )))));
         let test_stream = generate_return(&simple_return).unwrap();
         assert_eq!("return hello ;", test_stream.to_string());
@@ -1175,12 +1230,15 @@ mod tests {
         // count > prev_count
         let comp_expr = Comp::new(
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "count", None,
+                "count",
+                None,
+                IdentType::Other,
             ))))),
             CompOpKind::Gt,
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                 "prev_count",
                 None,
+                IdentType::Other,
             ))))),
         );
         let test_stream = generate_comp(&comp_expr).unwrap();

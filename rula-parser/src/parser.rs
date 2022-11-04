@@ -64,12 +64,16 @@ fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
             Rule::ident_list => {
                 // interface list
                 for interface_name in block.into_inner() {
-                    interface.add_interface(build_ast_from_ident(interface_name).unwrap());
+                    let mut interface_ident = build_ast_from_ident(interface_name).unwrap();
+                    interface_ident.update_ident_type(IdentType::QnicInterface);
+                    interface.add_interface(interface_ident);
                 }
             }
             Rule::ident => {
                 // group name
-                interface.add_name(Some(build_ast_from_ident(block).unwrap()))
+                let mut interface_group = build_ast_from_ident(block).unwrap();
+                interface_group.update_ident_type(IdentType::QnicInterface);
+                interface.add_name(Some(interface_group));
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
@@ -537,10 +541,10 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
             }
             Rule::ident_list => {
                 for interface in block.into_inner() {
+                    let mut interface_ident = build_ast_from_ident(interface).unwrap();
+                    interface_ident.update_ident_type(IdentType::QnicInterface);
                     // Interface names
-                    rule_expr
-                        .add_interface(build_ast_from_ident(interface).unwrap())
-                        .unwrap();
+                    rule_expr.add_interface(interface_ident).unwrap();
                 }
             }
             Rule::argument_def => {
@@ -581,7 +585,9 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
 fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
     let mut monitor_expr = WatchExpr::place_holder();
     for let_stmt in pair.into_inner() {
-        monitor_expr.add_watch_value(build_ast_from_let_stmt(let_stmt).unwrap());
+        let mut watched = build_ast_from_let_stmt(let_stmt).unwrap();
+        watched.ident.update_ident_type(IdentType::WatchedVal);
+        monitor_expr.add_watch_value(watched);
     }
     Ok(Some(monitor_expr))
 }

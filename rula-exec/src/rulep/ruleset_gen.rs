@@ -67,31 +67,31 @@ mod tests {
         //     let q1_entangled = swapping();
         //     pauli_correction(q1_entangled)
         // }
-        let test_ruleset = RuleSetExpr::new(
-            Ident::new("entanglement_swapping", None),
-            None,
-            Some(FnCall::new(Ident::new("default", None), vec![])),
-            vec![
-                RuleIdentifier::Let(Let::new(
-                    Ident::new("q1_entangled", None),
-                    Expr::new(ExprKind::FnCall(FnCall::new(
-                        Ident::new("swapping", None),
-                        vec![],
-                    ))),
-                )),
-                RuleIdentifier::FnCall(FnCall::new(
-                    Ident::new("pauli_correction", None),
-                    vec![Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
-                        Ident::new("q1_entangled", None),
-                    ))))],
-                )),
-            ],
-        );
+        // let test_ruleset = RuleSetExpr::new(
+        //     Ident::new("entanglement_swapping", None),
+        //     None,
+        //     Some(FnCall::new(Ident::new("default", None), vec![])),
+        //     vec![
+        //         RuleIdentifier::Let(Let::new(
+        //             Ident::new("q1_entangled", None),
+        //             Expr::new(ExprKind::FnCall(FnCall::new(
+        //                 Ident::new("swapping", None),
+        //                 vec![],
+        //             ))),
+        //         )),
+        //         RuleIdentifier::FnCall(FnCall::new(
+        //             Ident::new("pauli_correction", None),
+        //             vec![Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
+        //                 Ident::new("q1_entangled", None),
+        //             ))))],
+        //         )),
+        //     ],
+        // );
 
-        let mut target_ruleset = RuleSet::<Action<ActionClauses>>::new("entanglement_swapping");
-        target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("swappping"));
-        target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("pauli_correction"));
-        let _generated_ruleset = generate_ruleset(&test_ruleset).unwrap();
+        // let mut target_ruleset = RuleSet::<Action<ActionClauses>>::new("entanglement_swapping");
+        // target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("swappping"));
+        // target_ruleset.add_rule(Rule::<Action<ActionClauses>>::new("pauli_correction"));
+        // let _generated_ruleset = generate_ruleset(&test_ruleset).unwrap();
         // assert_eq!(target_ruleset, generated_ruleset);
         // assert_eq!(&generated_ruleset.rules[0].name, "swapping");
         // assert_eq!(&generated_ruleset.rules[1].name, "pauli_correction");

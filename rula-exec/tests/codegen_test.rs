@@ -124,11 +124,13 @@ mod if_ast_to_rust_tests {
             ExprKind::If(If::new(
                 // (block)
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block", None,
+                    "block",
+                    None,
+                    IdentType::Other,
                 ))))),
                 // {expression}
                 Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                    LitKind::Ident(Ident::new("expression", None)),
+                    LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
                 ))))),
                 // elif ~
                 None,
@@ -152,8 +154,8 @@ mod interface_to_rust_tests {
         let interface_ast = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
             vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
                 Interface::new(
-                    vec![Ident::new("qn0", None)],
-                    Some(Ident::new("INTERFACE", None)),
+                    vec![Ident::new("qn0", None, IdentType::QnicInterface)],
+                    Some(Ident::new("INTERFACE", None, IdentType::QnicInterface)),
                 ),
             )))],
         ))))];

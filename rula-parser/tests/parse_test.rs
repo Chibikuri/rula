@@ -15,7 +15,13 @@ mod interface_tests {
         let interface_def_ast = rula_parser::parse(interface_def).unwrap();
         let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
             vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
-                Interface::new(vec![Ident::new("qn0", None), Ident::new("qn1", None)], None),
+                Interface::new(
+                    vec![
+                        Ident::new("qn0", None, IdentType::QnicInterface),
+                        Ident::new("qn1", None, IdentType::QnicInterface),
+                    ],
+                    None,
+                ),
             )))],
         ))))];
         assert_eq!(interface_def_ast, target_ast_nodes);
@@ -28,8 +34,11 @@ mod interface_tests {
         let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
             vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
                 Interface::new(
-                    vec![Ident::new("qn0", None), Ident::new("qn1", None)],
-                    Some(Ident::new("qnall", None)),
+                    vec![
+                        Ident::new("qn0", None, IdentType::QnicInterface),
+                        Ident::new("qn1", None, IdentType::QnicInterface),
+                    ],
+                    Some(Ident::new("qnall", None, IdentType::QnicInterface)),
                 ),
             )))],
         ))))];
@@ -205,6 +214,7 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 Some(TypeDef::Str),
+                                IdentType::Other,
                             ),
                             Expr::new(
                                 ExprKind::Lit(
@@ -238,6 +248,7 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 Some(TypeDef::Integer32),
+                                IdentType::Other,
                             ),
                             Expr::new(
                                 ExprKind::Term(
@@ -264,7 +275,8 @@ mod let_tests {
                         Let::new(
                             Ident::new(
                                 "hello",
-                                None
+                                None,
+                                IdentType::Other
                             ),
                             Expr::new(
                                 ExprKind::If(
@@ -276,7 +288,8 @@ mod let_tests {
                                                     LitKind::Ident(
                                                         Ident::new(
                                                             "block",
-                                                            None
+                                                            None,
+                                                            IdentType::Other
                                                         ) 
                                                     )
                                                 )
@@ -291,7 +304,8 @@ mod let_tests {
                                                             LitKind::Ident(
                                                                 Ident::new(
                                                                     "expression",
-                                                                    None
+                                                                    None,
+                                                                    IdentType::Other
                                                                 ) 
                                                             )
                                                         )
@@ -338,7 +352,8 @@ mod if_tests {
                                                 LitKind::Ident(
                                                     Ident::new(
                                                         "block",
-                                                        None
+                                                        None,
+                                                        IdentType::Other
                                                     ) 
                                                 )
                                             )
@@ -353,7 +368,8 @@ mod if_tests {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "expression",
-                                                                None
+                                                                None,
+                                                                IdentType::Other
                                                             )
                                                         )
                                                     )
@@ -399,7 +415,8 @@ mod if_tests {
                                                                 LitKind::Ident(
                                                                     Ident::new(
                                                                         "block",
-                                                                        None
+                                                                        None,
+                                                                        IdentType::Other
                                                                     ) 
                                                                 )
                                                             )
@@ -414,7 +431,8 @@ mod if_tests {
                                                                         LitKind::Ident(
                                                                             Ident::new(
                                                                                 "expression",
-                                                                                None
+                                                                                None,
+                                                                                IdentType::Other
                                                                             ) 
                                                                         )
                                                                     )
@@ -434,7 +452,8 @@ mod if_tests {
                                                                             LitKind::Ident(
                                                                                 Ident::new(
                                                                                     "expression2",
-                                                                                    None
+                                                                                    None,
+                                                                                    IdentType::Other
                                                                                 ) 
                                                                             )
                                                                         )
@@ -483,7 +502,8 @@ mod if_tests {
                                                                 LitKind::Ident(
                                                                     Ident::new(
                                                                         "block",
-                                                                        None
+                                                                        None,
+                                                                        IdentType::Other
                                                                     ) 
                                                                 )
                                                             )
@@ -498,7 +518,8 @@ mod if_tests {
                                                                         LitKind::Ident(
                                                                             Ident::new(
                                                                                 "expression",
-                                                                                None
+                                                                                None,
+                                                                                IdentType::Other
                                                                             ) 
                                                                         )
                                                                     )
@@ -516,7 +537,8 @@ mod if_tests {
                                                                         LitKind::Ident(
                                                                             Ident::new(
                                                                                 "block2",
-                                                                                None
+                                                                                None,
+                                                                                IdentType::Other
                                                                             ) 
                                                                         )
                                                                     )
@@ -531,7 +553,8 @@ mod if_tests {
                                                                                 LitKind::Ident(
                                                                                     Ident::new(
                                                                                         "expression2",
-                                                                                        None
+                                                                                        None,
+                                                                                        IdentType::Other
                                                                                     ) 
                                                                                 )
                                                                             )
@@ -580,7 +603,8 @@ mod if_tests {
                                                 LitKind::Ident(
                                                     Ident::new(
                                                         "block",
-                                                        None
+                                                        None,
+                                                        IdentType::Other
                                                     ) 
                                                 )
                                             )
@@ -595,7 +619,8 @@ mod if_tests {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "expression",
-                                                                None
+                                                                None,
+                                                                IdentType::Other
                                                             ) 
                                                         )
                                                     )
@@ -613,7 +638,8 @@ mod if_tests {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "block2",
-                                                                None
+                                                                None,
+                                                                IdentType::Other
                                                             ) 
                                                         )
                                                     )
@@ -628,7 +654,8 @@ mod if_tests {
                                                                 LitKind::Ident(
                                                                     Ident::new(
                                                                         "expression2",
-                                                                        None
+                                                                        None,
+                                                                        IdentType::Other
                                                                     ) 
                                                                 )
                                                             )
@@ -650,7 +677,8 @@ mod if_tests {
                                                             LitKind::Ident(
                                                                 Ident::new(
                                                                     "expression3",
-                                                                    None
+                                                                    None,
+                                                                    IdentType::Other
                                                                 ) 
                                                             )
                                                         )
@@ -689,7 +717,8 @@ mod fn_def_test {
                                     vec![
                                         Ident::new(
                                             "block",
-                                            Some(TypeDef::Integer32)
+                                            Some(TypeDef::Integer32),
+                                            IdentType::Other,
                                         )
                                         ],
                                         Stmt::new(
@@ -700,7 +729,8 @@ mod fn_def_test {
                                                             LitKind::Ident(
                                                                 Ident::new(
                                                                     "expression",
-                                                                    None
+                                                                    None, 
+                                                                    IdentType::Other,
                                                                 ) 
                                                             )
                                                         )
@@ -733,11 +763,13 @@ mod fn_def_test {
                                     vec![
                                         Ident::new(
                                             "block",
-                                            Some(TypeDef::Integer32)
+                                            Some(TypeDef::Integer32),
+                                            IdentType::Other,
                                         ),
                                         Ident::new(
                                             "hello",
-                                            Some(TypeDef::Str)
+                                            Some(TypeDef::Str),
+                                            IdentType::Other,
                                         ),
                                         ],
                                         Stmt::new(
@@ -748,7 +780,8 @@ mod fn_def_test {
                                                             LitKind::Ident(
                                                                 Ident::new(
                                                                     "expression",
-                                                                    None
+                                                                    None,
+                                                                    IdentType::Other,
                                                                 ) 
                                                             )
                                                         ),
@@ -940,7 +973,8 @@ mod for_expr_test {
                                     vec![
                                         Ident::new(
                                             "i",
-                                            None
+                                            None,
+                                            IdentType::Other,
                                         )
                                     ],
                                     Expr::new(
@@ -948,7 +982,8 @@ mod for_expr_test {
                                             FnCall::new(
                                                 Ident::new(
                                                     "range",
-                                                    None
+                                                    None,
+                                                    IdentType::Other,
                                                 ),
                                                 vec![]
                                             )
@@ -962,7 +997,8 @@ mod for_expr_test {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "hello",
-                                                                None
+                                                                None,
+                                                                IdentType::Other,
                                                             )
                                                         )
                                                     )
@@ -996,15 +1032,18 @@ mod for_expr_test {
                                     vec![
                                         Ident::new(
                                             "a",
-                                            None
+                                            None,
+                                            IdentType::Other,
                                         ),
                                         Ident::new(
                                             "b",
-                                            None
+                                            None,
+                                            IdentType::Other,
                                         ),
                                         Ident::new(
                                             "c",
-                                            None
+                                            None,
+                                            IdentType::Other,
                                         )
                                     ],
                                     Expr::new(
@@ -1013,7 +1052,8 @@ mod for_expr_test {
                                                 LitKind::Ident(
                                                     Ident::new(
                                                         "generator",
-                                                        None
+                                                        None,
+                                                        IdentType::Other,
                                                     )
                                                 )
                                             )
@@ -1027,7 +1067,8 @@ mod for_expr_test {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "hello",
-                                                                None
+                                                                None,
+                                                                IdentType::Other,
                                                             )
                                                         )
                                                     )
@@ -1061,7 +1102,8 @@ mod for_expr_test {
                                     vec![
                                         Ident::new(
                                             "i",
-                                            None
+                                            None,
+                                            IdentType::Other,
                                         ),
                                     ],
                                     Expr::new(
@@ -1105,7 +1147,8 @@ mod for_expr_test {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "hello",
-                                                                None
+                                                                None,
+                                                                IdentType::Other,
                                                             )
                                                         )
                                                     )
@@ -1149,7 +1192,8 @@ mod test_while_expr {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "count",
-                                                                None
+                                                                None,
+                                                                IdentType::Other,
                                                             )
                                                         )
                                                     )
@@ -1172,7 +1216,8 @@ mod test_while_expr {
                                                     LitKind::Ident(
                                                         Ident::new(
                                                             "expression",
-                                                            None
+                                                            None,
+                                                            IdentType::Other,
                                                         )
                                                     )
                                                 )
@@ -1210,6 +1255,7 @@ mod test_while_expr {
                                                     Ident::new(
                                                         "count",
                                                         None,
+                                                        IdentType::Other,
                                                     )
                                                 )
                                             )
@@ -1223,7 +1269,8 @@ mod test_while_expr {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "expression",
-                                                                None
+                                                                None,
+                                                                IdentType::Other,
                                                             )
                                                         )
                                                     )
@@ -1271,7 +1318,8 @@ mod test_while_expr {
                                                         LitKind::Ident(
                                                             Ident::new(
                                                                 "expression",
-                                                                None
+                                                                None,
+                                                                IdentType::Other,
                                                             )
                                                         )
                                                     )
@@ -1308,7 +1356,8 @@ mod test_struct_expr {
                                 Struct::new(
                                     Ident::new(
                                         "Test",
-                                        None
+                                        None,
+                                        IdentType::Other,
                                     ),
                                     vec![]
                                 )
@@ -1336,12 +1385,14 @@ mod test_struct_expr {
                                 Struct::new(
                                     Ident::new(
                                         "Test",
-                                        None
+                                        None,
+                                        IdentType::Other,
                                     ),
                                     vec![
                                         Ident::new(
                                             "flag",
-                                            Some(TypeDef::Boolean)
+                                            Some(TypeDef::Boolean),
+                                            IdentType::Other,
                                         )
                                     ]
                                 )
@@ -1377,7 +1428,8 @@ mod test_return_expr {
                                                 LitKind::Ident(
                                                     Ident::new(
                                                         "hello",
-                                                        None
+                                                        None,
+                                                        IdentType::Other,
                                                     )
                                                 )
                                             )
@@ -1413,6 +1465,7 @@ mod test_ruleset_expr {
                                     Ident::new(
                                         "entanglement_swapping",
                                         None,
+                                        IdentType::Other,
                                     ),
                                     None,
                                     None, 
@@ -1420,7 +1473,8 @@ mod test_ruleset_expr {
                                         FnCall::new(
                                             Ident::new(
                                                 "rules",
-                                                None
+                                                None,
+                                                IdentType::Other,
                                             ),
                                             vec![],
                                         )
@@ -1451,13 +1505,15 @@ mod test_ruleset_expr {
                                     Ident::new(
                                         "entanglement_swapping",
                                         None,
+                                        IdentType::Other,
                                     ),
                                     None,
                                     Some(
                                         FnCall::new(
                                             Ident::new(
                                                 "default",
-                                                None
+                                                None,
+                                                IdentType::Other,
                                             ),
                                             vec![]
                                         )
@@ -1466,7 +1522,8 @@ mod test_ruleset_expr {
                                             FnCall::new(
                                                 Ident::new(
                                                     "rules",
-                                                    None
+                                                    None,
+                                                    IdentType::Other,
                                                 ),
                                                 vec![]
                                             )
@@ -1501,21 +1558,25 @@ mod test_rule_expr {
                                     Ident::new(
                                         "hello",
                                         None,
+                                        IdentType::Other,
                                     ),
                                 vec![
                                     Ident::new(
                                         "qn0",
-                                        None
+                                        None,
+                                        IdentType::QnicInterface,
                                     ),
                                 ].into_iter().collect(),
                                 vec![
                                     Ident::new(
                                         "q2",
                                         Some(TypeDef::Qubit),
+                                        IdentType::Other,
                                     ),
                                     Ident::new(
                                         "q3",
                                         Some(TypeDef::Qubit),
+                                        IdentType::Other
                                     )
                                 ],
                                 RuleContentExpr::new(
@@ -1560,6 +1621,7 @@ mod test_condition_expr {
                                         Ident::new(
                                             "condition1",
                                             None,
+                                            IdentType::Other
                                         )
                                     ),
                                     vec![
@@ -1567,7 +1629,8 @@ mod test_condition_expr {
                                             FnCall::new(
                                                 Ident::new(
                                                     "awaitable",
-                                                    None
+                                                    None,
+                                                    IdentType::Other,
                                                 ),
                                                 vec![]
                                             )
@@ -1603,6 +1666,7 @@ mod test_action_expr {
                                         Ident::new(
                                             "act1",
                                             None,
+                                            IdentType::Other,
                                         )
                                     ),
                                     vec![
@@ -1614,7 +1678,8 @@ mod test_action_expr {
                                                             LitKind::Ident(
                                                                 Ident::new(
                                                                     "operatable",
-                                                                    None
+                                                                    None,
+                                                                    IdentType::Other
                                                                 )
                                                             )
                                                         )
@@ -1688,9 +1753,11 @@ mod test_literals {
     // helper function
     fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> Vec<AstNode> {
         let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Let(Let::new(
-            Ident::new(name, type_def),
+            Ident::new(name, type_def, IdentType::Other),
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "val", None,
+                "val",
+                None,
+                IdentType::Other,
             ))))),
         ))))];
         target_ast_nodes
@@ -1795,8 +1862,8 @@ mod test_variable_call {
         let var_call_ast = rula_parser::parse(var_call).unwrap();
         let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
-                Callable::Ident(Ident::new("test", None)),
-                Callable::Ident(Ident::new("hello", None)),
+                Callable::Ident(Ident::new("test", None, IdentType::Other)),
+                Callable::Ident(Ident::new("hello", None, IdentType::Other)),
             ])),
         ))))];
         assert_eq!(target_ast_nodes, var_call_ast);
@@ -1808,8 +1875,11 @@ mod test_variable_call {
         let var_call_ast = rula_parser::parse(var_call).unwrap();
         let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
-                Callable::Ident(Ident::new("test", None)),
-                Callable::FnCall(FnCall::new(Ident::new("hello", None), vec![])),
+                Callable::Ident(Ident::new("test", None, IdentType::Other)),
+                Callable::FnCall(FnCall::new(
+                    Ident::new("hello", None, IdentType::Other),
+                    vec![],
+                )),
             ])),
         ))))];
         assert_eq!(target_ast_nodes, var_call_ast);
@@ -1821,8 +1891,11 @@ mod test_variable_call {
         let var_call_ast = rula_parser::parse(var_call).unwrap();
         let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
-                Callable::FnCall(FnCall::new(Ident::new("test", None), vec![])),
-                Callable::Ident(Ident::new("hello", None)),
+                Callable::FnCall(FnCall::new(
+                    Ident::new("test", None, IdentType::Other),
+                    vec![],
+                )),
+                Callable::Ident(Ident::new("hello", None, IdentType::Other)),
             ])),
         ))))];
         assert_eq!(target_ast_nodes, var_call_ast);

@@ -29,6 +29,22 @@ pub enum Watchable {
     UnSet,
 }
 
+impl Watchable {
+    pub fn update_quantum_prop(&mut self, prop: QuantumProp) {
+        match self {
+            Self::Quantum(quantum) => {
+                quantum.update_state_type(prop.state_type);
+                for i in &prop.partner_addresses {
+                    quantum.add_partner(i);
+                }
+                quantum.update_required_number(prop.required_number);
+                quantum.update_required_fidelity(prop.required_fidelity);
+            }
+            _ => todo!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct QuantumProp {
     state_type: StateType,
@@ -60,7 +76,7 @@ impl QuantumProp {
             required_fidelity: None,
         }
     }
-    pub fn add_state_type(&mut self, new_state_type: StateType) {
+    pub fn update_state_type(&mut self, new_state_type: StateType) {
         self.state_type = new_state_type;
     }
     pub fn add_partner(&mut self, partner: &str) {
@@ -69,8 +85,8 @@ impl QuantumProp {
     pub fn update_required_number(&mut self, req_number: i32) {
         self.required_number = req_number;
     }
-    pub fn update_required_fidelity(&mut self, req_fidelity: f64) {
-        self.required_fidelity = Some(req_fidelity);
+    pub fn update_required_fidelity(&mut self, req_fidelity: Option<f64>) {
+        self.required_fidelity = req_fidelity;
     }
 }
 
