@@ -25,7 +25,7 @@ pub mod rulep {
     pub type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
 }
 
-pub mod network {
+pub mod wrapper {
     pub mod qnic_wrapper;
     pub mod qubit_wrapper;
 }

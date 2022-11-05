@@ -5,8 +5,8 @@ use rula_exec::rulep::condition::Condition;
 use rula_exec::rulep::ruleset::{Rule, RuleSet};
 
 // Interface wrapper
-use rula_exec::network::qnic_wrapper::QnicInterfaceWrapper;
-use rula_exec::network::qubit_wrapper::QubitInterfaceWrapper;
+use rula_exec::wrapper::qnic_wrapper::QnicInterfaceWrapper;
+use rula_exec::wrapper::qubit_wrapper::QubitInterfaceWrapper;
 
 // Is this proper one?
 use mock_components::hardware::qnic::QnicType;

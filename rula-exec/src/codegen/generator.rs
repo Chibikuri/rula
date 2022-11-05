@@ -3,12 +3,12 @@ use super::error::*;
 use super::rule_meta::*;
 use super::IResult;
 
-use crate::network::qnic_wrapper::QnicInterfaceWrapper;
 use crate::rulep::action::v2::ActionClauses;
 use crate::rulep::action::Action;
 use crate::rulep::condition::v1::*;
 use crate::rulep::condition::Condition;
 use crate::rulep::ruleset::{Rule, RuleSet};
+use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
 use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
@@ -817,42 +817,13 @@ fn generate_variable_call(
                         {
                             // Here should not be panic!()
                             // return Err(RuLaCompileError::NoInterfaceFoundError);
-                            panic!("No interface Found");
+                            panic!("No interface definition {} found", &*identifier.name);
                         }
                         match &variable_call_expr.variables[1] {
                             Callable::FnCall(builtin_qnic_fn) => {
-                                // interface_table.lock().unwrap().get(&*identifier.name).unwrap().builtin_functions(builtin_qnic_fn.func_name.name, f);
-                                // match builtin_qnic_fn.func_name.name.as_str() {
-                                //     // TODO: Generate list of builtin function in macro here
-                                //     "request_resource" => {
-                                //         let enough_resource = interface_table
-                                //             .lock()
-                                //             .unwrap()
-                                //             .get(&*identifier.name)
-                                //             .unwrap()
-                                //             .request_resource()
-                                //             .unwrap();
-                                //         // Todo: refactoring
-                                //         condition_clause_addr(rule_name, enough_resource);
-                                //     }
-                                //     "get_qubit_by_partner" => {
-                                //         todo!("function get_qubit_by_partner() is not yet implented");
-                                //     }
-                                //     "get_message" => {
-                                //         // Currently, this is aligned for QuISP, but needs update to check the message
-                                //         let wait = interface_table
-                                //             .lock()
-                                //             .unwrap()
-                                //             .get(&*identifier.name)
-                                //             .unwrap()
-                                //             .get_message()
-                                //             .unwrap();
-                                //         condition_clause_addr(rule_name, wait);
-                                //     }
-                                //     _ => todo!(),
-                                // }
+                                // interface_table
                             }
-                            _ => unreachable!("Qnic interface can only take functions"),
+                            _ => todo!("Qnic interface can only take functions right now"),
                         }
                     }
                     IdentType::WatchedVal => {

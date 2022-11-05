@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 
 use super::condition::*;
-use crate::network::qnic_wrapper::*;
 use crate::rulep::action::Action;
+use crate::wrapper::qnic_wrapper::*;
 
 fn generate_id() -> u128 {
     if cfg!(test) {
