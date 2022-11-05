@@ -1015,7 +1015,7 @@ impl StringLit {
             string: Box::new(String::from(strs)),
         }
     }
-    pub fn as_string(&self) -> String{
+    pub fn as_string(&self) -> String {
         *self.string.clone()
     }
 }

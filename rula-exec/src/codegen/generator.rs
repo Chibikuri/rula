@@ -510,7 +510,6 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // 1. Generate static RuleSet for serialized output
     // Get meta information for this RuleSet
     let ruleset_name = &*ruleset_expr.name.name;
-    let config = &*ruleset_expr.config;
 
     // Static RuleSet that can be output of this compiler
     let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
@@ -540,6 +539,7 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
             }
             RuleIdentifier::Let(let_stmt) => {
                 // Rule with return value
+                // In the static RuleSet, it doesn't care if there is a return value or not
                 // The name of the function must be in RULE_TABLE
                 let expr = &*let_stmt.expr;
                 match &*expr.kind {
@@ -551,8 +551,10 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
             }
         }
     }
-    // 2. Generate RuleSet executable here
+    // Replace all the TBD information with configed values
+    let config = &*ruleset_expr.config;
 
+    // 2. Generate RuleSet executable here
     Ok(quote!())
 }
 
@@ -581,23 +583,25 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // Setup interface placeholder
     for interface in &rule_expr.interface {
         // Interface wrapper
-        if !interface_table
-            .lock()
-            .unwrap()
-            .contains_key(&*interface.name)
-        {
-            // If the interface is not properly defined in the file,
-            // this returns no interface found error
-            return Err(RuLaCompileError::NoInterfaceFoundError);
-        } else {
-            match interface_table.lock().unwrap().get(&*interface.name) {
-                // Providing ref would be better
-                Some(target_interface) => {
-                    // This can be just a reference to the interface
-                    rule.add_interface(&interface.name, target_interface.clone());
+        match &*interface.ident_type {
+            IdentType::QnicInterface => {
+                if !interface_table
+                    .lock()
+                    .unwrap()
+                    .contains_key(&*interface.name)
+                {
+                    return Err(RuLaCompileError::NoInterfaceFoundError);
                 }
-                None => return Err(RuLaCompileError::UnknownError),
+                match interface_table.lock().unwrap().get(&*interface.name) {
+                    // Providing ref would be better
+                    Some(target_interface) => {
+                        // This can be just a reference to the interface
+                        rule.add_interface(&interface.name, target_interface.clone());
+                    }
+                    None => return Err(RuLaCompileError::UnknownError),
+                }
             }
+            _ => return Err(RuLaCompileError::UnknownError),
         }
     }
 
@@ -702,6 +706,31 @@ fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<To
     let mut generated_clauses = vec![];
     let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
     let (in_rule, r_name) = helper::check_in(rule_name);
+    // Sweep Rule meta here to get the condition clause information and add it
+    if in_rule {
+        for clause in &cond_expr.clauses {
+            generated_clauses.push(generate_awaitable(&clause, Some(&r_name)).unwrap());
+        }
+    } else {
+        for clause in &cond_expr.clauses {
+            generated_clauses.push(generate_awaitable(&clause, None).unwrap());
+        }
+    }
+
+    Ok(quote!(
+        #(#generated_clauses)*
+    ))
+}
+
+fn generate_awaitable(
+    awaitable_expr: &Awaitable,
+    rule_name: Option<&String>,
+) -> IResult<TokenStream> {
+    // Generating condition clauses to be met
+    let rule_table = RULE_TABLE.get().expect("Failed to get Rule Table");
+    let (in_rule, r_name) = helper::check_in(rule_name);
+
+    // Closure to add condition clause
     let condition_clause_addr = |rule_name: Option<&String>, condition_clause: ConditionClauses| {
         if in_rule {
             rule_table
@@ -716,50 +745,23 @@ fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<To
         }
     };
 
-    match rule_name {
-        Some(name) => {
-            for clause in &cond_expr.clauses {
-                generated_clauses.push(generate_awaitable(&clause, Some(name)).unwrap());
-            }
-            // Wait for Enough resource and message until reach out here
-            // Store the information in RuleMeta and construct RuleSet instruction in this function
-        }
-        None => {
-            for clause in &cond_expr.clauses {
-                generated_clauses.push(generate_awaitable(&clause, None).unwrap());
-            }
-        }
-    };
-    Ok(quote!(
-        #(#generated_clauses)*
-    ))
-}
-
-fn generate_awaitable(
-    awaitable_expr: &Awaitable,
-    rule_name: Option<&String>,
-) -> IResult<TokenStream> {
-    // these must be condition clauses
-    let rule_table = RULE_TABLE.get().expect("Failed to get Rule Table");
     let mut awaitables = vec![];
-    match rule_name {
-        Some(name) => {
-            match awaitable_expr {
-                Awaitable::FnCall(fn_call) => {
-                    // This should be flex
-                    // todo!("builtin functions used for conditions should be here")
-                    awaitables.push(generate_fn_call(fn_call, rule_name).unwrap())
-                }
-                Awaitable::VariableCallExpr(val_call) => {
-                    // Check if the value is properly watched or not
-                    awaitables.push(generate_variable_call(val_call, Some(name)).unwrap());
-                }
-                Awaitable::Comp(comp) => {
-                    awaitables.push(generate_comp(comp).unwrap());
-                }
+    if in_rule {
+        match awaitable_expr {
+            Awaitable::FnCall(fn_call) => {
+                // This should be flex
+                awaitables.push(generate_fn_call(fn_call, rule_name).unwrap())
+            }
+            Awaitable::VariableCallExpr(val_call) => {
+                // Check if the value is properly watched or not
+                awaitables.push(generate_variable_call(val_call, Some(&r_name)).unwrap());
+            }
+            Awaitable::Comp(comp) => {
+                awaitables.push(generate_comp(comp).unwrap());
             }
         }
-        None => {}
+    } else {
+        todo!("Currently, not ruleset generation version has not yet been supported")
     }
     Ok(quote!())
 }
