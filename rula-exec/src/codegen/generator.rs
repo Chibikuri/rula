@@ -478,11 +478,19 @@ fn generate_match(match_expr: &Match) -> IResult<TokenStream> {
 }
 
 fn generate_match_arm(match_arm: &MatchArm) -> IResult<TokenStream> {
-    Ok(quote!())
+    let generated_match_condition = generate_match_condition(&*match_arm.condition).unwrap();
+    let generated_match_action = generate_match_action(&*match_arm.action).unwrap();
+    Ok(quote!(#generated_match_condition => #generated_match_action))
+}
+
+fn generate_match_condition(match_condition: &MatchCondition) -> IResult<TokenStream> {
+    let satisfiable = generate_expr(&*match_condition.satisfiable, None).unwrap();
+    Ok(quote!(#satisfiable))
 }
 
 fn generate_match_action(match_action: &MatchAction) -> IResult<TokenStream> {
-    Ok(quote!())
+    let actionable = generate_expr(&*match_action.actionable, None).unwrap();
+    Ok(quote!(#actionable))
 }
 fn generate_comp(comp_expr: &Comp, rule_name: Option<&String>) -> IResult<TokenStream> {
     let lhs = generate_expr(&comp_expr.lhs, rule_name).unwrap();
