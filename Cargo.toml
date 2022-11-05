@@ -7,5 +7,5 @@ members = [
     "rula-parser",
     "rula-exec",
     "mock-components",
-    "tests-rulesetgen"
+    "tests-e2e"
 ]

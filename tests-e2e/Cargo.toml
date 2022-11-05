@@ -10,3 +10,6 @@ rula = {path = "../rula"}
 rula_parser = { path = "../rula-parser" }
 rula-exec = {path="../rula-exec"}
 mock_components = {path = "../mock-components"}
+rula-lib = {path="../rula-lib"}
+once_cell = "1.15.0"
+proc-macro2 = "1.0"

@@ -14,6 +14,7 @@ Cargo.lock
 rula-exection/tests/generated
 cargo-test*
 cov.sh
+just.sh
 
 # just for testing
 playground

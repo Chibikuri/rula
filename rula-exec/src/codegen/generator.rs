@@ -55,7 +55,10 @@ pub fn generate(
     }
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
+        use rula_lib as rula_std;
+        #[allow(unused)]
         mod rula{
+            use super::*;
             #rula_program
         }
         pub fn main(){
@@ -134,70 +137,11 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     };
 
     Ok(quote!(
-        use once_cell::sync::OnceCell;
-        use std::sync::Mutex;
         use std::collections::HashMap;
-        use std::net::IpAddr;
-        use mock_components::hardware::qnic::*;
-
-        static #interface_group_name: OnceCell<Mutex<InterfaceGroup>> = OnceCell::new();
-
-        #[derive(Debug)]
-        pub struct InterfaceGroup{
-            pub interfaces: HashMap<String, QNicInterface>,
-        }
-
-        impl InterfaceGroup{
-            pub fn new() -> Self{
-                InterfaceGroup{interfaces: HashMap::new()}
-            }
-
-            pub fn add_interface(&mut self, name: &str, interface: QNicInterface){
-                self.interfaces.insert(name.to_string(), interface);
-            }
-        }
-
-        #[derive(Debug)]
-        pub struct QNicInterface{
-            pub message_box: HashMap<RuleIdentifier, Message>,
-            pub qnic: MockQnic,
-        }
-
-        impl QNicInterface{
-            pub fn new() -> QNicInterface{
-                QNicInterface{
-                    message_box: HashMap::new(),
-                    qubits: HashMap::new()
-                }
-            }
-            pub fn request_resource() -> QubitInterface{
-                /// 0. Look up qubit states
-                QubitInterface{qubit_address:10}
-            }
-        }
-        #[derive(Debug)]
-        pub struct Message{
-            pub socket_addr: SocketAddr,
-            pub meas_result: MeasResult,
-        }
-
-        #[derive(Debug)]
-        pub struct RuleIdentifier{
-            pub qnic_address: IpAddr,
-            pub rule_id: u32,
-        }
-
-        #[derive(Debug)]
-        pub struct QubitInterface{
-            pub qubit_address: u64,
-        }
-
-        pub fn interface_init(){
-            let interface = #interface_group_name.get_or_init(|| Mutex::new(InterfaceGroup::new()));
-            for inter in vec![#(#interface_names),*]{
-                interface.lock().unwrap().add_interface(inter, QNicInterface::new());
-            }
-        }
+        use std::sync::Mutex;
+        use once_cell::sync::OnceCell;
+        use rula_std::qnic::Qnic;
+        static #interface_group_name: OnceCell<Mutex<HashMap<String, Qnic>>> = OnceCell::new();
     ))
 }
 
@@ -301,7 +245,13 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
             let splitted = path_ident.name.split("/");
             // This is not clean
             for sp in splitted.into_iter() {
-                let new_ident = Ident::new(sp, None, IdentType::Other);
+                let mut top_path = "";
+                if sp == "std" {
+                    top_path = "rula_std";
+                } else {
+                    top_path = sp;
+                }
+                let new_ident = Ident::new(top_path, None, IdentType::Other);
                 let path_fragment = generate_ident(&new_ident).unwrap();
                 single_path.push(path_fragment)
             }
@@ -474,9 +424,66 @@ fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
 }
 
 fn generate_match(match_expr: &Match) -> IResult<TokenStream> {
+    let generated_expr = generate_expr(&*match_expr.expr, None).unwrap();
+    let mut match_arms = vec![];
+    for arm in &match_expr.match_arms {
+        match_arms.push(generate_match_arm(arm).unwrap());
+    }
+    match &*match_expr.temp_val {
+        Some(value) => {
+            let generated_ident = generate_ident(value).unwrap();
+            // make closure here
+            match &*match_expr.finally {
+                Some(finally_value) => {
+                    let generated_finally = generate_match_action(finally_value).unwrap();
+                    return Ok(quote!(
+                        let mut #generated_ident = #generated_expr;
+                        match #generated_ident{
+                            #(#match_arms),*
+                            _ => {#generated_finally}
+                        }
+                    ));
+                }
+                None => {
+                    return Ok(quote!(
+                        let mut #generated_ident = #generated_expr;
+                        match #generated_ident{
+                            #(#match_arms),*
+                            _ => {}
+                        }
+                    ));
+                }
+            }
+        }
+        None => match &*match_expr.finally {
+            Some(finally_value) => {
+                let generated_finally = generate_match_action(finally_value).unwrap();
+                return Ok(quote!(
+                    match #generated_expr{
+                        #(#match_arms),*
+                        _ => {#generated_finally}
+                    }
+                ));
+            }
+            None => {
+                return Ok(quote!(
+                    match #generated_expr{
+                        #(#match_arms),*
+                        _ => {}
+                    }
+                ))
+            }
+        },
+    }
+}
+
+fn generate_match_arm(match_arm: &MatchArm) -> IResult<TokenStream> {
     Ok(quote!())
 }
 
+fn generate_match_action(match_action: &MatchAction) -> IResult<TokenStream> {
+    Ok(quote!())
+}
 fn generate_comp(comp_expr: &Comp, rule_name: Option<&String>) -> IResult<TokenStream> {
     let lhs = generate_expr(&comp_expr.lhs, rule_name).unwrap();
     let rhs = generate_expr(&comp_expr.rhs, rule_name).unwrap();
@@ -570,6 +577,7 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
 
     // When the ruleset is finalized, this interface name is replaced by actual interface name
     // Setup interface placeholder
+    let mut interface_idents = vec![];
     for interface in &rule_expr.interface {
         // Interface wrapper
         match &*interface.ident_type {
@@ -587,6 +595,8 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
                     .get_interface(&*interface.name);
                 // Providing ref would be better
                 // This can be just a reference to the interface
+                let gen_str = SynLit::Str(LitStr::new(&*interface.name, Span::call_site()));
+                interface_idents.push(quote!(#gen_str.to_string()));
                 rule.add_interface(&interface.name, target_interface);
             }
             _ => return Err(RuLaCompileError::UnknownError),
@@ -621,8 +631,19 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
 
     Ok(quote!(
         struct #rule_name_token{
-            #generated
+            interfaces: Vec<String>
         }
+        impl #rule_name_token{
+            pub fn new() -> Self{
+                #rule_name_token{
+                    interfaces: vec![#(#interface_idents), *]
+                }
+            }
+            pub fn call(){
+                #generated
+            }
+        }
+
     ))
 }
 
