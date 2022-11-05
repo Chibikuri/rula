@@ -1,6 +1,7 @@
 // This is entory point to generate code from AST
 use super::error::*;
 use super::rule_meta::*;
+use super::ruleset_generator::RuleSetFactory;
 use super::IResult;
 
 use crate::rulep::action::v2::ActionClauses;
@@ -29,13 +30,7 @@ use std::net::SocketAddr;
 type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
 static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
-type MutexRuleHashMap = Mutex<HashMap<String, Rule<ActionClauses>>>;
-static RULE_TABLE: OnceCell<MutexRuleHashMap> = OnceCell::new();
-
-static QNIC_INTERFACE_TABLE: OnceCell<Mutex<HashMap<String, QnicInterfaceWrapper>>> =
-    OnceCell::new();
-
-static RULE_META: OnceCell<Mutex<HashMap<String, RuleMeta>>> = OnceCell::new();
+static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
@@ -81,25 +76,14 @@ pub fn generate(
 fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     assert!(RULESET.get().is_none());
-    assert!(RULE_TABLE.get().is_none());
-    assert!(RULE_META.get().is_none());
-    assert!(QNIC_INTERFACE_TABLE.get().is_none());
+    assert!(RULESET_FACTORY.get().is_none());
 
     // closure to initialize with empty ruleset
     let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
     let _ = RULESET.get_or_init(empty_ruleset);
 
-    // Rule tables to store rule instances
-    let initialize_rule_table = || Mutex::new(HashMap::<String, Rule<ActionClauses>>::new());
-    let _ = RULE_TABLE.get_or_init(initialize_rule_table);
-
-    // Meta data for each Rule
-    let initialize_rule_meta = || Mutex::new(HashMap::<String, RuleMeta>::new());
-    let _ = RULE_META.get_or_init(initialize_rule_meta);
-
-    // Interface wrapper table that is an endpoint of qnic function call
-    let initialize_interface_table = || Mutex::new(HashMap::<String, QnicInterfaceWrapper>::new());
-    let _ = QNIC_INTERFACE_TABLE.get_or_init(initialize_interface_table);
+    let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
+    let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
 }
 
 fn generate_rula(rula: &RuLa) -> IResult<TokenStream> {
@@ -133,14 +117,15 @@ fn generate_program(program: &Program) -> IResult<TokenStream> {
 
 fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
     let mut interface_names = vec![];
-    let interface_table = QNIC_INTERFACE_TABLE
+    let ruleset_factory = RULESET_FACTORY
         .get()
-        .expect("Failed to get qnic interface table");
+        .expect("Failed to get RuleSet factory");
+
     for i in &interface.interface {
-        interface_table
+        ruleset_factory
             .lock()
             .unwrap()
-            .insert(*i.name.clone(), QnicInterfaceWrapper::place_holder());
+            .add_global_interface(&i.name, QnicInterfaceWrapper::place_holder());
         interface_names.push(generate_ident(i).unwrap());
     }
     let interface_group_name = match &*interface.group_name {
@@ -242,19 +227,20 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
     if &*let_stmt.ident == &Ident::place_holder() {
         return Err(RuLaCompileError::FailedToSetValueError);
     }
+    let ruleset_factory = RULESET_FACTORY
+        .get()
+        .expect("Failed to get Ruleset factory");
     let (mut identifier, mut expr) = (quote!(), quote!());
     if in_watch {
         // Register values to watched_values in RuleMeta
-        let rule_meta = RULE_META.get().expect("Failed to get Rule meta table");
         match rule {
             Some(name) => {
                 // Don't wanna clone the expression here
-                rule_meta
-                    .lock()
-                    .unwrap()
-                    .get_mut(name)
-                    .expect("Unable to find the Rule meta")
-                    .insert_watch_value(String::from(&*let_stmt.ident.name), Watchable::UnSet);
+                ruleset_factory.lock().unwrap().add_watch_value(
+                    name,
+                    &*let_stmt.ident.name,
+                    Watchable::UnSet,
+                );
                 identifier = generate_ident(&*let_stmt.ident).unwrap();
                 expr = generate_expr(&*let_stmt.expr, rule).unwrap();
             }
@@ -515,20 +501,20 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
     // Get meta information for this RuleSet
     let ruleset_name = &*ruleset_expr.name.name;
 
+    let ruleset_factory = RULESET_FACTORY
+        .get()
+        .expect("Failed to get Ruleset factory");
     // Static RuleSet that can be output of this compiler
     let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
     glob_ruleset.lock().unwrap().update_name(ruleset_name);
 
-    // Rules must be defined beforehand in this table
-    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
-
     // Closure that gets rule_name and evaluate if the rule is inside the table or not
     // If that Rule is in the table, add it to RuleSet
     let rule_add_evaluater = |rule_name: &String| {
-        if !rule_table.lock().unwrap().contains_key(rule_name) {
+        if !ruleset_factory.lock().unwrap().exist_rule(rule_name) {
             return Err(RuLaCompileError::NoRuleFoundError);
         } else {
-            let corr_rule = rule_table.lock().unwrap().get(rule_name).unwrap().clone();
+            let corr_rule = ruleset_factory.lock().unwrap().get_rule(rule_name);
             glob_ruleset.lock().unwrap().add_rule(corr_rule);
             Ok(())
         }
@@ -565,19 +551,17 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
 
 fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     // 1. Generate Rules and store them to the table
-    // Initialize rule and interface tables to insert the information
-    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
-    let rule_meta = RULE_META.get().expect("Failed to get rule meta table");
-    let interface_table = QNIC_INTERFACE_TABLE
+
+    let ruleset_factory = RULESET_FACTORY
         .get()
-        .expect("Failed to get interface table");
+        .expect("Failed to get ruleset facotyr");
 
     // Get the basis information of Rule
     let rule_name = &*rule_expr.name;
     let rule_name_string = String::from(&*rule_name.name);
 
     // Check if there is a Rule with the same name
-    if rule_table.lock().unwrap().contains_key(&*rule_name.name) {
+    if ruleset_factory.lock().unwrap().exist_rule(&*rule_name.name) {
         return Err(RuLaCompileError::RuleDuplicationError);
     }
 
@@ -590,21 +574,20 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
         // Interface wrapper
         match &*interface.ident_type {
             IdentType::QnicInterface => {
-                if !interface_table
+                if !ruleset_factory
                     .lock()
                     .unwrap()
-                    .contains_key(&*interface.name)
+                    .exist_interface(&*interface.name)
                 {
                     return Err(RuLaCompileError::NoInterfaceFoundError);
                 }
-                match interface_table.lock().unwrap().get(&*interface.name) {
-                    // Providing ref would be better
-                    Some(target_interface) => {
-                        // This can be just a reference to the interface
-                        rule.add_interface(&interface.name, target_interface.clone());
-                    }
-                    None => return Err(RuLaCompileError::UnknownError),
-                }
+                let target_interface = ruleset_factory
+                    .lock()
+                    .unwrap()
+                    .get_interface(&*interface.name);
+                // Providing ref would be better
+                // This can be just a reference to the interface
+                rule.add_interface(&interface.name, target_interface);
             }
             _ => return Err(RuLaCompileError::UnknownError),
         }
@@ -617,22 +600,15 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
     rule.set_condition(empty_condition);
     rule.set_action(empty_action);
 
-    rule_table
+    ruleset_factory
         .lock()
         .unwrap()
-        .insert(rule_name_string.clone(), rule);
-    rule_meta
-        .lock()
-        .unwrap()
-        .insert(rule_name_string.clone(), RuleMeta::place_holder());
-
+        .add_rule(&rule_name_string, rule);
     for arg in &rule_expr.args {
-        rule_meta
+        ruleset_factory
             .lock()
             .unwrap()
-            .get_mut(&rule_name_string)
-            .unwrap()
-            .add_rule_arg(&arg.name);
+            .add_rule_arg(&rule_name_string, &arg.name);
     }
 
     // 2. Generate executable Rule
@@ -694,8 +670,6 @@ fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult
     // e.g.
     // watch:
     //      let qubit = qn0.get_qubit();
-    // Get the rule instance in RULE_TABLE and add condition
-    let _rule_table = RULE_TABLE.get().expect("Failed to get Rule table");
 
     let mut generated_watch = vec![];
     match rule_name {
@@ -718,7 +692,6 @@ fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult
 
 fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<TokenStream> {
     let mut generated_clauses = vec![];
-    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
     let (in_rule, r_name) = helper::check_in(rule_name);
     // Sweep Rule meta here to get the condition clause information and add it
     // At this moment all information that needs to be considered should be inside the RuleMeta
@@ -743,24 +716,8 @@ fn generate_awaitable(
     rule_name: Option<&String>,
 ) -> IResult<TokenStream> {
     // Generating condition clauses to be met
-    let rule_table = RULE_TABLE.get().expect("Failed to get Rule Table");
+    let ruleset_facotry = RULESET_FACTORY.get().expect("Failed to get Rule Table");
     let (in_rule, r_name) = helper::check_in(rule_name);
-
-    // Closure to add condition clause
-    let condition_clause_addr = |rule_name: Option<&String>, condition_clause: ConditionClauses| {
-        if in_rule {
-            rule_table
-                .lock()
-                .unwrap()
-                .get_mut(&r_name)
-                .unwrap_or_else(|| panic!("Unable to find the Rule {}", r_name))
-                .condition
-                .add_condition_clause(condition_clause);
-        } else {
-            todo!()
-        }
-    };
-
     let mut awaitables = vec![];
     // Start creating a new condition and replace the old one with new condition?
     if in_rule {
@@ -795,27 +752,10 @@ fn generate_variable_call(
 ) -> IResult<TokenStream> {
     // Check status (in_rule, in_watch)
     let (in_rule, r_name) = helper::check_in(rule_name);
-    // let (in_watch, watched_val) = helper::check_in(watched_value);
-
-    // Singleton Rule ref here
-    // let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
-    let rule_meta = RULE_META.get().expect("Failed to get Rule meta table");
-    // Interface name tables
-    let interface_table = QNIC_INTERFACE_TABLE
+    let ruleset_factory = RULESET_FACTORY
         .get()
-        .expect("Failed to get interface table");
+        .expect("Failed to get Ruleset factory");
 
-    // Look up if the value is registered in the table
-    let check_watched = |val_name| match rule_name {
-        Some(name) => rule_meta
-            .lock()
-            .unwrap()
-            .get_mut(name)
-            .expect("Unable to find rule meta")
-            .watched_values
-            .contains_key(val_name),
-        None => false,
-    };
     // Start generating
     let mut val_calls = vec![];
     // if the first variable is interface name, that supposed to be interface function call
@@ -828,10 +768,10 @@ fn generate_variable_call(
                 // if this variable call starts from interface name
                 match &*identifier.ident_type {
                     IdentType::QnicInterface => {
-                        if !interface_table
+                        if !ruleset_factory
                             .lock()
                             .unwrap()
-                            .contains_key(&*identifier.name)
+                            .exist_interface(&*identifier.name)
                         {
                             // Here should not be panic!()
                             // return Err(RuLaCompileError::NoInterfaceFoundError);
@@ -839,30 +779,30 @@ fn generate_variable_call(
                         }
                         match &variable_call_expr.variables[1] {
                             Callable::FnCall(builtin_qnic_fn) => {
-                                interface_table
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&*identifier.name)
-                                    .unwrap()
-                                    .builtin_functions(builtin_qnic_fn);
+                                // interface_table
+                                //     .lock()
+                                //     .unwrap()
+                                //     .get_mut(&*identifier.name)
+                                //     .unwrap()
+                                //     .builtin_functions(builtin_qnic_fn);
                             }
                             _ => todo!("Qnic interface can only take functions right now"),
                         }
                     }
                     IdentType::WatchedVal => {
-                        if !check_watched(&*identifier.name) {
+                        if !ruleset_factory
+                            .lock()
+                            .unwrap()
+                            .exist_watched_value(&r_name, &*identifier.name)
+                        {
                             panic!("No variable found in watch table.")
                         }
                         if in_rule {
-                            rule_meta
-                                .lock()
-                                .unwrap()
-                                .get_mut(&r_name)
-                                .unwrap()
-                                .watched_values
-                                .get_mut(&*identifier.name)
-                                .unwrap()
-                                .update_quantum_prop(QuantumProp::place_holder());
+                            ruleset_factory.lock().unwrap().update_watched_value(
+                                &r_name,
+                                &*identifier.name,
+                                QuantumProp::place_holder(),
+                            );
                         } else {
                             todo!()
                         }

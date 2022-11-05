@@ -6,16 +6,160 @@ use super::IResult;
 
 use crate::rulep::action::v2::ActionClauses;
 use crate::rulep::action::Action;
-use crate::rulep::ruleset::RuleSet;
+use crate::rulep::condition::v1::ConditionClauses;
+use crate::rulep::ruleset::{Rule, RuleSet};
+use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
 
 use rula_parser::parser::ast::*;
 
-use once_cell::sync::OnceCell;
+// Right now, compilation is all single thread. In the future, this could be multi thread.
+// Mutex would be a good choice for that.
+// type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
+// static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
-static RULE_META: OnceCell<Mutex<HashMap<String, RuleMeta>>> = OnceCell::new();
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleInfo {
+    pub meta: RuleMeta,
+    pub rule: Rule<ActionClauses>,
+    // pub qnic_interfaces: HashMap<String, QnicInterfaceWrapper>,
+}
 
-// Trait that tells translation from expressions to Rule isntructions
-pub trait RuleSetTranslatable {}
+impl RuleInfo {
+    pub fn new(rule_meta: RuleMeta, rule: Rule<ActionClauses>) -> Self {
+        RuleInfo {
+            meta: rule_meta,
+            rule: rule,
+        }
+    }
+    // pub fn insert_interface(&mut self, interface_name: String, interface: QnicInterfaceWrapper) {
+    // self.qnic_interfaces.insert(interface_name, interface);
+    // }
+
+    pub fn add_watch_value(&mut self, value_name: &str, watchable: Watchable) {
+        self.meta
+            .insert_watch_value(String::from(value_name), watchable)
+    }
+    pub fn exist_watched_value(&mut self, value_name: &str) -> bool {
+        self.meta.watched_values.contains_key(value_name)
+    }
+
+    pub fn add_rule_arg(&mut self, arg: &str) {
+        self.meta.add_rule_arg(arg);
+    }
+    pub fn add_condition_clause(&mut self, clause: ConditionClauses) {
+        self.rule.condition.add_condition_clause(clause);
+    }
+
+    pub fn update_quantum_prop(&mut self, value: &str, quantum_prop: QuantumProp) {
+        self.meta
+            .watched_values
+            .get_mut(value)
+            .unwrap()
+            .update_quantum_prop(quantum_prop);
+    }
+}
+
+// This struct is used to create RuleSet during the code generation.
+// This struct implements helper functions to refer interface and current rule information
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleSetFactory {
+    // Table of Rules
+    pub rule_table: HashMap<String, RuleInfo>,
+    // Global interfaces that includes all the possible interfaces
+    pub global_interfaces: HashMap<String, QnicInterfaceWrapper>,
+}
+
+impl RuleSetFactory {
+    pub fn init() -> Self {
+        RuleSetFactory {
+            rule_table: HashMap::new(),
+            global_interfaces: HashMap::new(),
+        }
+    }
+
+    // pub fn add_qnic_interface(
+    //     &mut self,
+    //     rule_name: &str,
+    //     interface_name: &str,
+    //     interface: QnicInterfaceWrapper,
+    // ) {
+    //     self.rule_table
+    //         .get_mut(rule_name)
+    //         .unwrap()
+    //         .insert_interface(String::from(interface_name), interface);
+    // }
+
+    pub fn add_global_interface(&mut self, interface_name: &str, interface: QnicInterfaceWrapper) {
+        self.global_interfaces
+            .insert(String::from(interface_name), interface);
+    }
+
+    pub fn add_watch_value(&mut self, rule_name: &str, value: &str, watchable: Watchable) {
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .add_watch_value(value, watchable);
+    }
+
+    pub fn add_rule_arg(&mut self, rule_name: &str, value: &str) {
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .add_rule_arg(value);
+    }
+
+    pub fn exist_rule(&mut self, rule_name: &str) -> bool {
+        self.rule_table.contains_key(rule_name)
+    }
+
+    pub fn get_rule(&mut self, rule_name: &str) -> Rule<ActionClauses> {
+        self.rule_table.get(rule_name).unwrap().rule.clone()
+    }
+
+    pub fn exist_interface(&mut self, interface_name: &str) -> bool {
+        self.global_interfaces.contains_key(interface_name)
+    }
+
+    pub fn exist_watched_value(&mut self, rule_name: &str, value_name: &str) -> bool {
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .exist_watched_value(value_name)
+    }
+
+    // This should return reference in the future
+    pub fn get_interface(&mut self, interface_name: &str) -> QnicInterfaceWrapper {
+        if self.exist_interface(interface_name) {
+            return self.global_interfaces.get(interface_name).unwrap().clone();
+        } else {
+            panic!("No interface named {} found", interface_name);
+        }
+    }
+
+    pub fn add_rule(&mut self, rule_name: &str, rule: Rule<ActionClauses>) {
+        let rule_info = RuleInfo::new(RuleMeta::place_holder(), rule);
+        self.rule_table.insert(rule_name.to_string(), rule_info);
+    }
+
+    pub fn add_condition_clause(&mut self, rule_name: &str, condition_clause: ConditionClauses) {
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .add_condition_clause(condition_clause);
+    }
+
+    pub fn update_watched_value(
+        &mut self,
+        rule_name: &str,
+        value: &str,
+        quantum_prop: QuantumProp,
+    ) {
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .update_quantum_prop(value, quantum_prop);
+    }
+}
 
 pub fn generate_ruleset(ruleset: &RuleSetExpr) -> IResult<RuleSet<Action<ActionClauses>>> {
     // generate ruleset from rule_expr
