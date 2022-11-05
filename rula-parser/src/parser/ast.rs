@@ -1006,7 +1006,7 @@ pub enum LitKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLit {
-    string: Box<String>,
+    pub string: Box<String>,
 }
 
 impl StringLit {
@@ -1014,6 +1014,9 @@ impl StringLit {
         StringLit {
             string: Box::new(String::from(strs)),
         }
+    }
+    pub fn as_string(&self) -> String{
+        *self.string.clone()
     }
 }
 

@@ -115,7 +115,9 @@ pub mod v1 {
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Cmp {}
+    pub struct Cmp {
+        // target:
+    }
 
     #[cfg(test)]
     mod tests {

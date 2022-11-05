@@ -15,7 +15,8 @@ use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use syn::LitFloat;
+use syn::Lit as SynLit;
+use syn::{LitFloat, LitStr};
 
 // These are used but only in quote! macro
 #[allow(unused_imports)]
@@ -219,7 +220,7 @@ fn generate_stmt(stmt: &Stmt, rule: Option<&String>) -> IResult<TokenStream> {
     let generated_stmt = match &*stmt.kind {
         StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule, false).unwrap()),
         StmtKind::Interface(interface) => Ok(generate_interface(&interface).unwrap()),
-        StmtKind::Expr(expr) => Ok(generate_expr(&expr, rule, None).unwrap()),
+        StmtKind::Expr(expr) => Ok(generate_expr(&expr, rule).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
         )),
@@ -255,7 +256,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
                     .expect("Unable to find the Rule meta")
                     .insert_watch_value(String::from(&*let_stmt.ident.name), Watchable::UnSet);
                 identifier = generate_ident(&*let_stmt.ident).unwrap();
-                expr = generate_expr(&*let_stmt.expr, rule, Some(&*let_stmt.ident.name)).unwrap();
+                expr = generate_expr(&*let_stmt.expr, rule).unwrap();
             }
             None => {
                 todo!("No rule found")
@@ -263,7 +264,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
         }
     } else {
         identifier = generate_ident(&*let_stmt.ident).unwrap();
-        expr = generate_expr(&*let_stmt.expr, rule, None).unwrap();
+        expr = generate_expr(&*let_stmt.expr, rule).unwrap();
     }
     Ok(quote!(
         let mut #identifier = #expr;
@@ -273,7 +274,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
 fn generate_expr(
     expr: &Expr,
     rule: Option<&String>,
-    watched_value: Option<&String>,
+    // watched_value: Option<&String>,
 ) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(&import_expr).unwrap()),
@@ -291,7 +292,7 @@ fn generate_expr(
         ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule).unwrap()),
         ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr, rule).unwrap()),
         ExprKind::VariableCallExpr(variable_call_expr) => {
-            Ok(generate_variable_call(&variable_call_expr, rule, watched_value).unwrap())
+            Ok(generate_variable_call(&variable_call_expr, rule).unwrap())
         }
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
@@ -336,7 +337,7 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
 
 fn generate_if(if_expr: &If) -> IResult<TokenStream> {
     // block could have invalid expression here.
-    let block_quote = generate_expr(&*if_expr.block, None, None).unwrap();
+    let block_quote = generate_expr(&*if_expr.block, None).unwrap();
     let stmt_quote = generate_stmt(&*if_expr.stmt, None).unwrap();
     if if_expr.elif.len() > 0 {
         // no elif statement
@@ -406,7 +407,7 @@ fn generate_for(for_expr: &For) -> IResult<TokenStream> {
     for ident in for_expr.pattern.iter() {
         ident_list.push(generate_ident(ident).unwrap());
     }
-    let generator = generate_expr(&for_expr.generator, None, None).unwrap();
+    let generator = generate_expr(&for_expr.generator, None).unwrap();
     let stmt = generate_stmt(&for_expr.stmt, None).unwrap();
     if ident_list.len() == 1 {
         let var = &ident_list[0];
@@ -429,7 +430,7 @@ fn generate_for(for_expr: &For) -> IResult<TokenStream> {
 }
 
 fn generate_while(while_expr: &While) -> IResult<TokenStream> {
-    let block = generate_expr(&while_expr.block, None, None).unwrap();
+    let block = generate_expr(&while_expr.block, None).unwrap();
     let stmt = generate_stmt(&while_expr.stmt, None).unwrap();
     Ok(quote!(
         while #block{
@@ -476,7 +477,7 @@ fn generate_struct(struct_expr: &Struct) -> IResult<TokenStream> {
     ))
 }
 fn generate_return(return_expr: &Return) -> IResult<TokenStream> {
-    let expr = generate_expr(&return_expr.target, None, None).unwrap();
+    let expr = generate_expr(&return_expr.target, None).unwrap();
     Ok(quote!(
         return #expr;
     ))
@@ -487,8 +488,8 @@ fn generate_match(match_expr: &Match) -> IResult<TokenStream> {
 }
 
 fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
-    let lhs = generate_expr(&comp_expr.lhs, None, None).unwrap();
-    let rhs = generate_expr(&comp_expr.rhs, None, None).unwrap();
+    let lhs = generate_expr(&comp_expr.lhs, None).unwrap();
+    let rhs = generate_expr(&comp_expr.rhs, None).unwrap();
     let op = match *comp_expr.comp_op {
         CompOpKind::Lt => quote!(<),
         CompOpKind::Gt => quote!(>),
@@ -746,14 +747,15 @@ fn generate_awaitable(
             match awaitable_expr {
                 Awaitable::FnCall(fn_call) => {
                     // This should be flex
-                    todo!("builtin functions used for conditions should be here")
+                    // todo!("builtin functions used for conditions should be here")
+                    awaitables.push(generate_fn_call(fn_call, rule_name).unwrap())
                 }
                 Awaitable::VariableCallExpr(val_call) => {
                     // Check if the value is properly watched or not
-                    awaitables.push(generate_variable_call(val_call, Some(name), None).unwrap());
+                    awaitables.push(generate_variable_call(val_call, Some(name)).unwrap());
                 }
                 Awaitable::Comp(comp) => {
-                    todo!("Variable comparison goes here")
+                    awaitables.push(generate_comp(comp).unwrap());
                 }
             }
         }
@@ -769,14 +771,14 @@ fn generate_act(act_expr: &ActExpr, rule: Option<&String>) -> IResult<TokenStrea
 fn generate_variable_call(
     variable_call_expr: &VariableCallExpr,
     rule_name: Option<&String>,
-    watched_value: Option<&String>,
+    // watched_value: Option<&String>,
 ) -> IResult<TokenStream> {
     // Check status (in_rule, in_watch)
     let (in_rule, r_name) = helper::check_in(rule_name);
-    let (in_watch, watched_val) = helper::check_in(watched_value);
+    // let (in_watch, watched_val) = helper::check_in(watched_value);
 
     // Singleton Rule ref here
-    let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
+    // let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
     let rule_meta = RULE_META.get().expect("Failed to get Rule meta table");
     // Interface name tables
     let interface_table = QNIC_INTERFACE_TABLE
@@ -804,84 +806,81 @@ fn generate_variable_call(
             }
             Callable::Ident(identifier) => {
                 // if this variable call starts from interface name
-                if interface_table
-                    .lock()
-                    .unwrap()
-                    .contains_key(&*identifier.name)
-                {
-                    // FIXME: All the information call be access by function for now.
-                    // This is supposed to be a builtin function of qnic interface
-                    // If this is in watch process, the variable information needs to be registerd in Rule meta
-                    if in_watch {
-                        // Register value
-                    } else {
-                        // Call builtin function
-                    }
-                    match &variable_call_expr.variables[1] {
-                        Callable::FnCall(builtin_qnic_fn) => {
-                            // interface_table.lock().unwrap().get(&*identifier.name).unwrap().builtin_functions(builtin_qnic_fn.func_name.name, f);
-                            // match builtin_qnic_fn.func_name.name.as_str() {
-                            //     // TODO: Generate list of builtin function in macro here
-                            //     "request_resource" => {
-                            //         let enough_resource = interface_table
-                            //             .lock()
-                            //             .unwrap()
-                            //             .get(&*identifier.name)
-                            //             .unwrap()
-                            //             .request_resource()
-                            //             .unwrap();
-                            //         // Todo: refactoring
-                            //         condition_clause_addr(rule_name, enough_resource);
-                            //     }
-                            //     "get_qubit_by_partner" => {
-                            //         todo!("function get_qubit_by_partner() is not yet implented");
-                            //     }
-                            //     "get_message" => {
-                            //         // Currently, this is aligned for QuISP, but needs update to check the message
-                            //         let wait = interface_table
-                            //             .lock()
-                            //             .unwrap()
-                            //             .get(&*identifier.name)
-                            //             .unwrap()
-                            //             .get_message()
-                            //             .unwrap();
-                            //         condition_clause_addr(rule_name, wait);
-                            //     }
-                            //     _ => todo!(),
-                            // }
-                        }
-                        _ => unreachable!("Qnic interface can only take functions"),
-                    }
-                    // Verify if the value is inside the table or not
-                } else if in_watch && check_watched(&*identifier.name) {
-                    // If this variable is in watched list, here we need to update watchable
-                    // let watchable_q = Watchable::Quantum(QuantumProp::place_holder());
-                    // let watchable_c = Watchable::Classical(ClassicalProp:)
-                    // let watchable =
-                    // q1.ready()
-                    // Rule -> Watchable
-                    if in_rule {
-                        rule_meta
+                match &*identifier.ident_type {
+                    IdentType::QnicInterface => {
+                        if !interface_table
                             .lock()
                             .unwrap()
-                            .get_mut(&r_name)
-                            .unwrap()
-                            .watched_values
-                            .get_mut(&*identifier.name)
-                            .unwrap()
-                            .update_quantum_prop(QuantumProp::place_holder());
-                    } else {
-                        todo!()
-                    }
-                } else {
-                    // If this is not a qnic interface or watched value, just treat as usual identifier
-                    val_calls.push(generate_ident(identifier).unwrap());
-                    match &variable_call_expr.variables[1] {
-                        Callable::FnCall(fn_call_expr) => {
-                            val_calls.push(generate_fn_call(fn_call_expr, rule_name).unwrap());
+                            .contains_key(&*identifier.name)
+                        {
+                            // Here should not be panic!()
+                            // return Err(RuLaCompileError::NoInterfaceFoundError);
+                            panic!("No interface Found");
                         }
-                        Callable::Ident(ident_expr) => {
-                            val_calls.push(generate_ident(ident_expr).unwrap());
+                        match &variable_call_expr.variables[1] {
+                            Callable::FnCall(builtin_qnic_fn) => {
+                                // interface_table.lock().unwrap().get(&*identifier.name).unwrap().builtin_functions(builtin_qnic_fn.func_name.name, f);
+                                // match builtin_qnic_fn.func_name.name.as_str() {
+                                //     // TODO: Generate list of builtin function in macro here
+                                //     "request_resource" => {
+                                //         let enough_resource = interface_table
+                                //             .lock()
+                                //             .unwrap()
+                                //             .get(&*identifier.name)
+                                //             .unwrap()
+                                //             .request_resource()
+                                //             .unwrap();
+                                //         // Todo: refactoring
+                                //         condition_clause_addr(rule_name, enough_resource);
+                                //     }
+                                //     "get_qubit_by_partner" => {
+                                //         todo!("function get_qubit_by_partner() is not yet implented");
+                                //     }
+                                //     "get_message" => {
+                                //         // Currently, this is aligned for QuISP, but needs update to check the message
+                                //         let wait = interface_table
+                                //             .lock()
+                                //             .unwrap()
+                                //             .get(&*identifier.name)
+                                //             .unwrap()
+                                //             .get_message()
+                                //             .unwrap();
+                                //         condition_clause_addr(rule_name, wait);
+                                //     }
+                                //     _ => todo!(),
+                                // }
+                            }
+                            _ => unreachable!("Qnic interface can only take functions"),
+                        }
+                    }
+                    IdentType::WatchedVal => {
+                        if !check_watched(&*identifier.name) {
+                            panic!("No variable found in watch table.")
+                        }
+                        if in_rule {
+                            rule_meta
+                                .lock()
+                                .unwrap()
+                                .get_mut(&r_name)
+                                .unwrap()
+                                .watched_values
+                                .get_mut(&*identifier.name)
+                                .unwrap()
+                                .update_quantum_prop(QuantumProp::place_holder());
+                        } else {
+                            todo!()
+                        }
+                    }
+                    _ => {
+                        // If this is not a qnic interface or watched value, just treat as usual identifier
+                        val_calls.push(generate_ident(identifier).unwrap());
+                        match &variable_call_expr.variables[1] {
+                            Callable::FnCall(fn_call_expr) => {
+                                val_calls.push(generate_fn_call(fn_call_expr, rule_name).unwrap());
+                            }
+                            Callable::Ident(ident_expr) => {
+                                val_calls.push(generate_ident(ident_expr).unwrap());
+                            }
                         }
                     }
                 }
@@ -942,7 +941,11 @@ fn generate_lit(lit: &Lit) -> IResult<TokenStream> {
             let val = LitFloat::new(&*number_lit.value.name, Span::call_site());
             Ok(quote!(#val))
         }
-        _ => todo!(),
+        LitKind::StringLit(string_lit) => {
+            let val = SynLit::Str(LitStr::new(&string_lit.as_string(), Span::call_site()));
+            Ok(quote!(#val))
+        }
+        _ => todo!("{:#?} not yet implemented", lit),
     }
 }
 
