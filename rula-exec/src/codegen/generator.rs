@@ -286,7 +286,7 @@ fn generate_expr(
         ExprKind::Struct(struct_expr) => Ok(generate_struct(&struct_expr).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(&return_expr).unwrap()),
         ExprKind::Match(match_expr) => Ok(generate_match(&match_expr).unwrap()),
-        ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr).unwrap()),
+        ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr, rule).unwrap()),
         ExprKind::RuleSetExpr(ruleset_expr) => Ok(generate_ruleset_expr(&ruleset_expr).unwrap()),
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(&rule_expr).unwrap()),
         ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule).unwrap()),
@@ -453,13 +453,17 @@ fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
         }
     ))
 }
-fn generate_fn_call(fn_call_expr: &FnCall, rule: Option<&String>) -> IResult<TokenStream> {
+fn generate_fn_call(fn_call_expr: &FnCall, rule_name: Option<&String>) -> IResult<TokenStream> {
     // Before generating functions, check function table to check whether it's properly defined or not
     let fn_name = generate_ident(&fn_call_expr.func_name).unwrap();
-    match rule {
-        Some(rule_content) => {}
-        None => {}
-    }
+    let generated_arguments = {
+        let mut args = vec![];
+        for arg in &fn_call_expr.arguments {
+            args.push(generate_expr(arg, rule_name).unwrap());
+        }
+        args
+    };
+    let (in_rule, r_name) = helper::check_in(rule_name);
     Ok(quote!(
         #fn_name ()
     ))
@@ -487,9 +491,9 @@ fn generate_match(match_expr: &Match) -> IResult<TokenStream> {
     Ok(quote!())
 }
 
-fn generate_comp(comp_expr: &Comp) -> IResult<TokenStream> {
-    let lhs = generate_expr(&comp_expr.lhs, None).unwrap();
-    let rhs = generate_expr(&comp_expr.rhs, None).unwrap();
+fn generate_comp(comp_expr: &Comp, rule_name: Option<&String>) -> IResult<TokenStream> {
+    let lhs = generate_expr(&comp_expr.lhs, rule_name).unwrap();
+    let rhs = generate_expr(&comp_expr.rhs, rule_name).unwrap();
     let op = match *comp_expr.comp_op {
         CompOpKind::Lt => quote!(<),
         CompOpKind::Gt => quote!(>),
@@ -552,6 +556,7 @@ fn generate_ruleset_expr(ruleset_expr: &RuleSetExpr) -> IResult<TokenStream> {
         }
     }
     // Replace all the TBD information with configed values
+    // Expand Config here
     let config = &*ruleset_expr.config;
 
     // 2. Generate RuleSet executable here
@@ -620,6 +625,15 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
         .lock()
         .unwrap()
         .insert(rule_name_string.clone(), RuleMeta::place_holder());
+
+    for arg in &rule_expr.args {
+        rule_meta
+            .lock()
+            .unwrap()
+            .get_mut(&rule_name_string)
+            .unwrap()
+            .add_rule_arg(&arg.name);
+    }
 
     // 2. Generate executable Rule
     // generate the rule content expression with this
@@ -707,6 +721,8 @@ fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<To
     let rule_table = RULE_TABLE.get().expect("Failed to get rule table");
     let (in_rule, r_name) = helper::check_in(rule_name);
     // Sweep Rule meta here to get the condition clause information and add it
+    // At this moment all information that needs to be considered should be inside the RuleMeta
+    // However, some of them are given by configs.
     if in_rule {
         for clause in &cond_expr.clauses {
             generated_clauses.push(generate_awaitable(&clause, Some(&r_name)).unwrap());
@@ -746,10 +762,12 @@ fn generate_awaitable(
     };
 
     let mut awaitables = vec![];
+    // Start creating a new condition and replace the old one with new condition?
     if in_rule {
         match awaitable_expr {
             Awaitable::FnCall(fn_call) => {
                 // This should be flex
+
                 awaitables.push(generate_fn_call(fn_call, rule_name).unwrap())
             }
             Awaitable::VariableCallExpr(val_call) => {
@@ -757,7 +775,7 @@ fn generate_awaitable(
                 awaitables.push(generate_variable_call(val_call, Some(&r_name)).unwrap());
             }
             Awaitable::Comp(comp) => {
-                awaitables.push(generate_comp(comp).unwrap());
+                awaitables.push(generate_comp(comp, rule_name).unwrap());
             }
         }
     } else {
@@ -821,7 +839,12 @@ fn generate_variable_call(
                         }
                         match &variable_call_expr.variables[1] {
                             Callable::FnCall(builtin_qnic_fn) => {
-                                // interface_table
+                                interface_table
+                                    .lock()
+                                    .unwrap()
+                                    .get_mut(&*identifier.name)
+                                    .unwrap()
+                                    .builtin_functions(builtin_qnic_fn);
                             }
                             _ => todo!("Qnic interface can only take functions right now"),
                         }
@@ -1217,7 +1240,7 @@ mod tests {
                 IdentType::Other,
             ))))),
         );
-        let test_stream = generate_comp(&comp_expr).unwrap();
+        let test_stream = generate_comp(&comp_expr, None).unwrap();
         assert_eq!("count > prev_count", test_stream.to_string());
     }
 

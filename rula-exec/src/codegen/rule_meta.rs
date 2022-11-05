@@ -1,24 +1,30 @@
 use rula_parser::parser::ast::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleMeta {
     pub watched_values: HashMap<String, Watchable>,
+    pub rule_args: HashSet<String>,
 }
 
 impl RuleMeta {
-    pub fn new(watched_values: HashMap<String, Watchable>) -> Self {
+    pub fn new(watched_values: HashMap<String, Watchable>, args: HashSet<String>) -> Self {
         RuleMeta {
             watched_values: watched_values,
+            rule_args: args,
         }
     }
     pub fn place_holder() -> Self {
         RuleMeta {
             watched_values: HashMap::new(),
+            rule_args: HashSet::new(),
         }
     }
     pub fn insert_watch_value(&mut self, name: String, watchable: Watchable) {
         self.watched_values.insert(name, watchable);
+    }
+    pub fn add_rule_arg(&mut self, arg: &str) {
+        self.rule_args.insert(String::from(arg));
     }
 }
 

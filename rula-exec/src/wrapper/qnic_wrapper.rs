@@ -1,12 +1,12 @@
 extern crate rula_derive;
 
-use proc_macro2::TokenStream;
-use quote::quote;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr};
 
 use crate::rulep::condition::v1::*;
+use rula_parser::parser::ast::{Expr, FnCall};
+
+// This should be removed later
 use mock_components::hardware::qnic::QnicType;
 
 type IResult<T> = Result<T, QnicInterfaceWrapperError>;
@@ -41,20 +41,17 @@ impl QnicInterfaceWrapper {
         }
     }
 
-    pub fn builtin_functions<F>(&self, func_name: &String, f: F)
-    where
-        F: FnOnce() -> IResult<ConditionClauses>,
-    {
-        match func_name.as_str() {
+    pub fn builtin_functions(&self, func_def: &FnCall) {
+        match &*func_def.func_name.name.as_str() {
             "request_resource" => {
-                self.request_resource(f);
+                self.request_resource(&func_def.arguments);
             }
             _ => todo!("Not yet implemented"),
         }
     }
     // This function supposed to be an builtin function for quantum interface
     // wrapper functin to request resource to resource allocator
-    pub fn request_resource<F>(&self, f: F) -> IResult<ConditionClauses> {
+    pub fn request_resource(&self, arguments: &Vec<Expr>) -> IResult<ConditionClauses> {
         Ok(ConditionClauses::EnoughResource(EnoughResource::new(
             1, None, None,
         )))

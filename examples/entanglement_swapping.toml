@@ -1,0 +1,6 @@
+title = "RuLa swapping config"
+
+[config]
+num_node = 5
+distance = [0, 1, 1, 1, 0]
+target = "initiator"

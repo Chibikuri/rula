@@ -8,6 +8,7 @@ pub mod codegen {
 
     pub mod generator;
     pub mod rule_meta;
+    pub mod ruleset_generator;
 
     use error::RuLaCompileError;
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
@@ -17,7 +18,6 @@ pub mod rulep {
     pub mod action;
     pub mod condition;
     pub mod ruleset;
-    pub mod ruleset_gen;
 
     #[cfg(not(tarpaulin_include))]
     mod error;
