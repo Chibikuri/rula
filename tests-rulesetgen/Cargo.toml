@@ -1,14 +1,12 @@
 [package]
-name = "rula"
+name = "tests-rulesetgen"
 version = "0.1.0"
 edition = "2021"
-description = "Bootstrap of rula compiler"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.0.10", features = ["derive"] }
-toml = "0.5.9"
-# serde = "1.0"
-rula_parser = {path="../rula-parser"}
+rula = {path = "../rula"}
+rula_parser = { path = "../rula-parser" }
 rula-exec = {path="../rula-exec"}
+mock_components = {path = "../mock-components"}

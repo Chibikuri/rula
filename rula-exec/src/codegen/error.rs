@@ -4,6 +4,12 @@ use std::fmt::Debug;
 pub enum RuLaCompileError {
     RuLaGenerationError,
     RuLaInitializationError(InitializationError),
+    NoRuleFoundError,
+    RuleDuplicationError,
+    FailedToSetValueError,
+    // Todo: provide interface name to it
+    NoInterfaceFoundError,
+    UnknownError,
 }
 
 #[derive(PartialEq)]

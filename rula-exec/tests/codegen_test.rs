@@ -1,5 +1,5 @@
-use rula::parser::ast::*;
 use rula_exec::codegen::generator::*;
+use rula_parser::parser::ast::*;
 
 use proc_macro2::TokenStream;
 use std::env;
@@ -49,10 +49,19 @@ pub fn generate_token_stream_file(program: TokenStream, file_name: &str) {
         .expect("Command failed");
 }
 
+pub fn get_correct_file_tokens(file_name: &str) -> String {
+    let mut file_path = env::current_dir().unwrap();
+    file_path.push("tests");
+    file_path.push("suppose");
+    file_path.push(file_name);
+    let contents = fs::read_to_string(file_path).expect("Failed to read the file");
+    contents.to_string()
+}
+
 fn build_stmt_ast(statement: Stmt) -> AstNode {
-    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+    AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
         ProgramKind::Stmt(statement),
-    ))))
+    ]))))
 }
 
 mod import_ast_to_rust_tests {
@@ -65,8 +74,8 @@ mod import_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
-        let target_rust = "mod rula { fn main () { use hello ; } }";
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
+        let target_rust = "mod rula { use hello ; } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
         generate_token_stream_file(generated_rust, test_name!())
@@ -79,8 +88,8 @@ mod import_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_path))),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
-        let target_rust = "mod rula { fn main () { use hello :: world ; } }";
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
+        let target_rust = "mod rula { use hello :: world ; } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
         generate_token_stream_file(generated_rust, test_name!())
@@ -96,8 +105,9 @@ mod import_ast_to_rust_tests {
         let target_ast = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::Import(Import::new(PathKind::from(expected_paths))),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
-        let target_rust = "mod rula { fn main () { use hello :: world ; use hello :: there ; } }";
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
+        let target_rust =
+            "mod rula { use hello :: world ; use hello :: there ; } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
         generate_token_stream_file(generated_rust, test_name!())
@@ -114,11 +124,13 @@ mod if_ast_to_rust_tests {
             ExprKind::If(If::new(
                 // (block)
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block", None,
+                    "block",
+                    None,
+                    IdentType::Other,
                 ))))),
                 // {expression}
                 Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                    LitKind::Ident(Ident::new("expression", None)),
+                    LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
                 ))))),
                 // elif ~
                 None,
@@ -126,9 +138,31 @@ mod if_ast_to_rust_tests {
                 None,
             )),
         ))))];
-        let generated_rust = generate(target_ast).unwrap();
-        let target_rust = "mod rula { fn main () { if block { expression } } }";
+        let (generated_rust, _) = generate(target_ast, false).unwrap();
+        let target_rust = "mod rula { if block { expression } } pub fn main () { }";
         assert_eq!(generated_rust.to_string(), target_rust);
+        // Printing out this make an error
+        // #[cfg(not(feature = "ci"))]
+        // generate_token_stream_file(generated_rust, test_name!())
+    }
+}
+
+mod interface_to_rust_tests {
+    use super::*;
+    #[test]
+    fn test_simple_interface_expr() {
+        let interface_ast = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
+            vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
+                Interface::new(
+                    vec![Ident::new("qn0", None, IdentType::QnicInterface)],
+                    Some(Ident::new("INTERFACE", None, IdentType::QnicInterface)),
+                ),
+            )))],
+        ))))];
+
+        let (generated_rust, _) = generate(interface_ast, false).unwrap();
+        let target_rust = get_correct_file_tokens("interface_def.rs");
+        // assert_eq!(generated_rust.to_string(), target_rust);
         #[cfg(not(feature = "ci"))]
         generate_token_stream_file(generated_rust, test_name!())
     }

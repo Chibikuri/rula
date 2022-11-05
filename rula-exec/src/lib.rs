@@ -7,6 +7,8 @@ pub mod codegen {
     mod error;
 
     pub mod generator;
+    pub mod rule_meta;
+    pub mod ruleset_generator;
 
     use error::RuLaCompileError;
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
@@ -16,7 +18,6 @@ pub mod rulep {
     pub mod action;
     pub mod condition;
     pub mod ruleset;
-    pub mod ruleset_gen;
 
     #[cfg(not(tarpaulin_include))]
     mod error;
@@ -24,7 +25,7 @@ pub mod rulep {
     pub type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
 }
 
-pub mod network {
+pub mod wrapper {
     pub mod qnic_wrapper;
     pub mod qubit_wrapper;
 }
@@ -33,7 +34,7 @@ pub mod utils {}
 
 #[cfg(test)]
 mod tests {
-    use rula::parser::ast::{AstNode, RuLa, RuLaKind};
+    use rula_parser::parser::ast::{AstNode, RuLa, RuLaKind};
 
     #[test]
     fn it_works() {

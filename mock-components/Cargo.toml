@@ -1,0 +1,11 @@
+[package]
+name = "mock_components"
+version = "0.1.0"
+edition = "2021"
+description = "Mocked Hardwares"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = {version = "1.20.1", features = ["full"]}
+serde = "1.0"

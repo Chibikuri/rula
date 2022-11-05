@@ -1,31 +1,38 @@
-use crate::network::qnic_wrapper::{Interface, QnicType};
-use crate::network::qubit_wrapper::Qubit;
+use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
+use crate::wrapper::qubit_wrapper::QubitInterfaceWrapper;
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Action<T> {
+    pub name: Option<String>,
+    pub clauses: Vec<T>,
+}
+
+impl<T> Action<T> {
+    pub fn new(action_name: Option<String>) -> Self {
+        Action {
+            name: action_name,
+            clauses: vec![],
+        }
+    }
+
+    pub fn update_action_name(&mut self, action_name: Option<String>) {
+        self.name = action_name;
+    }
+
+    pub fn add_action_clause(&mut self, action_clause: T) {
+        self.clauses.push(action_clause);
+    }
+}
 
 #[deprecated(since = "0.2.0", note = "These actions are no longer valid.")]
 pub mod v1 {
-
     /// Version 1 actions
     use super::*;
+    use mock_components::hardware::qnic::QnicType;
+    use std::net::Ipv4Addr;
 
-    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Action {
-        pub name: Option<String>,
-        pub clauses: Vec<ActionClausesV1>,
-    }
-
-    impl Action {
-        pub fn new(action_name: Option<String>) -> Self {
-            Action {
-                name: action_name,
-                clauses: vec![],
-            }
-        }
-        pub fn add_action_clause(&mut self, action_clause: ActionClausesV1) {
-            self.clauses.push(action_clause);
-        }
-    }
     // old version of action clauses
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum ActionClausesV1 {
@@ -40,7 +47,7 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Purification {
         pub purification_type: PurType,
-        pub qnic_interface: Interface,
+        pub qnic_interface: QnicInterfaceWrapper,
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -70,7 +77,7 @@ pub mod v1 {
     }
 
     impl Purification {
-        pub fn from(pur_type: PurType, interface: Interface) -> Self {
+        pub fn from(pur_type: PurType, interface: QnicInterfaceWrapper) -> Self {
             Purification {
                 purification_type: pur_type,
                 qnic_interface: interface,
@@ -81,9 +88,9 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct EntanglementSwapping {
         /// QNIC interface information placed inside the node
-        pub self_qnic_interfaces: Vec<Interface>,
+        pub self_qnic_interfaces: Vec<QnicInterfaceWrapper>,
         /// QNIC interface information of left and right nodes
-        pub remote_qnic_interfaces: Vec<Interface>,
+        pub remote_qnic_interfaces: Vec<QnicInterfaceWrapper>,
     }
 
     impl EntanglementSwapping {
@@ -94,8 +101,8 @@ pub mod v1 {
             }
         }
         pub fn from(
-            qnic_interfaces: Vec<Interface>,
-            remote_qnic_interfaces: Vec<Interface>,
+            qnic_interfaces: Vec<QnicInterfaceWrapper>,
+            remote_qnic_interfaces: Vec<QnicInterfaceWrapper>,
         ) -> Self {
             EntanglementSwapping {
                 self_qnic_interfaces: qnic_interfaces,
@@ -103,11 +110,11 @@ pub mod v1 {
             }
         }
 
-        pub fn add_qnic_interface(&mut self, qnic_interface: Interface) {
+        pub fn add_qnic_interface(&mut self, qnic_interface: QnicInterfaceWrapper) {
             self.self_qnic_interfaces.push(qnic_interface);
         }
 
-        pub fn add_remote_qnic_interface(&mut self, qnic_interface: Interface) {
+        pub fn add_remote_qnic_interface(&mut self, qnic_interface: QnicInterfaceWrapper) {
             self.remote_qnic_interfaces.push(qnic_interface);
         }
     }
@@ -116,18 +123,18 @@ pub mod v1 {
     pub struct Tomography {
         pub num_measure: u32,
         /// Should be deprecated in the near future
-        pub qnic_interface: Interface,
+        pub qnic_interface: QnicInterfaceWrapper,
     }
 
     impl Tomography {
         pub fn new() -> Self {
             Tomography {
                 num_measure: 0,
-                qnic_interface: Interface::place_holder(),
+                qnic_interface: QnicInterfaceWrapper::place_holder(),
             }
         }
 
-        pub fn from(num_measure: u32, qnic_interface: Interface) -> Self {
+        pub fn from(num_measure: u32, qnic_interface: QnicInterfaceWrapper) -> Self {
             Tomography {
                 num_measure: num_measure,
                 qnic_interface: qnic_interface,
@@ -140,18 +147,18 @@ pub mod v1 {
         // pub fn add_owner_address(&mut self, owner_addr: u32) {
         //     self.owner_address = owner_addr;
         // }
-        pub fn add_interface(&mut self, qnic_interface: Interface) {
+        pub fn add_interface(&mut self, qnic_interface: QnicInterfaceWrapper) {
             self.qnic_interface = qnic_interface;
         }
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Wait {
-        pub qnic_interface: Interface,
+        pub qnic_interface: QnicInterfaceWrapper,
     }
 
     impl Wait {
-        pub fn new(qnic_interface: Interface) -> Self {
+        pub fn new(qnic_interface: QnicInterfaceWrapper) -> Self {
             Wait {
                 qnic_interface: qnic_interface,
             }
@@ -164,17 +171,17 @@ pub mod v1 {
 
         #[test]
         fn test_purification_action() {
-            let test_interface = Interface::from(
+            let test_interface = QnicInterfaceWrapper::new(
                 QnicType::QnicE,
                 2,
-                IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+                Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
             );
             let pur_action = Purification::from(PurType::Double, test_interface);
             assert_eq!(pur_action.purification_type, PurType::Double);
             assert_eq!(pur_action.qnic_interface.qnic_type, QnicType::QnicE);
             assert_eq!(pur_action.qnic_interface.qnic_id, 2);
             assert_eq!(
-                pur_action.qnic_interface.qnic_address.to_string(),
+                pur_action.qnic_interface.qnic_address.unwrap().to_string(),
                 "192.168.0.1"
             );
         }
@@ -182,27 +189,27 @@ pub mod v1 {
         #[test]
         fn test_swapping_action() {
             let test_self_interfaces = vec![
-                Interface::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicE,
                     1,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
                 ),
-                Interface::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicP,
                     2,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))),
                 ),
             ];
             let test_remote_interfaces = vec![
-                Interface::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicE,
                     0,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))),
                 ),
-                Interface::from(
+                QnicInterfaceWrapper::new(
                     QnicType::QnicP,
                     0,
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)),
+                    Some(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1))),
                 ),
             ];
             let swapping_action =
@@ -215,6 +222,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.self_qnic_interfaces[0]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.0.1"
             );
@@ -226,6 +234,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.self_qnic_interfaces[1]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.0.2"
             );
@@ -238,6 +247,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.remote_qnic_interfaces[0]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.1.1"
             );
@@ -249,6 +259,7 @@ pub mod v1 {
             assert_eq!(
                 swapping_action.remote_qnic_interfaces[1]
                     .qnic_address
+                    .unwrap()
                     .to_string(),
                 "192.168.2.1"
             );
@@ -257,17 +268,17 @@ pub mod v1 {
 
     #[test]
     fn test_tomography_action() {
-        let test_interface = Interface::from(
+        let test_interface = QnicInterfaceWrapper::new(
             QnicType::QnicRp,
             0,
-            IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
+            Some(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))),
         );
         let tomography = Tomography::from(8000, test_interface);
         assert_eq!(tomography.num_measure, 8000);
         assert_eq!(tomography.qnic_interface.qnic_type, QnicType::QnicRp);
         assert_eq!(tomography.qnic_interface.qnic_id, 0);
         assert_eq!(
-            tomography.qnic_interface.qnic_address.to_string(),
+            tomography.qnic_interface.qnic_address.unwrap().to_string(),
             "192.168.0.1"
         );
     }
@@ -276,26 +287,7 @@ pub mod v1 {
 // Version 2 (Base actions)
 
 pub mod v2 {
-
     use super::*;
-
-    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Action {
-        pub name: Option<String>,
-        pub clauses: Vec<ActionClauses>,
-    }
-
-    impl Action {
-        pub fn new(action_name: Option<String>) -> Self {
-            Action {
-                name: action_name,
-                clauses: vec![],
-            }
-        }
-        pub fn add_action_clause(&mut self, action_clause: ActionClauses) {
-            self.clauses.push(action_clause);
-        }
-    }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum ActionClauses {
@@ -304,21 +296,21 @@ pub mod v2 {
         /// Measurement operations that takes calssical information from qubits
         Measure(Measure),
         /// Send classical message from one place to another
-        Send(Message),
+        Send(Send),
         /// Free consumed resource for later use
-        Free(Qubit),
+        Free(QubitInterfaceWrapper),
         /// Update the status of qubit
         Update(Update),
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct QGate {
-        pub kind: GateType,
-        pub target: Qubit,
+        pub kind: QGateType,
+        pub target: QubitInterfaceWrapper,
     }
 
     impl QGate {
-        pub fn new(gate_kind: GateType, target_qubit: Qubit) -> Self {
+        pub fn new(gate_kind: QGateType, target_qubit: QubitInterfaceWrapper) -> Self {
             QGate {
                 kind: gate_kind,
                 target: target_qubit,
@@ -327,13 +319,15 @@ pub mod v2 {
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub enum GateType {
+    pub enum QGateType {
         X,
         Y,
         Z,
         H,
-        Cx,
-        Cz,
+        CxControl,
+        CxTarget,
+        CzControl,
+        CzTarget,
         Rx(f64),
         Ry(f64),
         Rz(f64),
@@ -343,15 +337,27 @@ pub mod v2 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Measure {
         pub basis: MeasBasis,
-        pub target: Qubit,
+        pub target: QubitInterfaceWrapper,
     }
 
     impl Measure {
-        pub fn new(basis: MeasBasis, target: Qubit) -> Self {
+        pub fn new(basis: MeasBasis, target: QubitInterfaceWrapper) -> Self {
             Measure {
                 basis: basis,
                 target: target,
             }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub struct Send {
+        pub src: IpAddr,
+        pub dst: IpAddr,
+    }
+
+    impl Send {
+        pub fn new(src: IpAddr, dst: IpAddr) -> Self {
+            Send { src: src, dst: dst }
         }
     }
 
@@ -388,8 +394,8 @@ pub mod v2 {
     pub struct MeasResult {
         pub basis: MeasBasis,
         pub result: MeasOutput,
-        pub interface_info: Interface,
-        pub qubit_info: Qubit,
+        pub interface_info: QnicInterfaceWrapper,
+        pub qubit_info: QubitInterfaceWrapper,
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -399,7 +405,7 @@ pub mod v2 {
     }
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Update {
-        pub target: Qubit,
+        pub target: QubitInterfaceWrapper,
     }
 
     #[cfg(test)]
@@ -409,7 +415,7 @@ pub mod v2 {
         #[test]
         fn test_action_clause() {
             let mut action = Action::new(None);
-            let qgate = QGate::new(GateType::H, Qubit::new());
+            let qgate = QGate::new(QGateType::H, QubitInterfaceWrapper::new());
             let clause = ActionClauses::Gate(qgate.clone());
             action.add_action_clause(clause);
             assert_eq!(action.name, None);
@@ -419,9 +425,9 @@ pub mod v2 {
 
         #[test]
         fn test_measure_clause() {
-            let measure_clause = Measure::new(MeasBasis::X, Qubit::new());
+            let measure_clause = Measure::new(MeasBasis::X, QubitInterfaceWrapper::new());
             assert_eq!(measure_clause.basis, MeasBasis::X);
-            assert_eq!(measure_clause.target, Qubit::new())
+            assert_eq!(measure_clause.target, QubitInterfaceWrapper::new())
         }
     }
 }
