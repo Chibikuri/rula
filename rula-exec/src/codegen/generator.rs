@@ -60,7 +60,7 @@ pub fn generate(
         #[allow(unused)]
         mod rula{
             use super::*;
-            use rula_std::rule::Rulable;
+            use rula_std::rule::*;
             use async_trait::async_trait;
             #rula_program
         }
@@ -142,7 +142,7 @@ fn generate_interface(interface: &Interface) -> IResult<TokenStream> {
         interface_names.push(SynLit::Str(LitStr::new(&i.name, Span::call_site())));
     }
     let interface_group_name = match &*interface.group_name {
-        Some(group_name) => generate_ident(&group_name).unwrap(),
+        Some(group_name) => generate_ident(&group_name, None).unwrap(),
         None => quote!(INTERFACE),
     };
     Ok(quote!(
@@ -189,7 +189,11 @@ fn generate_stmt(stmt: &Stmt, rule: Option<&String>) -> IResult<TokenStream> {
 /// * 'in_watch' - (bool) boolean value if this let statement is in watch or not.
 ///                 this can be included AST Node later
 ///
-fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResult<TokenStream> {
+fn generate_let(
+    let_stmt: &Let,
+    rule_name: Option<&String>,
+    in_watch: bool,
+) -> IResult<TokenStream> {
     if &*let_stmt.ident == &Ident::place_holder() {
         return Err(RuLaCompileError::FailedToSetValueError);
     }
@@ -199,7 +203,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
     let (mut identifier, mut expr) = (quote!(), quote!());
     if in_watch {
         // Register values to watched_values in RuleMeta
-        match rule {
+        match rule_name {
             Some(name) => {
                 // Don't wanna clone the expression here
                 ruleset_factory.lock().unwrap().add_watch_value(
@@ -207,16 +211,16 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
                     &*let_stmt.ident.name,
                     Watchable::UnSet,
                 );
-                identifier = generate_ident(&*let_stmt.ident).unwrap();
-                expr = generate_expr(&*let_stmt.expr, rule).unwrap();
+                identifier = generate_ident(&*let_stmt.ident, rule_name).unwrap();
+                expr = generate_expr(&*let_stmt.expr, rule_name).unwrap();
             }
             None => {
                 todo!("No rule found")
             }
         }
     } else {
-        identifier = generate_ident(&*let_stmt.ident).unwrap();
-        expr = generate_expr(&*let_stmt.expr, rule).unwrap();
+        identifier = generate_ident(&*let_stmt.ident, rule_name).unwrap();
+        expr = generate_expr(&*let_stmt.expr, rule_name).unwrap();
     }
     if !in_watch {
         Ok(quote!(
@@ -231,7 +235,7 @@ fn generate_let(let_stmt: &Let, rule: Option<&String>, in_watch: bool) -> IResul
 
 fn generate_expr(
     expr: &Expr,
-    rule: Option<&String>,
+    rule_name: Option<&String>,
     // watched_value: Option<&String>,
 ) -> IResult<TokenStream> {
     match &*expr.kind {
@@ -240,20 +244,20 @@ fn generate_expr(
         ExprKind::For(for_expr) => Ok(generate_for(&for_expr).unwrap()),
         ExprKind::While(while_expr) => Ok(generate_while(&while_expr).unwrap()),
         ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(&fn_def_expr).unwrap()),
-        ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(&fn_call_expr, rule).unwrap()),
+        ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(&fn_call_expr, rule_name).unwrap()),
         ExprKind::Struct(struct_expr) => Ok(generate_struct(&struct_expr).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(&return_expr).unwrap()),
         ExprKind::Match(match_expr) => Ok(generate_match(&match_expr).unwrap()),
-        ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr, rule).unwrap()),
+        ExprKind::Comp(comp_expr) => Ok(generate_comp(&comp_expr, rule_name).unwrap()),
         ExprKind::RuleSetExpr(ruleset_expr) => Ok(generate_ruleset_expr(&ruleset_expr).unwrap()),
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(&rule_expr).unwrap()),
-        ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule).unwrap()),
-        ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr, rule).unwrap()),
+        ExprKind::CondExpr(cond_expr) => Ok(generate_cond(&cond_expr, rule_name).unwrap()),
+        ExprKind::ActExpr(act_expr) => Ok(generate_act(&act_expr, rule_name).unwrap()),
         ExprKind::VariableCallExpr(variable_call_expr) => {
-            Ok(generate_variable_call(&variable_call_expr, rule).unwrap())
+            Ok(generate_variable_call(&variable_call_expr, rule_name).unwrap())
         }
-        ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
-        ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
+        ExprKind::Array(array_expr) => Ok(generate_array(&array_expr, rule_name).unwrap()),
+        ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr, rule_name).unwrap()),
         ExprKind::Term(term_expr) => Ok(generate_term(*term_expr).unwrap()),
         ExprKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generating expression"),
@@ -280,7 +284,7 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
                     top_path = sp;
                 }
                 let new_ident = Ident::new(top_path, None, IdentType::Other);
-                let path_fragment = generate_ident(&new_ident).unwrap();
+                let path_fragment = generate_ident(&new_ident, None).unwrap();
                 single_path.push(path_fragment)
             }
             let path_head = &single_path[0];
@@ -289,7 +293,7 @@ fn generate_import(import_expr: &Import) -> IResult<TokenStream> {
                 #path_head #(::#path_left)*
             )
         } else {
-            let path_ident = generate_ident(path_ident).unwrap();
+            let path_ident = generate_ident(path_ident, None).unwrap();
             quote!(#path_ident)
         };
         paths.push(quoted_path);
@@ -369,7 +373,7 @@ fn generate_if(if_expr: &If) -> IResult<TokenStream> {
 fn generate_for(for_expr: &For) -> IResult<TokenStream> {
     let mut ident_list = vec![];
     for ident in for_expr.pattern.iter() {
-        ident_list.push(generate_ident(ident).unwrap());
+        ident_list.push(generate_ident(ident, None).unwrap());
     }
     let generator = generate_expr(&for_expr.generator, None).unwrap();
     let stmt = generate_stmt(&for_expr.stmt, None).unwrap();
@@ -406,7 +410,7 @@ fn generate_while(while_expr: &While) -> IResult<TokenStream> {
 fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
     let mut arguments = vec![];
     for ident in fn_def_expr.arguments.iter() {
-        arguments.push(generate_ident(ident).unwrap());
+        arguments.push(generate_ident(ident, None).unwrap());
     }
     let stmt = generate_stmt(&fn_def_expr.stmt, None).unwrap();
     // TODO: register this function to function name list and make it checkable
@@ -420,7 +424,7 @@ fn generate_fn_def(fn_def_expr: &FnDef) -> IResult<TokenStream> {
 
 fn generate_fn_call(fn_call_expr: &FnCall, rule_name: Option<&String>) -> IResult<TokenStream> {
     // Before generating functions, check function table to check whether it's properly defined or not
-    let fn_name = generate_ident(&fn_call_expr.func_name).unwrap();
+    let fn_name = generate_ident(&fn_call_expr.func_name, rule_name).unwrap();
     let generated_arguments = {
         let mut args = vec![];
         for arg in &fn_call_expr.arguments {
@@ -435,10 +439,11 @@ fn generate_fn_call(fn_call_expr: &FnCall, rule_name: Option<&String>) -> IResul
 }
 
 fn generate_struct(struct_expr: &Struct) -> IResult<TokenStream> {
-    let struct_name = generate_ident(&struct_expr.name).unwrap();
+    todo!("Structure definition would be deprecated");
+    let struct_name = generate_ident(&struct_expr.name, None).unwrap();
     let mut struct_items = vec![];
     for ident in struct_expr.items.iter() {
-        struct_items.push(generate_ident(ident).unwrap());
+        struct_items.push(generate_ident(ident, None).unwrap());
     }
     Ok(quote!(
         struct #struct_name{
@@ -462,7 +467,7 @@ fn generate_match(match_expr: &Match) -> IResult<TokenStream> {
     }
     match &*match_expr.temp_val {
         Some(value) => {
-            let generated_ident = generate_ident(value).unwrap();
+            let generated_ident = generate_ident(value, None).unwrap();
             // make closure here
             match &*match_expr.finally {
                 Some(finally_value) => {
@@ -659,11 +664,13 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
         .lock()
         .unwrap()
         .add_rule(&rule_name_string, rule);
+    let mut generated_args = vec![];
     for arg in &rule_expr.args {
         ruleset_factory
             .lock()
             .unwrap()
             .add_rule_arg(&rule_name_string, &arg.name);
+        generated_args.push(SynLit::Str(LitStr::new(&arg.name, Span::call_site())));
     }
 
     // 2. Generate executable Rule
@@ -672,16 +679,22 @@ fn generate_rule(rule_expr: &RuleExpr) -> IResult<TokenStream> {
         generate_rule_content(&rule_expr.rule_content, Some(&rule_name_string)).unwrap();
 
     // RuLa runtime generation
-    let rule_name_token = generate_ident(rule_name).unwrap();
+    let rule_name_token = generate_ident(rule_name, None).unwrap();
 
     Ok(quote!(
         struct #rule_name_token{
-            interfaces: Vec<String>
+            interfaces: Vec<String>,
+            arguments: HashMap<String, Argument>
         }
         impl #rule_name_token{
             pub fn new() -> Self{
+                let mut argument_map = HashMap::new();
+                for i in vec![#(#generated_args),*]{
+                    argument_map.insert(i.to_string(), Argument::init());
+                }
                 #rule_name_token{
-                    interfaces: vec![#(#interface_idents), *]
+                    interfaces: vec![#(#interface_idents), *],
+                    arguments: argument_map
                 }
             }
         }
@@ -715,16 +728,14 @@ fn generate_rule_content(
     Ok(quote!(
         async fn condition(&self){
             #generated_cond
-        }
-
-        fn action(&self){
-            #generated_act
+            fn action(&self){
+                #generated_act
+            }
         }
 
         fn post_process(&self){
             #(#post_processes)*
         }
-
 
         fn execute(&self){
 
@@ -744,7 +755,7 @@ fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult
         Some(name) => {
             for value in &watch_expr.watched_values {
                 // start watch value generation process with `in_watch=true`
-                watched_values.push(generate_ident(&value.ident).unwrap());
+                watched_values.push(generate_ident(&value.ident, rule_name).unwrap());
                 generated_watch.push(generate_let(value, Some(&name), true).unwrap());
                 // watch can be
             }
@@ -756,13 +767,13 @@ fn generate_watch(watch_expr: &WatchExpr, rule_name: Option<&String>) -> IResult
     // This could be on the tokio async runtime
     Ok(quote!(
         #(#generated_watch)*
-        return (#(#watched_values),*)
     ))
 }
 
 fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<TokenStream> {
     let mut generated_clauses = vec![];
     let (in_rule, r_name) = helper::check_in(rule_name);
+
     // Sweep Rule meta here to get the condition clause information and add it
     // At this moment all information that needs to be considered should be inside the RuleMeta
     // However, some of them are given by configs.
@@ -770,19 +781,29 @@ fn generate_cond(cond_expr: &CondExpr, rule_name: Option<&String>) -> IResult<To
         for clause in &cond_expr.clauses {
             generated_clauses.push(generate_awaitable(&clause, Some(&r_name)).unwrap());
         }
-    } else {
-        for clause in &cond_expr.clauses {
-            generated_clauses.push(generate_awaitable(&clause, None).unwrap());
+        match &*cond_expr.watch_expr {
+            Some(watch_expr) => {
+                let generated_watch = generate_watch(watch_expr, Some(&r_name)).unwrap();
+                Ok(quote!(
+                   #generated_watch
+                   if #(#generated_clauses)&&*{
+                    true
+                   }else{
+                    false
+                   };
+                ))
+            }
+            None => Ok(quote!(
+               if #(#generated_clauses)&&*{
+                true
+               }else{
+                false
+               };
+            )),
         }
+    } else {
+        todo!()
     }
-
-    Ok(quote!(
-       if #(#generated_clauses)&&*{
-        true
-       }else{
-        false
-       };
-    ))
 }
 
 fn generate_awaitable(
@@ -838,141 +859,141 @@ fn generate_variable_call(
                 variable_calls.push(generate_fn_call(&fn_call, rule_name).unwrap());
             }
             Callable::Ident(ident) => {
-                variable_calls.push(generate_ident(ident).unwrap());
+                variable_calls.push(generate_ident(ident, rule_name).unwrap());
             }
         }
     }
     Ok(quote!(#(#variable_calls).*))
 }
 
-fn generate_variable_call_old(
-    variable_call_expr: &VariableCallExpr,
-    rule_name: Option<&String>,
-    // watched_value: Option<&String>,
-) -> IResult<TokenStream> {
-    // Check status (in_rule, in_watch)
-    let (in_rule, r_name) = helper::check_in(rule_name);
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Failed to get Ruleset factory");
+// fn generate_variable_call_old(
+//     variable_call_expr: &VariableCallExpr,
+//     rule_name: Option<&String>,
+//     // watched_value: Option<&String>,
+// ) -> IResult<TokenStream> {
+//     // Check status (in_rule, in_watch)
+//     let (in_rule, r_name) = helper::check_in(rule_name);
+//     let ruleset_factory = RULESET_FACTORY
+//         .get()
+//         .expect("Failed to get Ruleset factory");
 
-    // Start generating
-    let mut val_calls = vec![];
-    // if the first variable is interface name, that supposed to be interface function call
-    let mut eval_first_two = |rule_name: Option<&String>| {
-        match &variable_call_expr.variables[0] {
-            Callable::FnCall(fn_call) => {
-                val_calls.push(generate_fn_call(fn_call, rule_name).unwrap())
-            }
-            Callable::Ident(identifier) => {
-                // if this variable call starts from interface name
-                match &*identifier.ident_type {
-                    IdentType::QnicInterface => {
-                        if !ruleset_factory
-                            .lock()
-                            .unwrap()
-                            .exist_interface(&*identifier.name)
-                        {
-                            // Here should not be panic!()
-                            // return Err(RuLaCompileError::NoInterfaceFoundError);
-                            panic!("No interface definition {} found", &*identifier.name);
-                        }
-                        val_calls.push(quote!(INTERFACE
-                            .get()
-                            .except("Unable to get INTERFACES")
-                            .get_mut(identifier.name)
-                            .except("Unable to find the interface")))
-                        // match &variable_call_expr.variables[1] {
-                        //     Callable::FnCall(builtin_qnic_fn) => {
+//     // Start generating
+//     let mut val_calls = vec![];
+//     // if the first variable is interface name, that supposed to be interface function call
+//     let mut eval_first_two = |rule_name: Option<&String>| {
+//         match &variable_call_expr.variables[0] {
+//             Callable::FnCall(fn_call) => {
+//                 val_calls.push(generate_fn_call(fn_call, rule_name).unwrap())
+//             }
+//             Callable::Ident(identifier) => {
+//                 // if this variable call starts from interface name
+//                 match &*identifier.ident_type {
+//                     IdentType::QnicInterface => {
+//                         if !ruleset_factory
+//                             .lock()
+//                             .unwrap()
+//                             .exist_interface(&*identifier.name)
+//                         {
+//                             // Here should not be panic!()
+//                             // return Err(RuLaCompileError::NoInterfaceFoundError);
+//                             panic!("No interface definition {} found", &*identifier.name);
+//                         }
+//                         val_calls.push(quote!(INTERFACE
+//                             .get()
+//                             .except("Unable to get INTERFACES")
+//                             .get_mut(identifier.name)
+//                             .except("Unable to find the interface")))
+//                         // match &variable_call_expr.variables[1] {
+//                         //     Callable::FnCall(builtin_qnic_fn) => {
 
-                        //     }
-                        //     _ => todo!("Qnic interface can only take functions right now"),
-                        // }
-                    }
-                    IdentType::WatchedVal => {
-                        if !ruleset_factory
-                            .lock()
-                            .unwrap()
-                            .exist_watched_value(&r_name, &*identifier.name)
-                        {
-                            panic!("No variable found in watch table.")
-                        }
-                        if in_rule {
-                            ruleset_factory.lock().unwrap().update_watched_value(
-                                &r_name,
-                                &*identifier.name,
-                                QuantumProp::place_holder(),
-                            );
-                        } else {
-                            todo!()
-                        }
-                    }
-                    _ => {
-                        // If this is not a qnic interface or watched value, just treat as usual identifier
-                        val_calls.push(generate_ident(identifier).unwrap());
-                        match &variable_call_expr.variables[1] {
-                            Callable::FnCall(fn_call_expr) => {
-                                val_calls.push(generate_fn_call(fn_call_expr, rule_name).unwrap());
-                            }
-                            Callable::Ident(ident_expr) => {
-                                val_calls.push(generate_ident(ident_expr).unwrap());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    };
+//                         //     }
+//                         //     _ => todo!("Qnic interface can only take functions right now"),
+//                         // }
+//                     }
+//                     IdentType::WatchedVal => {
+//                         if !ruleset_factory
+//                             .lock()
+//                             .unwrap()
+//                             .exist_watched_value(&r_name, &*identifier.name)
+//                         {
+//                             panic!("No variable found in watch table.")
+//                         }
+//                         if in_rule {
+//                             ruleset_factory.lock().unwrap().update_watched_value(
+//                                 &r_name,
+//                                 &*identifier.name,
+//                                 QuantumProp::place_holder(),
+//                             );
+//                         } else {
+//                             todo!()
+//                         }
+//                     }
+//                     _ => {
+//                         // If this is not a qnic interface or watched value, just treat as usual identifier
+//                         val_calls.push(generate_ident(identifier).unwrap());
+//                         match &variable_call_expr.variables[1] {
+//                             Callable::FnCall(fn_call_expr) => {
+//                                 val_calls.push(generate_fn_call(fn_call_expr, rule_name).unwrap());
+//                             }
+//                             Callable::Ident(ident_expr) => {
+//                                 val_calls.push(generate_ident(ident_expr).unwrap());
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     };
 
-    match rule_name {
-        Some(name) => {
-            eval_first_two(Some(name));
-            // FIXME: should combine these or do recursively
-            if variable_call_expr.variables.len() > 2 {
-                for val in &variable_call_expr.variables[2..] {
-                    match val {
-                        Callable::FnCall(fn_call) => {
-                            val_calls.push(generate_fn_call(fn_call, Some(name)).unwrap())
-                        }
-                        Callable::Ident(ident) => {
-                            val_calls.push(generate_ident(ident).unwrap());
-                        }
-                    }
-                }
-            }
-        }
-        None => {
-            eval_first_two(None);
-            if variable_call_expr.variables.len() > 2 {
-                for val in &variable_call_expr.variables[2..] {
-                    match val {
-                        Callable::FnCall(fn_call) => {
-                            val_calls.push(generate_fn_call(fn_call, None).unwrap());
-                        }
-                        Callable::Ident(ident) => {
-                            val_calls.push(generate_ident(ident).unwrap());
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(quote!(
-        #(#val_calls).*
-    ))
-}
+//     match rule_name {
+//         Some(name) => {
+//             eval_first_two(Some(name));
+//             // FIXME: should combine these or do recursively
+//             if variable_call_expr.variables.len() > 2 {
+//                 for val in &variable_call_expr.variables[2..] {
+//                     match val {
+//                         Callable::FnCall(fn_call) => {
+//                             val_calls.push(generate_fn_call(fn_call, Some(name)).unwrap())
+//                         }
+//                         Callable::Ident(ident) => {
+//                             val_calls.push(generate_ident(ident).unwrap());
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//         None => {
+//             eval_first_two(None);
+//             if variable_call_expr.variables.len() > 2 {
+//                 for val in &variable_call_expr.variables[2..] {
+//                     match val {
+//                         Callable::FnCall(fn_call) => {
+//                             val_calls.push(generate_fn_call(fn_call, None).unwrap());
+//                         }
+//                         Callable::Ident(ident) => {
+//                             val_calls.push(generate_ident(ident).unwrap());
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//     Ok(quote!(
+//         #(#val_calls).*
+//     ))
+// }
 
-fn generate_array(array_expr: &Array) -> IResult<TokenStream> {
+fn generate_array(array_expr: &Array, rule_name: Option<&String>) -> IResult<TokenStream> {
     let mut items = vec![];
     for lits in array_expr.items.iter() {
-        items.push(generate_lit(lits).unwrap());
+        items.push(generate_lit(lits, rule_name).unwrap());
     }
     Ok(quote!(vec![#(#items),*]))
 }
 
-fn generate_lit(lit: &Lit) -> IResult<TokenStream> {
+fn generate_lit(lit: &Lit, rule_name: Option<&String>) -> IResult<TokenStream> {
     match &*lit.kind {
-        LitKind::Ident(ident_lit) => Ok(generate_ident(ident_lit).unwrap()),
+        LitKind::Ident(ident_lit) => Ok(generate_ident(ident_lit, rule_name).unwrap()),
         LitKind::NumberLit(number_lit) => {
             let val = LitFloat::new(&*number_lit.value.name, Span::call_site());
             Ok(quote!(#val))
@@ -992,12 +1013,13 @@ fn generate_term(term_expr: f64) -> IResult<TokenStream> {
     Ok(quote!(#val))
 }
 // Generate identifier token from Ident ast
-fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
+fn generate_ident(ident: &Ident, rule_name: Option<&String>) -> IResult<TokenStream> {
     // TODO: Remove ident type
     let identifier = format_ident!("{}", *ident.name);
     let ruleset_factory = RULESET_FACTORY
         .get()
         .expect("Unable to get ruleset_factory");
+    let (in_rule, r_name) = helper::check_in(rule_name);
     if ruleset_factory.lock().unwrap().exist_interface(&ident.name) {
         let ident_str = SynLit::Str(LitStr::new(&*ident.name, Span::call_site()));
         return Ok(quote!(
@@ -1009,6 +1031,12 @@ fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
             .get_mut(#ident_str)
             .expect("unable to get interface")
         ));
+    } else if ruleset_factory
+        .lock()
+        .unwrap()
+        .exist_assigned_interface(&r_name, &*ident.name)
+    {
+        return Ok(quote!());
     } else {
         match &*ident.type_hint {
             Some(hint) => {
@@ -1064,14 +1092,14 @@ mod tests {
     fn test_ident_no_type_hint() {
         initialize_singleton();
         let test_ident = Ident::new("hello", None, IdentType::Other);
-        let test_stream = generate_ident(&test_ident).unwrap();
+        let test_stream = generate_ident(&test_ident, None).unwrap();
         assert_eq!("hello", test_stream.to_string());
     }
     #[test]
     fn test_ident_with_type_hint() {
         initialize_singleton();
         let test_ident = Ident::new("hello", Some(TypeDef::Boolean), IdentType::Other);
-        let test_stream = generate_ident(&test_ident).unwrap();
+        let test_stream = generate_ident(&test_ident, None).unwrap();
         assert_eq!("hello : bool", test_stream.to_string());
     }
 
@@ -1329,7 +1357,7 @@ mod tests {
             Lit::new(LitKind::NumberLit(NumberLit::new("4"))),
             Lit::new(LitKind::NumberLit(NumberLit::new("5"))),
         ]);
-        let test_stream = generate_array(&array_expr).unwrap();
+        let test_stream = generate_array(&array_expr, None).unwrap();
         assert_eq!("vec ! [1 , 2 , 3 , 4 , 5]", test_stream.to_string());
     }
 

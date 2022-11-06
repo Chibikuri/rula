@@ -6,7 +6,7 @@ mod rula {
     use async_trait::async_trait;
     use once_cell::sync::OnceCell;
     use rula_std::qnic::Qnic;
-    use rula_std::rule::Rulable;
+    use rula_std::rule::*;
     use std::collections::HashMap;
     use std::sync::Mutex;
     pub static INTERFACES: OnceCell<Mutex<HashMap<String, Qnic>>> = OnceCell::new();

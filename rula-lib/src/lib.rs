@@ -13,7 +13,7 @@ pub mod qnic {
         pub fn place_holder() -> Self {
             Qnic {}
         }
-        pub fn request_resource(&self) {}
+        pub async fn request_resource(&self) {}
     }
 }
 pub mod qubit {
@@ -42,5 +42,15 @@ pub mod rule {
         fn action(&self) {}
         fn post_process(&self) {}
         fn execute(&self) {}
+    }
+
+    pub struct Argument {
+        pub filled: bool,
+    }
+
+    impl Argument {
+        pub fn init() -> Self {
+            Argument { filled: false }
+        }
     }
 }

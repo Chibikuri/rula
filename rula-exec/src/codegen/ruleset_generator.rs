@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Mutex;
 
 use super::rule_meta::*;
@@ -21,19 +22,29 @@ use rula_parser::parser::ast::*;
 pub struct RuleInfo {
     pub meta: RuleMeta,
     pub rule: Rule<ActionClauses>,
+    pub qnic_interfaces: HashSet<String>,
     // pub qnic_interfaces: HashMap<String, QnicInterfaceWrapper>,
 }
 
 impl RuleInfo {
-    pub fn new(rule_meta: RuleMeta, rule: Rule<ActionClauses>) -> Self {
+    pub fn new(
+        rule_meta: RuleMeta,
+        rule: Rule<ActionClauses>,
+        qnic_interfaces: HashSet<String>,
+    ) -> Self {
         RuleInfo {
             meta: rule_meta,
             rule: rule,
+            qnic_interfaces: qnic_interfaces,
         }
     }
-    // pub fn insert_interface(&mut self, interface_name: String, interface: QnicInterfaceWrapper) {
-    // self.qnic_interfaces.insert(interface_name, interface);
-    // }
+    pub fn add_assigned_interface(&mut self, interface_name: &str) {
+        self.qnic_interfaces.insert(interface_name.to_string());
+    }
+
+    pub fn exist_interface(&mut self, interface_name: &str) -> bool {
+        self.qnic_interfaces.contains(interface_name)
+    }
 
     pub fn add_watch_value(&mut self, value_name: &str, watchable: Watchable) {
         self.meta
@@ -76,18 +87,24 @@ impl RuleSetFactory {
             global_interfaces: HashMap::new(),
         }
     }
+    pub fn assign_qnic_to_rule(&mut self, rule_name: &str, interface_name: &str) {
+        // Check if the interface exists
+        if !self.exist_interface(interface_name) {
+            panic!("No interface name {} found", interface_name);
+        }
+        // Assign qnic to rule
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .add_assigned_interface(interface_name);
+    }
 
-    // pub fn add_qnic_interface(
-    //     &mut self,
-    //     rule_name: &str,
-    //     interface_name: &str,
-    //     interface: QnicInterfaceWrapper,
-    // ) {
-    //     self.rule_table
-    //         .get_mut(rule_name)
-    //         .unwrap()
-    //         .insert_interface(String::from(interface_name), interface);
-    // }
+    pub fn exist_assigned_interface(&mut self, rule_name: &str, interface_name: &str) -> bool {
+        self.rule_table
+            .get_mut(rule_name)
+            .unwrap()
+            .exist_interface(interface_name)
+    }
 
     pub fn add_global_interface(&mut self, interface_name: &str, interface: QnicInterfaceWrapper) {
         self.global_interfaces
@@ -137,7 +154,7 @@ impl RuleSetFactory {
     }
 
     pub fn add_rule(&mut self, rule_name: &str, rule: Rule<ActionClauses>) {
-        let rule_info = RuleInfo::new(RuleMeta::place_holder(), rule);
+        let rule_info = RuleInfo::new(RuleMeta::place_holder(), rule, HashSet::new());
         self.rule_table.insert(rule_name.to_string(), rule_info);
     }
 
