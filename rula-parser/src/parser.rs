@@ -565,9 +565,6 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
     let mut rule_content_expr = RuleContentExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::monitor_expr => {
-                rule_content_expr.add_monitor_expr(build_ast_from_monitor_expr(block).unwrap())
-            }
             Rule::cond_expr => {
                 rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
             }
@@ -597,6 +594,9 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
+            Rule::monitor_expr => {
+                cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
+            }
             Rule::awaitable => cond_expr.add_awaitable(
                 build_ast_from_awaitable_expr(block.into_inner().next().unwrap()).unwrap(),
             ),

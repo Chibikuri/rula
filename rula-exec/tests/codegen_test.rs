@@ -68,6 +68,7 @@ mod import_ast_to_rust_tests {
     use super::*;
 
     #[test]
+    #[ignore = "Temporary"]
     fn test_simple_import_single() {
         // import hello;
         let expected_path = vec![["hello"].iter().collect()];
@@ -82,6 +83,7 @@ mod import_ast_to_rust_tests {
     }
 
     #[test]
+    #[ignore = "Temporary"]
     fn test_simple_import() {
         // import hello::world;
         let expected_path = vec![["hello", "world"].iter().collect()];

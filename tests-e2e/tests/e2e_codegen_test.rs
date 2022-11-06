@@ -41,7 +41,7 @@ mod generate_swapping_rust {
 
         // 2. generate ruleset (provide ruleset flag)
         let (generated, _) = rula_exec::codegen::generator::generate(ast, true).unwrap();
-        generate_token_stream_file(generated, "test.rs");
-        assert_eq!(1, 2);
+        // generate_token_stream_file(generated, "test.rs");
+        // assert_eq!(1, 2);
     }
 }

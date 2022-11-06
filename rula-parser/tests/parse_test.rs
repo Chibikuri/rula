@@ -1580,8 +1580,8 @@ mod test_rule_expr {
                                     )
                                 ],
                                 RuleContentExpr::new(
-                                    None,
                                     CondExpr::new(
+                                        None,
                                         None,
                                         vec![]
                                     ),
@@ -1624,6 +1624,7 @@ mod test_condition_expr {
                                             IdentType::Other
                                         )
                                     ),
+                                    None,
                                     vec![
                                         Awaitable::FnCall(
                                             FnCall::new(

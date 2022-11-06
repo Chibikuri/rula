@@ -789,21 +789,14 @@ impl RuleExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleContentExpr {
-    pub watch_expr: Box<Option<WatchExpr>>,
     pub condition_expr: Box<CondExpr>,
     pub action_expr: Box<ActExpr>,
     pub post_processing: Vec<Stmt>,
 }
 
 impl RuleContentExpr {
-    pub fn new(
-        watch_expr: Option<WatchExpr>,
-        condition_expr: CondExpr,
-        action_expr: ActExpr,
-        post_processing: Vec<Stmt>,
-    ) -> Self {
+    pub fn new(condition_expr: CondExpr, action_expr: ActExpr, post_processing: Vec<Stmt>) -> Self {
         RuleContentExpr {
-            watch_expr: Box::new(watch_expr),
             condition_expr: Box::new(condition_expr),
             action_expr: Box::new(action_expr),
             post_processing: post_processing,
@@ -811,15 +804,14 @@ impl RuleContentExpr {
     }
     pub fn place_holder() -> Self {
         RuleContentExpr {
-            watch_expr: Box::new(None),
             condition_expr: Box::new(CondExpr::place_holder()),
             action_expr: Box::new(ActExpr::place_holder()),
             post_processing: vec![],
         }
     }
-    pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
-        self.watch_expr = Box::new(monitor_expr);
-    }
+    // pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
+    //     self.watch_expr = Box::new(monitor_expr);
+    // }
     pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
         self.condition_expr = Box::new(condition_expr);
     }
@@ -854,24 +846,34 @@ impl WatchExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
+    pub watch_expr: Box<Option<WatchExpr>>,
     pub clauses: Vec<Awaitable>,
 }
 
 impl CondExpr {
-    pub fn new(name: Option<Ident>, awaitables: Vec<Awaitable>) -> Self {
+    pub fn new(
+        name: Option<Ident>,
+        watched_values: Option<WatchExpr>,
+        awaitables: Vec<Awaitable>,
+    ) -> Self {
         CondExpr {
             name: Box::new(name),
+            watch_expr: Box::new(watched_values),
             clauses: awaitables,
         }
     }
     pub fn place_holder() -> Self {
         CondExpr {
             name: Box::new(None),
+            watch_expr: Box::new(None),
             clauses: vec![],
         }
     }
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
+    }
+    pub fn add_watch_expr(&mut self, watch_expr: Option<WatchExpr>) {
+        self.watch_expr = Box::new(watch_expr);
     }
     pub fn add_awaitable(&mut self, awaitable: Awaitable) {
         self.clauses.push(awaitable);
