@@ -102,7 +102,7 @@ impl RuleSetFactory {
     pub fn exist_assigned_interface(&mut self, rule_name: &str, interface_name: &str) -> bool {
         self.rule_table
             .get_mut(rule_name)
-            .unwrap()
+            .expect("Unable to get corresponding RuleInfo")
             .exist_interface(interface_name)
     }
 

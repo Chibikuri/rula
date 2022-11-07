@@ -1084,7 +1084,8 @@ pub struct Ident {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IdentType {
     QnicInterface,
-    WatchedVal,
+    WatchedValue,
+    RuleArgument,
     Other,
 }
 
@@ -1111,8 +1112,8 @@ impl Ident {
     pub fn add_type_hint(&mut self, type_hint: Option<TypeDef>) {
         self.type_hint = Box::new(type_hint);
     }
-    pub fn update_ident_type(&mut self, new_ident_type: IdentType) {
-        self.ident_type = Box::new(new_ident_type);
+    pub fn update_ident_type(&mut self, ident_type: IdentType) {
+        self.ident_type = Box::new(ident_type);
     }
     pub fn check(&self) {
         if *self.name == String::from("") {

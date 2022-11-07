@@ -17,8 +17,8 @@ mod interface_tests {
             vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
                 Interface::new(
                     vec![
-                        Ident::new("qn0", None, IdentType::QnicInterface),
-                        Ident::new("qn1", None, IdentType::QnicInterface),
+                        Ident::new("qn0", None, IdentType::Other),
+                        Ident::new("qn1", None, IdentType::Other),
                     ],
                     None,
                 ),
@@ -35,10 +35,10 @@ mod interface_tests {
             vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
                 Interface::new(
                     vec![
-                        Ident::new("qn0", None, IdentType::QnicInterface),
-                        Ident::new("qn1", None, IdentType::QnicInterface),
+                        Ident::new("qn0", None, IdentType::Other),
+                        Ident::new("qn1", None, IdentType::Other),
                     ],
-                    Some(Ident::new("qnall", None, IdentType::QnicInterface)),
+                    Some(Ident::new("qnall", None, IdentType::Other)),
                 ),
             )))],
         ))))];
@@ -248,7 +248,7 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 Some(TypeDef::Integer32),
-                                IdentType::Other,
+                                IdentType::Other, 
                             ),
                             Expr::new(
                                 ExprKind::Term(
@@ -276,7 +276,7 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 None,
-                                IdentType::Other
+                                IdentType::Other, 
                             ),
                             Expr::new(
                                 ExprKind::If(
@@ -289,7 +289,7 @@ mod let_tests {
                                                         Ident::new(
                                                             "block",
                                                             None,
-                                                            IdentType::Other
+                                                            IdentType::Other,
                                                         ) 
                                                     )
                                                 )
@@ -305,7 +305,7 @@ mod let_tests {
                                                                 Ident::new(
                                                                     "expression",
                                                                     None,
-                                                                    IdentType::Other
+                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         )
@@ -353,7 +353,7 @@ mod if_tests {
                                                     Ident::new(
                                                         "block",
                                                         None,
-                                                        IdentType::Other
+                                                        IdentType::Other, 
                                                     ) 
                                                 )
                                             )
@@ -369,7 +369,7 @@ mod if_tests {
                                                             Ident::new(
                                                                 "expression",
                                                                 None,
-                                                                IdentType::Other
+                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -416,7 +416,7 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "block",
                                                                         None,
-                                                                        IdentType::Other
+                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -432,7 +432,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "expression",
                                                                                 None,
-                                                                                IdentType::Other
+                                                                                IdentType::Other,
                                                                             ) 
                                                                         )
                                                                     )
@@ -453,7 +453,7 @@ mod if_tests {
                                                                                 Ident::new(
                                                                                     "expression2",
                                                                                     None,
-                                                                                    IdentType::Other
+                                                                                    IdentType::Other, 
                                                                                 ) 
                                                                             )
                                                                         )
@@ -503,7 +503,7 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "block",
                                                                         None,
-                                                                        IdentType::Other
+                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -519,7 +519,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "expression",
                                                                                 None,
-                                                                                IdentType::Other
+                                                                                IdentType::Other, 
                                                                             ) 
                                                                         )
                                                                     )
@@ -538,7 +538,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "block2",
                                                                                 None,
-                                                                                IdentType::Other
+                                                                                IdentType::Other,
                                                                             ) 
                                                                         )
                                                                     )
@@ -554,7 +554,7 @@ mod if_tests {
                                                                                     Ident::new(
                                                                                         "expression2",
                                                                                         None,
-                                                                                        IdentType::Other
+                                                                                        IdentType::Other, 
                                                                                     ) 
                                                                                 )
                                                                             )
@@ -604,7 +604,7 @@ mod if_tests {
                                                     Ident::new(
                                                         "block",
                                                         None,
-                                                        IdentType::Other
+                                                        IdentType::Other, 
                                                     ) 
                                                 )
                                             )
@@ -620,7 +620,7 @@ mod if_tests {
                                                             Ident::new(
                                                                 "expression",
                                                                 None,
-                                                                IdentType::Other
+                                                                IdentType::Other,
                                                             ) 
                                                         )
                                                     )
@@ -639,7 +639,7 @@ mod if_tests {
                                                             Ident::new(
                                                                 "block2",
                                                                 None,
-                                                                IdentType::Other
+                                                                IdentType::Other,
                                                             ) 
                                                         )
                                                     )
@@ -655,7 +655,7 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "expression2",
                                                                         None,
-                                                                        IdentType::Other
+                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -678,7 +678,7 @@ mod if_tests {
                                                                 Ident::new(
                                                                     "expression3",
                                                                     None,
-                                                                    IdentType::Other
+                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         )
@@ -718,7 +718,7 @@ mod fn_def_test {
                                         Ident::new(
                                             "block",
                                             Some(TypeDef::Integer32),
-                                            IdentType::Other,
+                                            IdentType::Other, 
                                         )
                                         ],
                                         Stmt::new(
@@ -769,7 +769,7 @@ mod fn_def_test {
                                         Ident::new(
                                             "hello",
                                             Some(TypeDef::Str),
-                                            IdentType::Other,
+                                            IdentType::Other, 
                                         ),
                                         ],
                                         Stmt::new(
@@ -781,7 +781,7 @@ mod fn_def_test {
                                                                 Ident::new(
                                                                     "expression",
                                                                     None,
-                                                                    IdentType::Other,
+                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         ),
@@ -983,7 +983,7 @@ mod for_expr_test {
                                                 Ident::new(
                                                     "range",
                                                     None,
-                                                    IdentType::Other,
+                                                    IdentType::Other, 
                                                 ),
                                                 vec![]
                                             )
@@ -1103,7 +1103,7 @@ mod for_expr_test {
                                         Ident::new(
                                             "i",
                                             None,
-                                            IdentType::Other,
+                                            IdentType::Other, 
                                         ),
                                     ],
                                     Expr::new(
@@ -1148,7 +1148,7 @@ mod for_expr_test {
                                                             Ident::new(
                                                                 "hello",
                                                                 None,
-                                                                IdentType::Other,
+                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -1193,7 +1193,7 @@ mod test_while_expr {
                                                             Ident::new(
                                                                 "count",
                                                                 None,
-                                                                IdentType::Other,
+                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -1217,7 +1217,7 @@ mod test_while_expr {
                                                         Ident::new(
                                                             "expression",
                                                             None,
-                                                            IdentType::Other,
+                                                            IdentType::Other, 
                                                         )
                                                     )
                                                 )
@@ -1357,7 +1357,7 @@ mod test_struct_expr {
                                     Ident::new(
                                         "Test",
                                         None,
-                                        IdentType::Other,
+                                        IdentType::Other, 
                                     ),
                                     vec![]
                                 )
@@ -1429,7 +1429,7 @@ mod test_return_expr {
                                                     Ident::new(
                                                         "hello",
                                                         None,
-                                                        IdentType::Other,
+                                                        IdentType::Other, 
                                                     )
                                                 )
                                             )
@@ -1465,7 +1465,7 @@ mod test_ruleset_expr {
                                     Ident::new(
                                         "entanglement_swapping",
                                         None,
-                                        IdentType::Other,
+                                        IdentType::Other, 
                                     ),
                                     None,
                                     None, 
@@ -1474,7 +1474,7 @@ mod test_ruleset_expr {
                                             Ident::new(
                                                 "rules",
                                                 None,
-                                                IdentType::Other,
+                                                IdentType::Other, 
                                             ),
                                             vec![],
                                         )
@@ -1513,7 +1513,7 @@ mod test_ruleset_expr {
                                             Ident::new(
                                                 "default",
                                                 None,
-                                                IdentType::Other,
+                                                IdentType::Other, 
                                             ),
                                             vec![]
                                         )
@@ -1564,7 +1564,7 @@ mod test_rule_expr {
                                     Ident::new(
                                         "qn0",
                                         None,
-                                        IdentType::QnicInterface,
+                                        IdentType::Other,
                                     ),
                                 ].into_iter().collect(),
                                 vec![
@@ -1576,7 +1576,7 @@ mod test_rule_expr {
                                     Ident::new(
                                         "q3",
                                         Some(TypeDef::Qubit),
-                                        IdentType::Other
+                                        IdentType::Other,
                                     )
                                 ],
                                 RuleContentExpr::new(
@@ -1621,7 +1621,7 @@ mod test_condition_expr {
                                         Ident::new(
                                             "condition1",
                                             None,
-                                            IdentType::Other
+                                            IdentType::Other,
                                         )
                                     ),
                                     None,
@@ -1680,7 +1680,7 @@ mod test_action_expr {
                                                                 Ident::new(
                                                                     "operatable",
                                                                     None,
-                                                                    IdentType::Other
+                                                                    IdentType::Other,
                                                                 )
                                                             )
                                                         )

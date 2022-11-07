@@ -5,11 +5,11 @@ mod rula {
     use super::*;
     use async_trait::async_trait;
     use once_cell::sync::OnceCell;
-    use rula_std::qnic::Qnic;
+    use rula_std::qnic::QnicInterface;
     use rula_std::rule::*;
     use std::collections::HashMap;
     use std::sync::Mutex;
-    pub static INTERFACES: OnceCell<Mutex<HashMap<String, Qnic>>> = OnceCell::new();
+    pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
     pub fn initialize_interface() {
         assert!(INTERFACES.get().is_none());
         let initialize_interface = || Mutex::new(HashMap::new());
@@ -19,7 +19,7 @@ mod rula {
             interface_list
                 .lock()
                 .unwrap()
-                .insert(interface_name.to_string(), Qnic::place_holder());
+                .insert(interface_name.to_string(), QnicInterface::place_holder());
         }
     }
 }

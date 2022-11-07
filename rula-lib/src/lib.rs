@@ -1,6 +1,6 @@
 pub mod message {
     pub struct Message {}
-    pub fn get_message() {}
+    pub async fn get_message() {}
 }
 
 pub mod operation {
@@ -8,15 +8,30 @@ pub mod operation {
 }
 
 pub mod qnic {
-    pub struct Qnic {}
-    impl Qnic {
+    use super::qubit::QubitInterface;
+    use std::collections::HashMap;
+
+    pub struct QnicInterface {
+        qubit_interfaces: HashMap<String, QnicInterface>,
+    }
+    impl QnicInterface {
         pub fn place_holder() -> Self {
-            Qnic {}
+            QnicInterface {
+                qubit_interfaces: HashMap::new(),
+            }
         }
-        pub async fn request_resource(&self) {}
+        pub async fn request_resource(&self) -> QubitInterface {
+            QubitInterface {}
+        }
     }
 }
 pub mod qubit {
+    pub struct QubitInterface {}
+    impl QubitInterface {
+        pub async fn ready(&self) -> bool {
+            true
+        }
+    }
     pub fn free() {}
 }
 
@@ -39,7 +54,7 @@ pub mod rule {
     pub trait Rulable {
         async fn watch(&self) {}
         async fn condition(&self) {}
-        fn action(&self) {}
+        // fn action(&self) {}
         fn post_process(&self) {}
         fn execute(&self) {}
     }

@@ -75,11 +75,11 @@ mod generate_swapping_ruleset {
             .read_to_string(&mut contents)
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
-        let ast = rula_parser::parse(&contents).unwrap();
+        let mut ast = rula_parser::parse(&contents).unwrap();
         // println!("{:#?}", &ast);
 
         // 2. generate ruleset (provide ruleset flag)
-        let (_, ruleset) = rula_exec::codegen::generator::generate(ast, true).unwrap();
+        let (_, ruleset) = rula_exec::codegen::generator::generate(&mut ast, true).unwrap();
 
         // 2.1 target ruleset
         let mut target_ruleset = RuleSet::<ActionClauses>::new("entanglement_swapping");

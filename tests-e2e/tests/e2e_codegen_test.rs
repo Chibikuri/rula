@@ -36,11 +36,11 @@ mod generate_swapping_rust {
             .read_to_string(&mut contents)
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
-        let ast = rula_parser::parse(&contents).unwrap();
+        let mut ast = rula_parser::parse(&contents).unwrap();
         // println!("{:#?}", &ast);
 
         // 2. generate ruleset (provide ruleset flag)
-        let (generated, _) = rula_exec::codegen::generator::generate(ast, true).unwrap();
+        let (generated, _) = rula_exec::codegen::generator::generate(&mut ast, true).unwrap();
         generate_token_stream_file(generated, "test.rs");
         assert_eq!(1, 2);
     }

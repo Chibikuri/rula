@@ -64,15 +64,13 @@ fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
             Rule::ident_list => {
                 // interface list
                 for interface_name in block.into_inner() {
-                    let mut interface_ident = build_ast_from_ident(interface_name).unwrap();
-                    interface_ident.update_ident_type(IdentType::QnicInterface);
+                    let interface_ident = build_ast_from_ident(interface_name).unwrap();
                     interface.add_interface(interface_ident);
                 }
             }
             Rule::ident => {
                 // group name
-                let mut interface_group = build_ast_from_ident(block).unwrap();
-                interface_group.update_ident_type(IdentType::QnicInterface);
+                let interface_group = build_ast_from_ident(block).unwrap();
                 interface.add_name(Some(interface_group));
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -541,8 +539,7 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
             }
             Rule::ident_list => {
                 for interface in block.into_inner() {
-                    let mut interface_ident = build_ast_from_ident(interface).unwrap();
-                    interface_ident.update_ident_type(IdentType::QnicInterface);
+                    let interface_ident = build_ast_from_ident(interface).unwrap();
                     // Interface names
                     rule_expr.add_interface(interface_ident).unwrap();
                 }
@@ -582,8 +579,7 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
 fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
     let mut monitor_expr = WatchExpr::place_holder();
     for let_stmt in pair.into_inner() {
-        let mut watched = build_ast_from_let_stmt(let_stmt).unwrap();
-        watched.ident.update_ident_type(IdentType::WatchedVal);
+        let watched = build_ast_from_let_stmt(let_stmt).unwrap();
         monitor_expr.add_watch_value(watched);
     }
     Ok(Some(monitor_expr))
