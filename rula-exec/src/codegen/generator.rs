@@ -138,7 +138,7 @@ fn generate_stmt(
 ) -> IResult<TokenStream> {
     let generated_stmt = match &mut *stmt.kind {
         StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule, false, ident_tracker).unwrap()),
-        StmtKind::Interface(interface) => Ok(generate_interface(interface).unwrap()),
+        StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
         StmtKind::Expr(expr) => Ok(generate_expr(expr, rule, ident_tracker).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
@@ -207,7 +207,10 @@ fn generate_let(
     }
 }
 
-fn generate_interface(interface_expr: &mut Interface) -> IResult<TokenStream> {
+fn generate_interface(
+    interface_expr: &mut Interface,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     let mut interface_names = vec![];
     let ruleset_factory = RULESET_FACTORY
         .get()
@@ -219,6 +222,7 @@ fn generate_interface(interface_expr: &mut Interface) -> IResult<TokenStream> {
             .unwrap()
             .add_global_interface(&i.name, QnicInterfaceWrapper::place_holder());
         // TODO: clean up
+        ident_tracker.register(&i.name, Identifier::new(IdentType::QnicInterface));
         i.update_ident_type(IdentType::QnicInterface);
         interface_names.push(SynLit::Str(LitStr::new(&i.name, Span::call_site())));
     }
@@ -233,6 +237,10 @@ fn generate_interface(interface_expr: &mut Interface) -> IResult<TokenStream> {
         interface_group_name,
         Span::call_site(),
     )));
+    ident_tracker.register(
+        interface_group_name,
+        Identifier::new(IdentType::QnicInterface),
+    );
     Ok(quote!(
         use std::collections::HashMap;
         use std::sync::Mutex;
@@ -1142,7 +1150,7 @@ mod tests {
 
     #[test]
     fn test_if_else() {
-        initialize_singleton();
+        // initialize_singleton();
         // if (block) {expression} else {expression2}
         let mut if_else = If::new(
             // (block)
@@ -1179,7 +1187,7 @@ mod tests {
 
     #[test]
     fn test_if_elif_else() {
-        initialize_singleton();
+        // initialize_singleton();
         // if(block){expression} else if (block2){expression2} else {expression3}
         let mut if_elif_else = If::new(
             // (block)

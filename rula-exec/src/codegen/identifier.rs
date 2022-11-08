@@ -20,9 +20,7 @@ impl IdentTracker {
     pub fn check_ident_type(&mut self, ident_name: &str) -> IdentType {
         match self.identifiers.get(ident_name) {
             Some(ident) => ident.ident_type.clone(),
-            None => {
-                panic!("No identifier called {} found", ident_name);
-            }
+            None => IdentType::Other,
         }
     }
 }
