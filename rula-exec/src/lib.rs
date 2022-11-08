@@ -7,6 +7,7 @@ pub mod codegen {
     mod error;
 
     pub mod generator;
+    pub mod identifier;
     pub mod rule_meta;
     pub mod ruleset_generator;
 

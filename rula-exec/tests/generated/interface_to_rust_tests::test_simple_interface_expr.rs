@@ -15,7 +15,7 @@ mod rula {
         let initialize_interface = || Mutex::new(HashMap::new());
         INTERFACES.get_or_init(initialize_interface);
         let interface_list = INTERFACES.get().expect("Failed to get interface");
-        for interface_name in vec!["qn0"] {
+        for interface_name in vec!["qn0", "INTERFACE"] {
             interface_list
                 .lock()
                 .unwrap()

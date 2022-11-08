@@ -546,7 +546,13 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
             }
             Rule::argument_def => {
                 for arg in block.into_inner() {
-                    rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                    match arg.as_rule() {
+                        Rule::ident_typed => {
+                            rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                        }
+                        Rule::ident => rule_expr.add_arg(build_ast_from_ident(arg).unwrap()),
+                        _ => return Err(RuLaError::RuLaSyntaxError),
+                    }
                 }
             }
             Rule::rule_contents => {
