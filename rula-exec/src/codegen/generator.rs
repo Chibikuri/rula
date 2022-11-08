@@ -1,6 +1,5 @@
 // This is entory point to generate code from AST
 use super::error::*;
-use super::identifier::*;
 use super::rule_meta::*;
 use super::ruleset_generator::RuleSetFactory;
 use super::IResult;
@@ -15,6 +14,7 @@ use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use syn::Lit as SynLit;
 use syn::{LitFloat, LitStr};
@@ -31,6 +31,9 @@ type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
 static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
 static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
+
+// This might be buggy when the two rules are using the same name identifier
+static IDENT_TABLE: OnceCell<Mutex<HashMap<String, IdentType>>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
@@ -91,6 +94,7 @@ fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     assert!(RULESET.get().is_none());
     assert!(RULESET_FACTORY.get().is_none());
+    assert!(IDENT_TABLE.get().is_none());
 
     // closure to initialize with empty ruleset
     let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
@@ -98,6 +102,9 @@ fn initialize_singleton() {
 
     let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
     let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
+
+    let initialize_ident_table = || Mutex::new(HashMap::<String, IdentType>::new());
+    let _ = IDENT_TABLE.get_or_init(initialize_ident_table);
 }
 
 fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
@@ -134,18 +141,28 @@ fn generate_interface(interface_expr: &mut Interface) -> IResult<TokenStream> {
     let ruleset_factory = RULESET_FACTORY
         .get()
         .expect("Failed to get RuleSet factory");
+    let ident_table = IDENT_TABLE.get().expect("Faild to get identifier table");
 
     for i in &mut interface_expr.interface {
         ruleset_factory
             .lock()
             .unwrap()
             .add_global_interface(&i.name, QnicInterfaceWrapper::place_holder());
+        // TODO: clean up
         i.update_ident_type(IdentType::QnicInterface);
+        ident_table
+            .lock()
+            .unwrap()
+            .insert(i.name.clone().to_string(), IdentType::QnicInterface);
         interface_names.push(SynLit::Str(LitStr::new(&i.name, Span::call_site())));
     }
     let interface_group_name = match &mut *interface_expr.group_name {
         Some(group_name) => {
             group_name.update_ident_type(IdentType::QnicInterface);
+            ident_table.lock().unwrap().insert(
+                group_name.name.clone().to_string(),
+                IdentType::QnicInterface,
+            );
             generate_ident(&group_name).unwrap()
         }
         None => quote!(INTERFACE),
@@ -853,9 +870,7 @@ fn generate_variable_call(
     variable_call_expr: &mut VariableCallExpr,
     rule_name: Option<&String>,
 ) -> IResult<TokenStream> {
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Unable to get RuleSet factory");
+    let ident_table = IDENT_TABLE.get().expect("Unable to get Identifier table");
 
     let mut variable_calls = vec![];
 
@@ -869,7 +884,23 @@ fn generate_variable_call(
                 variable_calls.push(generate_fn_call(fn_call, rule_name).unwrap());
             }
             Callable::Ident(ident) => {
-                variable_calls.push(generate_ident(ident).unwrap());
+                let table = ident_table.lock().unwrap();
+                if table.contains_key(&*ident.name) {
+                    match table
+                        .get(&*ident.name)
+                        .expect("Something wrong with getting value")
+                    {
+                        IdentType::QnicInterface => {
+                            ident.update_ident_type(IdentType::QnicInterface);
+                            variable_calls.push(generate_ident(ident).unwrap());
+                        }
+                        _ => {
+                            variable_calls.push(generate_ident(ident).unwrap());
+                        }
+                    }
+                } else {
+                    variable_calls.push(generate_ident(ident).unwrap());
+                }
             }
         }
     }
@@ -907,11 +938,7 @@ fn generate_term(term_expr: f64) -> IResult<TokenStream> {
 }
 // Generate identifier token from Ident ast
 fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
-    // TODO: Remove ident type
     let identifier = format_ident!("{}", *ident.name);
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Unable to get ruleset_factory");
     // let (in_rule, r_name) = helper::check_in(rule_name);
     match &*ident.ident_type {
         IdentType::QnicInterface => {
