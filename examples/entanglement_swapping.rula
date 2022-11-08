@@ -1,6 +1,6 @@
 import std::qubit::free;
 import std::time::time;
-import std::message::{Message, get_message};
+import std::message::Message;
 import std::result::Result;
 import std::operation::bsm;
 
@@ -23,7 +23,7 @@ import std::operation::bsm;
 //	}
 //}
 
-rule swapping<qn0, qn1>(distance) {
+rule swapping<qn0, qn1>(distance: u64) {
     cond {
         watch {
             let q1 = qn0.request_resource(1, qn0.get_partner_by_hop(distance));
@@ -43,7 +43,7 @@ rule swapping<qn0, qn1>(distance) {
 }
 
 // Fix here to qnall
-rule pauli_correction<qn0>(distance){
+rule pauli_correction<qn0>(distance: u64){
     cond {
         watch{
             let message = qn0.get_message(qn0.get_partner_by_hop);

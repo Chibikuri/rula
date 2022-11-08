@@ -9,6 +9,7 @@ pub enum RuLaCompileError {
     FailedToSetValueError,
     // Todo: provide interface name to it
     NoInterfaceFoundError,
+    NoTypeFoundError,
     UnknownError,
 }
 

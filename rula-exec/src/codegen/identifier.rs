@@ -28,12 +28,24 @@ impl IdentTracker {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     pub ident_type: IdentType,
+    pub type_hint: TypeHint,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeHint {
+    Str,
+    Integer64,
+    UnsignedInteger64,
+    Float64,
+    Boolean,
+    Unknown,
 }
 
 impl Identifier {
-    pub fn new(ident_type: IdentType) -> Self {
+    pub fn new(ident_type: IdentType, type_hint: TypeHint) -> Self {
         Identifier {
             ident_type: ident_type,
+            type_hint: type_hint,
         }
     }
 }

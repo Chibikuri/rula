@@ -8,9 +8,9 @@ mod rula {
     use rula_std::qnic::QnicInterface;
     use rula_std::rule::*;
     use std::collections::HashMap;
-    use std::sync::Mutex;
+    use tokio::sync::Mutex;
     pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-    pub fn initialize_interface() {
+    pub async fn initialize_interface() {
         assert!(INTERFACES.get().is_none());
         let initialize_interface = || Mutex::new(HashMap::new());
         INTERFACES.get_or_init(initialize_interface);
@@ -18,7 +18,7 @@ mod rula {
         for interface_name in vec!["qn0", "INTERFACE"] {
             interface_list
                 .lock()
-                .unwrap()
+                .await
                 .insert(interface_name.to_string(), QnicInterface::place_holder());
         }
     }
