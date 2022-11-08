@@ -6,7 +6,6 @@ use super::IResult;
 
 use crate::rulep::action::v2::ActionClauses;
 use crate::rulep::action::Action;
-use crate::rulep::condition::v1::*;
 use crate::rulep::condition::Condition;
 use crate::rulep::ruleset::{Rule, RuleSet};
 use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
@@ -31,9 +30,6 @@ type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
 static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
 
 static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
-
-// This might be buggy when the two rules are using the same name identifier
-static IDENT_TABLE: OnceCell<Mutex<HashMap<String, IdentType>>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
@@ -92,9 +88,8 @@ pub fn generate(
 
 fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
-    assert!(RULESET.get().is_none());
     assert!(RULESET_FACTORY.get().is_none());
-    assert!(IDENT_TABLE.get().is_none());
+    assert!(RULESET.get().is_none());
 
     // closure to initialize with empty ruleset
     let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
@@ -102,9 +97,6 @@ fn initialize_singleton() {
 
     let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
     let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
-
-    let initialize_ident_table = || Mutex::new(HashMap::<String, IdentType>::new());
-    let _ = IDENT_TABLE.get_or_init(initialize_ident_table);
 }
 
 fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
@@ -141,7 +133,6 @@ fn generate_interface(interface_expr: &mut Interface) -> IResult<TokenStream> {
     let ruleset_factory = RULESET_FACTORY
         .get()
         .expect("Failed to get RuleSet factory");
-    let ident_table = IDENT_TABLE.get().expect("Faild to get identifier table");
 
     for i in &mut interface_expr.interface {
         ruleset_factory
@@ -150,19 +141,11 @@ fn generate_interface(interface_expr: &mut Interface) -> IResult<TokenStream> {
             .add_global_interface(&i.name, QnicInterfaceWrapper::place_holder());
         // TODO: clean up
         i.update_ident_type(IdentType::QnicInterface);
-        ident_table
-            .lock()
-            .unwrap()
-            .insert(i.name.clone().to_string(), IdentType::QnicInterface);
         interface_names.push(SynLit::Str(LitStr::new(&i.name, Span::call_site())));
     }
     let interface_group_name = match &mut *interface_expr.group_name {
         Some(group_name) => {
             group_name.update_ident_type(IdentType::QnicInterface);
-            ident_table.lock().unwrap().insert(
-                group_name.name.clone().to_string(),
-                IdentType::QnicInterface,
-            );
             generate_ident(&group_name).unwrap()
         }
         None => quote!(INTERFACE),
@@ -278,8 +261,8 @@ fn generate_expr(
         ExprKind::VariableCallExpr(variable_call_expr) => {
             Ok(generate_variable_call(variable_call_expr, rule_name).unwrap())
         }
-        ExprKind::Array(array_expr) => Ok(generate_array(&array_expr, rule_name).unwrap()),
-        ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr, rule_name).unwrap()),
+        ExprKind::Array(array_expr) => Ok(generate_array(&array_expr).unwrap()),
+        ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr).unwrap()),
         ExprKind::Term(term_expr) => Ok(generate_term(*term_expr).unwrap()),
         ExprKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generating expression"),
@@ -639,7 +622,6 @@ fn generate_rule(rule_expr: &mut RuleExpr) -> IResult<TokenStream> {
     let rule_name = &*rule_expr.name;
     let rule_name_string = String::from(&*rule_name.name);
 
-    // Check if there is a Rule with the same name
     if ruleset_factory.lock().unwrap().exist_rule(&*rule_name.name) {
         return Err(RuLaCompileError::RuleDuplicationError);
     }
@@ -681,12 +663,14 @@ fn generate_rule(rule_expr: &mut RuleExpr) -> IResult<TokenStream> {
         .lock()
         .unwrap()
         .add_rule(&rule_name_string, rule);
+
     let mut generated_args = vec![];
-    for arg in &rule_expr.args {
+    for arg in &mut rule_expr.args {
         ruleset_factory
             .lock()
             .unwrap()
             .add_rule_arg(&rule_name_string, &arg.name);
+        arg.update_ident_type(IdentType::RuleArgument);
         generated_args.push(SynLit::Str(LitStr::new(&arg.name, Span::call_site())));
     }
 
@@ -870,8 +854,6 @@ fn generate_variable_call(
     variable_call_expr: &mut VariableCallExpr,
     rule_name: Option<&String>,
 ) -> IResult<TokenStream> {
-    let ident_table = IDENT_TABLE.get().expect("Unable to get Identifier table");
-
     let mut variable_calls = vec![];
 
     if variable_call_expr.variables.len() == 0 {
@@ -884,38 +866,22 @@ fn generate_variable_call(
                 variable_calls.push(generate_fn_call(fn_call, rule_name).unwrap());
             }
             Callable::Ident(ident) => {
-                let table = ident_table.lock().unwrap();
-                if table.contains_key(&*ident.name) {
-                    match table
-                        .get(&*ident.name)
-                        .expect("Something wrong with getting value")
-                    {
-                        IdentType::QnicInterface => {
-                            ident.update_ident_type(IdentType::QnicInterface);
-                            variable_calls.push(generate_ident(ident).unwrap());
-                        }
-                        _ => {
-                            variable_calls.push(generate_ident(ident).unwrap());
-                        }
-                    }
-                } else {
-                    variable_calls.push(generate_ident(ident).unwrap());
-                }
+                variable_calls.push(generate_ident(ident).unwrap());
             }
         }
     }
     Ok(quote!(#(#variable_calls).*))
 }
 
-fn generate_array(array_expr: &Array, rule_name: Option<&String>) -> IResult<TokenStream> {
+fn generate_array(array_expr: &Array) -> IResult<TokenStream> {
     let mut items = vec![];
     for lits in array_expr.items.iter() {
-        items.push(generate_lit(lits, rule_name).unwrap());
+        items.push(generate_lit(lits).unwrap());
     }
     Ok(quote!(vec![#(#items),*]))
 }
 
-fn generate_lit(lit: &Lit, rule_name: Option<&String>) -> IResult<TokenStream> {
+fn generate_lit(lit: &Lit) -> IResult<TokenStream> {
     match &*lit.kind {
         LitKind::Ident(ident_lit) => Ok(generate_ident(ident_lit).unwrap()),
         LitKind::NumberLit(number_lit) => {
@@ -939,7 +905,6 @@ fn generate_term(term_expr: f64) -> IResult<TokenStream> {
 // Generate identifier token from Ident ast
 fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
     let identifier = format_ident!("{}", *ident.name);
-    // let (in_rule, r_name) = helper::check_in(rule_name);
     match &*ident.ident_type {
         IdentType::QnicInterface => {
             let ident_str = SynLit::Str(LitStr::new(&*ident.name, Span::call_site()));
@@ -954,10 +919,15 @@ fn generate_ident(ident: &Ident) -> IResult<TokenStream> {
             ));
         }
         IdentType::WatchedValue => return Ok(quote!(#identifier)),
-        IdentType::RuleArgument => return Ok(quote!(#identifier)),
+        IdentType::RuleArgument => {
+            let ident_str = SynLit::Str(LitStr::new(&*ident.name, Span::call_site()));
+            return Ok(quote!(
+                self.arguments.get(#ident_str).unwrap()
+            ));
+        }
         _ => {
             // Locking in a single
-
+            // Should be syntax error here
             match &*ident.type_hint {
                 Some(hint) => {
                     let type_hint = generate_type_hint(hint).unwrap();
@@ -1027,6 +997,9 @@ mod tests {
     // Import test
     #[test]
     fn test_simple_import() {
+        // assert!(IDENT_TABLE.get().is_none());
+        // let initialize_ident_table = || Mutex::new(HashMap::<String, IdentType>::new());
+        // let _ = IDENT_TABLE.get_or_init(initialize_ident_table);
         // import hello;
         let expected_paths = vec![["hello"].iter().collect()];
         let mut test_import = Import::new(PathKind::from(expected_paths));
@@ -1060,6 +1033,7 @@ mod tests {
 
     #[test]
     fn test_if_else() {
+        initialize_singleton();
         // if (block) {expression} else {expression2}
         let mut if_else = If::new(
             // (block)
@@ -1092,6 +1066,7 @@ mod tests {
 
     #[test]
     fn test_if_elif_else() {
+        initialize_singleton();
         // if(block){expression} else if (block2){expression2} else {expression3}
         let mut if_elif_else = If::new(
             // (block)
@@ -1156,6 +1131,7 @@ mod tests {
 
     #[test]
     fn test_multi_arg_for_generation() {
+        initialize_singleton();
         // for (a, b, c) in generator{hello}
         let mut multi_for = For::new(
             vec![
@@ -1278,7 +1254,7 @@ mod tests {
             Lit::new(LitKind::NumberLit(NumberLit::new("4"))),
             Lit::new(LitKind::NumberLit(NumberLit::new("5"))),
         ]);
-        let test_stream = generate_array(&array_expr, None).unwrap();
+        let test_stream = generate_array(&array_expr).unwrap();
         assert_eq!("vec ! [1 , 2 , 3 , 4 , 5]", test_stream.to_string());
     }
 
