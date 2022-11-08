@@ -41,19 +41,21 @@ pub fn generate(
     initialize_singleton();
 
     // RuLa starts here
-    let mut rula_program = quote!();
-    for ast_node in ast_tree {
-        match ast_node {
-            AstNode::RuLa(rula) => rula_program = generate_rula(rula).unwrap(),
-            AstNode::PlaceHolder => {
-                return Err(RuLaCompileError::RuLaInitializationError(
-                    InitializationError::new("at very first generation"),
-                ))
-            }
-        }
+    if ast_tree.len() > 1 {
+        todo!("This should get a root AST node. Fix it");
     }
 
+    // Generated rula program
+    let rula_program = match &mut ast_tree[0] {
+        AstNode::RuLa(rula) => generate_rula(rula).unwrap(),
+        AstNode::PlaceHolder => {
+            return Err(RuLaCompileError::RuLaInitializationError(
+                InitializationError::new("at very first generation"),
+            ))
+        }
+    };
     let generated_tests = helper::generate_test();
+
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
@@ -71,10 +73,12 @@ pub fn generate(
         #[cfg(test)]
         mod tests{
             use super::*;
-            use super::rula;
+            use super::rula::*;
             #generated_tests
         }
     );
+
+    // This RULESET singleton will be deprecated.
     if with_ruleset {
         let opt_ruleset = RULESET.get();
         match opt_ruleset {
@@ -86,6 +90,9 @@ pub fn generate(
     }
 }
 
+// Initialize singleton values
+// RULESET_FACTORY: collect information needed to create a RuleSet
+// RULESET: ruleset instance (will be deprecated in generator)
 fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     assert!(RULESET_FACTORY.get().is_none());
@@ -99,10 +106,12 @@ fn initialize_singleton() {
     let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
 }
 
+// Generate entire rula program
 fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
     match &mut *rula.rula {
         RuLaKind::Program(program) => {
-            return Ok(generate_program(program).unwrap());
+            let generated_program = generate_program(program).unwrap();
+            return Ok(quote!(#generated_program));
         }
         RuLaKind::Ignore => return Ok(quote!()),
         RuLaKind::Eoi => {
@@ -118,10 +127,16 @@ fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
     }
 }
 
+// Generate program
+// program: Program AST that contains a vector of Stmt
 fn generate_program(program: &mut Program) -> IResult<TokenStream> {
+    // ident_tracker tracks all the identifier especially special values
     let mut ident_tracker = IdentTracker::new();
+
+    // A vector to store a set of generated stmts
     let mut stmts = vec![];
     for program_block in &mut program.programs {
+        // Right now, a program can takes a stmt
         match program_block {
             ProgramKind::Stmt(stmt) => {
                 stmts.push(generate_stmt(stmt, None, &mut ident_tracker).unwrap())
@@ -131,15 +146,22 @@ fn generate_program(program: &mut Program) -> IResult<TokenStream> {
     Ok(quote!(#(#stmts )*))
 }
 
+// Generate stmt expression
+// Arguments:
+//  stmt: Stmt AST
+//  rule_name: Option<String> a name of corresponding Rule
+//  ident_tracker: List of identifiers that need to be tracked
 fn generate_stmt(
     stmt: &mut Stmt,
-    rule: Option<&String>,
+    rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     let generated_stmt = match &mut *stmt.kind {
-        StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, rule, false, ident_tracker).unwrap()),
+        StmtKind::Let(let_stmt) => {
+            Ok(generate_let(let_stmt, rule_name, false, ident_tracker).unwrap())
+        }
         StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
-        StmtKind::Expr(expr) => Ok(generate_expr(expr, rule, ident_tracker).unwrap()),
+        StmtKind::Expr(expr) => Ok(generate_expr(expr, rule_name, ident_tracker).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
         )),
@@ -201,7 +223,7 @@ fn generate_let(
         }
     } else {
         match &*let_stmt.ident.type_hint {
-            Some(hint) => {
+            Some(_) => {
                 identifier = generate_ident(&*let_stmt.ident, ident_tracker, true).unwrap();
             }
             None => {
@@ -1083,7 +1105,7 @@ fn generate_ident(
             None => return Err(RuLaCompileError::NoTypeFoundError),
         }
     } else {
-        match helper::type_filler(&ident) {
+        match ident_tracker.check_type_hint(&*ident.name) {
             TypeHint::Integer64 => Ok(quote!(#ident_contents.eval_int64())),
             TypeHint::UnsignedInteger64 => Ok(quote!(#ident_contents.eval_unsigned_int64())),
             TypeHint::Float64 => Ok(quote!(#ident_contents.eval_float64())),
@@ -1121,13 +1143,13 @@ pub mod helper {
     pub fn generate_test() -> TokenStream {
         quote!(
             #[doc = "This is generated for entanglement_swapping.rula"]
-            #[test]
-            fn test_interface() {
-                assert!(INTERFACES.is_none());
+            #[tokio::test]
+            async fn test_interface() {
+                assert!(INTERFACES.get().is_none());
                 rula::initialize_interface();
                 let interface = INTERFACES.get().expect("Failed to get interface table");
-                assert!(interface.lock().unwrap().contains_key("qn0"));
-                assert!(interface.lock().unwrap().contains_key("qn1"));
+                assert!(interface.lock().await.contains_key("qn0"));
+                assert!(interface.lock().await.contains_key("qn1"));
             }
         )
     }
@@ -1174,7 +1196,6 @@ mod tests {
     }
     #[test]
     fn test_ident_with_type_hint() {
-        initialize_singleton();
         let test_ident = Ident::new("hello", Some(TypeDef::Boolean), IdentType::Other);
         let mut tracker = IdentTracker::new();
         tracker.register(

@@ -23,6 +23,12 @@ impl IdentTracker {
             None => IdentType::Other,
         }
     }
+    pub fn check_type_hint(&mut self, ident_name: &str) -> TypeHint {
+        match self.identifiers.get(ident_name) {
+            Some(ident) => ident.type_hint.clone(),
+            None => TypeHint::Unknown,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

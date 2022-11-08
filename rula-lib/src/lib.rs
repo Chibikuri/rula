@@ -83,8 +83,24 @@ pub mod rule {
             }
         }
 
-        pub fn return_str(&self) -> String {
+        pub fn eval_str(&self) -> String {
             self.value.eval_str()
+        }
+
+        pub fn eval_float64(&self) -> f64{
+            self.value.eval_float64()
+        }
+
+        pub fn eval_int64(&self) -> i64{
+            self.value.eval_int64()
+        }
+
+        pub fn eval_bool(&self) -> bool{
+            self.value.eval_bool()
+        }
+
+        pub fn eval_unsigned_int64(&self) -> u64{
+            self.value.eval_unsigned_int64()
         }
     }
 

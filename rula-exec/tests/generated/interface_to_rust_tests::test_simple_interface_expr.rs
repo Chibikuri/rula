@@ -28,15 +28,15 @@ pub fn main() {
 }
 #[cfg(test)]
 mod tests {
-    use super::rula;
+    use super::rula::*;
     use super::*;
     #[doc = "This is generated for entanglement_swapping.rula"]
-    #[test]
-    fn test_interface() {
-        assert!(INTERFACES.is_none());
+    #[tokio::test]
+    async fn test_interface() {
+        assert!(INTERFACES.get().is_none());
         rula::initialize_interface();
         let interface = INTERFACES.get().expect("Failed to get interface table");
-        assert!(interface.lock().unwrap().contains_key("qn0"));
-        assert!(interface.lock().unwrap().contains_key("qn1"));
+        assert!(interface.lock().await.contains_key("qn0"));
+        assert!(interface.lock().await.contains_key("qn1"));
     }
 }
