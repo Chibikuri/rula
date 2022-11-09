@@ -75,7 +75,8 @@ tuple = {"(" ~ literal_list? ~ ")"}
 // Match expression to do pattern matching
 match_expr = {^"match" ~ (ident ~ ":")? ~ expr ~ "{" ~ (match_arm ~  ",")* ~ (^"finally" ~ "=>" ~ match_action)? ~ "}"}
 match_arm = { match_condition ~ "=>" ~ match_action }
-match_condition = {"(" ~ expr ~ ")"}
+match_condition = {satisfiable}
+satisfiable = { literal_expr }
 match_action = {"{" ~ expr? ~ ("," ~ expr)* ~ "}"}
 
 // RuleSet expression that holds multiple rules

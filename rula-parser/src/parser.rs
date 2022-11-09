@@ -448,12 +448,24 @@ fn build_ast_from_match_arm(pair: Pair<Rule>) -> IResult<MatchArm> {
 fn build_ast_from_match_condition(pair: Pair<Rule>) -> IResult<MatchCondition> {
     let mut match_condition = MatchCondition::place_holder();
     match pair.as_rule() {
-        Rule::expr => match_condition
-            .add_satisfiable(build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap()),
+        Rule::satisfiable => match_condition.update_satisfiable(
+            build_ast_from_satisfiable(pair.into_inner().next().unwrap()).unwrap(),
+        ),
         _ => return Err(RuLaError::RuLaSyntaxError),
     }
     Ok(match_condition)
 }
+
+fn build_ast_from_satisfiable(pair: Pair<Rule>) -> IResult<Satisfiable> {
+    println!("lit?{:#?}", &pair);
+    match pair.as_rule() {
+        // Rule::comp_expr => Ok(Satisfiable::Comp(build_ast_from_comp_expr(pair).unwrap())),
+        // Rule::ident => Ok(Satisfiable::Ident(build_ast_from_ident(pair).unwrap())),
+        Rule::literal_expr => Ok(Satisfiable::Lit(build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap())),
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
 fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
     let mut match_action = MatchAction::place_holder();
     for block in pair.into_inner() {

@@ -58,11 +58,10 @@ pub mod rule {
 
     #[async_trait]
     pub trait Rulable {
-        async fn watch(&self) {}
-        async fn condition(&self) {}
-        // fn action(&self) {}
-        fn post_process(&self) {}
-        fn execute(&self) {}
+        async fn condition(&self) -> bool;
+        async fn action(&self);
+        fn post_process(&self);
+        fn execute(&self);
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -87,19 +86,19 @@ pub mod rule {
             self.value.eval_str()
         }
 
-        pub fn eval_float64(&self) -> f64{
+        pub fn eval_float64(&self) -> f64 {
             self.value.eval_float64()
         }
 
-        pub fn eval_int64(&self) -> i64{
+        pub fn eval_int64(&self) -> i64 {
             self.value.eval_int64()
         }
 
-        pub fn eval_bool(&self) -> bool{
+        pub fn eval_bool(&self) -> bool {
             self.value.eval_bool()
         }
 
-        pub fn eval_unsigned_int64(&self) -> u64{
+        pub fn eval_unsigned_int64(&self) -> u64 {
             self.value.eval_unsigned_int64()
         }
     }

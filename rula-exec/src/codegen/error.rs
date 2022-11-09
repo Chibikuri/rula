@@ -10,6 +10,7 @@ pub enum RuLaCompileError {
     // Todo: provide interface name to it
     NoInterfaceFoundError,
     NoTypeFoundError,
+    VariableError,
     UnknownError,
 }
 

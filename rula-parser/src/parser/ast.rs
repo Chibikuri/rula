@@ -614,43 +614,49 @@ impl MatchArm {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchCondition {
-    pub satisfiable: Box<Expr>,
+    pub satisfiable: Box<Satisfiable>,
 }
 
 impl MatchCondition {
-    pub fn new(satisfiable: Expr) -> Self {
+    pub fn new(satisfiable: Satisfiable) -> Self {
         MatchCondition {
             satisfiable: Box::new(satisfiable),
         }
     }
     pub fn place_holder() -> Self {
         MatchCondition {
-            satisfiable: Box::new(Expr::place_holder()),
+            satisfiable: Box::new(Satisfiable::PlaceHolder),
         }
     }
-    pub fn add_satisfiable(&mut self, satisfiable: Expr) {
+    pub fn update_satisfiable(&mut self, satisfiable: Satisfiable) {
         self.satisfiable = Box::new(satisfiable);
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Satisfiable {
+    // Comp(Comp),
+    // Ident(Ident),
+    Lit(Lit),
+    PlaceHolder,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchAction {
-    pub actionable: Box<Expr>,
+    pub actionable: Vec<Expr>,
 }
 
 impl MatchAction {
-    pub fn new(actionable: Expr) -> Self {
+    pub fn new(actionable: Vec<Expr>) -> Self {
         MatchAction {
-            actionable: Box::new(actionable),
+            actionable: actionable,
         }
     }
     pub fn place_holder() -> Self {
-        MatchAction {
-            actionable: Box::new(Expr::place_holder()),
-        }
+        MatchAction { actionable: vec![] }
     }
     pub fn add_actionable(&mut self, actionable: Expr) {
-        self.actionable = Box::new(actionable);
+        self.actionable.push(actionable);
     }
 }
 
@@ -889,8 +895,8 @@ pub enum Awaitable {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActExpr {
-    name: Box<Option<Ident>>,
-    operatable: Vec<Stmt>,
+    pub name: Box<Option<Ident>>,
+    pub operatable: Vec<Stmt>,
 }
 
 impl ActExpr {

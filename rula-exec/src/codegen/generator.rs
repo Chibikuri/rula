@@ -569,56 +569,33 @@ fn generate_match(
 ) -> IResult<TokenStream> {
     let generated_expr = generate_expr(&mut match_expr.expr, None, ident_tracker).unwrap();
     let mut match_arms = vec![];
+
     for arm in &mut match_expr.match_arms {
         match_arms.push(generate_match_arm(arm, ident_tracker).unwrap());
     }
+
+    let finally = match &mut *match_expr.finally {
+        Some(fin) => generate_match_action(fin, ident_tracker).unwrap(),
+        None => quote!(),
+    };
+
     match &*match_expr.temp_val {
         Some(value) => {
-            let generated_ident = generate_ident(value, ident_tracker, false).unwrap();
-            // make closure here
-            match &mut *match_expr.finally {
-                Some(finally_value) => {
-                    let generated_finally =
-                        generate_match_action(finally_value, ident_tracker).unwrap();
-                    return Ok(quote!(
-                        let mut #generated_ident = #generated_expr;
-                        match #generated_ident{
-                            #(#match_arms),*
-                            _ => {#generated_finally}
-                        }
-                    ));
+            let temp_val = generate_ident(value, ident_tracker, false).unwrap();
+            Ok(quote!(
+                let #temp_val = #generated_expr;
+                match #temp_val{
+                    #(#match_arms),*
+                    _ => {#finally}
                 }
-                None => {
-                    return Ok(quote!(
-                        let mut #generated_ident = #generated_expr;
-                        match #generated_ident{
-                            #(#match_arms),*
-                            _ => {}
-                        }
-                    ));
-                }
-            }
+            ))
         }
-        None => match &mut *match_expr.finally {
-            Some(finally_value) => {
-                let generated_finally =
-                    generate_match_action(finally_value, ident_tracker).unwrap();
-                return Ok(quote!(
-                    match #generated_expr{
-                        #(#match_arms),*
-                        _ => {#generated_finally}
-                    }
-                ));
+        None => Ok(quote!(
+            match #generated_expr{
+                #(#match_arms),*
+                _ => {#finally}
             }
-            None => {
-                return Ok(quote!(
-                    match #generated_expr{
-                        #(#match_arms),*
-                        _ => {}
-                    }
-                ))
-            }
-        },
+        )),
     }
 }
 
@@ -630,24 +607,33 @@ fn generate_match_arm(
         generate_match_condition(&mut *match_arm.condition, ident_tracker).unwrap();
     let generated_match_action =
         generate_match_action(&mut *match_arm.action, ident_tracker).unwrap();
-    Ok(quote!(#generated_match_condition => #generated_match_action))
+    Ok(quote!(#generated_match_condition => {#generated_match_action}))
 }
 
 fn generate_match_condition(
     match_condition: &mut MatchCondition,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let satisfiable =
-        generate_expr(&mut *match_condition.satisfiable, None, ident_tracker).unwrap();
-    Ok(quote!(#satisfiable))
+    // Right now, satisfiable can only take literals, but in the future, this should be more flexible
+    match &mut *match_condition.satisfiable {
+        Satisfiable::Lit(literal) => Ok(generate_lit(literal, ident_tracker).unwrap()),
+        _ => Err(RuLaCompileError::RuLaInitializationError(
+            InitializationError::new("at match condition"),
+        )),
+    }
 }
 
 fn generate_match_action(
     match_action: &mut MatchAction,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let actionable = generate_expr(&mut *match_action.actionable, None, ident_tracker).unwrap();
-    Ok(quote!(#actionable))
+    let mut actionables = vec![];
+    for actionable in &mut *match_action.actionable {
+        actionables.push(generate_expr(actionable, None, ident_tracker).unwrap());
+    }
+    Ok(quote!(
+        #(#actionables);*
+    ))
 }
 
 fn generate_comp(
@@ -847,7 +833,7 @@ fn generate_rule_content(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     let condition_expr = &mut *rule_content_expr.condition_expr;
-    let action_expr = &rule_content_expr.action_expr;
+    let action_expr = &mut *rule_content_expr.action_expr;
     let (generated_cond, generated_act) = match rule {
         Some(rule_contents) => (
             generate_cond(condition_expr, Some(&rule_contents), ident_tracker).unwrap(),
@@ -861,12 +847,14 @@ fn generate_rule_content(
         post_processes.push(generate_stmt(stmt, None, ident_tracker).unwrap());
     }
     // Generate executable
+    // Here we should consider to use TaskMonitor in tokio to track the status of watched values
     Ok(quote!(
-        async fn condition(&self){
+        async fn condition(&self) -> bool{
             #generated_cond
-            fn action(){
-                #generated_act
-            }
+        }
+
+        async fn action(&self){
+            #generated_act
         }
 
         fn post_process(&self){
@@ -935,17 +923,19 @@ fn generate_cond(
                 Ok(quote!(
                    #generated_watch
                    if #(#generated_clauses)&&*{
-                    true
+                    self.action().await;
+                    return true
                    }else{
-                    false
+                    return false
                    };
                 ))
             }
             None => Ok(quote!(
                if #(#generated_clauses)&&*{
-                true
+                self.action().await;
+                return true
                }else{
-                false
+                return false
                };
             )),
         }
@@ -998,11 +988,29 @@ fn generate_awaitable(
 }
 
 fn generate_act(
-    act_expr: &ActExpr,
-    rule: Option<&String>,
+    act_expr: &mut ActExpr,
+    rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    Ok(quote!())
+    let mut action_calls = vec![];
+
+    for action in &mut act_expr.operatable {
+        // TODO: Should integrate but for now, we need to know if there is ";" at the end
+        match &mut *action.kind {
+            StmtKind::Let(let_stmt) => {
+                action_calls.push(generate_let(let_stmt, rule_name, false, ident_tracker).unwrap())
+            }
+            _ => {
+                let generated = generate_stmt(action, rule_name, ident_tracker).unwrap();
+                action_calls.push(quote!(
+                    #generated;
+                ))
+            }
+        }
+    }
+    Ok(quote!(
+        #(#action_calls)*
+    ))
 }
 
 fn generate_variable_call(

@@ -52,10 +52,10 @@ rule pauli_correction<qn0>(distance: u64){
     } => act{
         let target_qubit = qn0.get_qubit_by_partner(message.src, message.body.result.qubit_address);
         match result: message.result.meas_result{
-            (result == "00") => {},
-            (result == "01") => {target_qubit.z()},
-            (result == "10") => {target_qubit.x()},
-            (result == "11") => {target_qubit.z(), target_qubit.x()},
+            "00" => {},
+            "01" => {target_qubit.z()},
+            "10" => {target_qubit.x()},
+            "11" => {target_qubit.z(), target_qubit.x()},
             finally => {free(target_qubit)}
         }
     }
