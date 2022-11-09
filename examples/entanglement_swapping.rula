@@ -1,4 +1,3 @@
-import std::qubit::free;
 import std::time::time;
 import std::message::Message;
 import std::result::Result;
@@ -51,7 +50,7 @@ rule pauli_correction<qn0>(distance: u64){
         message.kind == "swapping",
     } => act{
         let target_qubit = qn0.get_qubit_by_partner(message.src, message.body.result.qubit_address);
-        match result: message.result.meas_result{
+        match result: message.body.result.get_output(){
             "00" => {},
             "01" => {target_qubit.z()},
             "10" => {target_qubit.x()},

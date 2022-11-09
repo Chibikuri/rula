@@ -63,6 +63,7 @@ pub fn generate(
         mod rula{
             use super::*;
             use rula_std::rule::*;
+            use rula_std::prelude::*;
             use async_trait::async_trait;
             #rula_program
         }
@@ -329,7 +330,7 @@ fn generate_expr(
         }
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(rule_expr, ident_tracker).unwrap()),
         ExprKind::CondExpr(cond_expr) => {
-            Ok(generate_cond(cond_expr, rule_name, ident_tracker).unwrap())
+            Ok(generate_cond(cond_expr, rule_name, ident_tracker, quote!()).unwrap())
         }
         ExprKind::ActExpr(act_expr) => {
             Ok(generate_act(act_expr, rule_name, ident_tracker).unwrap())
@@ -535,7 +536,7 @@ fn generate_fn_call(
     };
     let (in_rule, r_name) = helper::check_in(rule_name);
     Ok(quote!(
-        #fn_name ()
+        #fn_name (#(#generated_arguments),*)
     ))
 }
 
@@ -829,18 +830,23 @@ fn generate_rule(
 
 fn generate_rule_content(
     rule_content_expr: &mut RuleContentExpr,
-    rule: Option<&String>,
+    rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let condition_expr = &mut *rule_content_expr.condition_expr;
-    let action_expr = &mut *rule_content_expr.action_expr;
-    let (generated_cond, generated_act) = match rule {
-        Some(rule_contents) => (
-            generate_cond(condition_expr, Some(&rule_contents), ident_tracker).unwrap(),
-            generate_act(action_expr, Some(&rule_contents), ident_tracker).unwrap(),
-        ),
-        None => (quote!(), quote!()),
-    };
+    // Actions to be performed
+    let generated_act = generate_act(
+        &mut *rule_content_expr.action_expr,
+        rule_name,
+        ident_tracker,
+    )
+    .unwrap();
+    let generated_cond = generate_cond(
+        &mut *rule_content_expr.condition_expr,
+        rule_name,
+        ident_tracker,
+        generated_act,
+    )
+    .unwrap();
     let post_process = &mut rule_content_expr.post_processing;
     let mut post_processes = vec![];
     for stmt in post_process {
@@ -851,10 +857,6 @@ fn generate_rule_content(
     Ok(quote!(
         async fn condition(&self) -> bool{
             #generated_cond
-        }
-
-        async fn action(&self){
-            #generated_act
         }
 
         fn post_process(&self){
@@ -904,6 +906,7 @@ fn generate_cond(
     cond_expr: &mut CondExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    act_tokens: TokenStream,
 ) -> IResult<TokenStream> {
     let mut generated_clauses = vec![];
     let (in_rule, r_name) = helper::check_in(rule_name);
@@ -923,7 +926,10 @@ fn generate_cond(
                 Ok(quote!(
                    #generated_watch
                    if #(#generated_clauses)&&*{
-                    self.action().await;
+                    // self.action().await;
+                    (||async {
+                        #act_tokens
+                    })();
                     return true
                    }else{
                     return false
@@ -932,7 +938,9 @@ fn generate_cond(
             }
             None => Ok(quote!(
                if #(#generated_clauses)&&*{
-                self.action().await;
+                (||async {
+                    #act_tokens
+                })();
                 return true
                }else{
                 return false

@@ -5,6 +5,7 @@ mod rula {
     use super::*;
     use async_trait::async_trait;
     use once_cell::sync::OnceCell;
+    use rula_std::prelude::*;
     use rula_std::qnic::QnicInterface;
     use rula_std::rule::*;
     use std::collections::HashMap;

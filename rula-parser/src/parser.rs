@@ -461,7 +461,9 @@ fn build_ast_from_satisfiable(pair: Pair<Rule>) -> IResult<Satisfiable> {
     match pair.as_rule() {
         // Rule::comp_expr => Ok(Satisfiable::Comp(build_ast_from_comp_expr(pair).unwrap())),
         // Rule::ident => Ok(Satisfiable::Ident(build_ast_from_ident(pair).unwrap())),
-        Rule::literal_expr => Ok(Satisfiable::Lit(build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap())),
+        Rule::literal_expr => Ok(Satisfiable::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
         _ => return Err(RuLaError::RuLaSyntaxError),
     }
 }
