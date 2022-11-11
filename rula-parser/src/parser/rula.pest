@@ -5,11 +5,14 @@ rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 program = { ( stmt )* }
 
 // Statement includes {let, braced statement, expression}
-stmt = { interface_def| let_stmt | brace_stmt | expr }
+stmt = { interface_def | config_def | let_stmt | brace_stmt | expr }
 
 // Interface_def 
 interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 
+// config def
+config_def = {"#config: " ~ "{" ~ config_item? ~ ("," ~ config_item)* ~ ","? ~ "}" ~ ("=>" ~ ident)? ~ ";"}
+config_item = { ident ~ ":" ~ typedef_lit}
 // Variable assignment
 let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ expr )? ~ ";" }
 
@@ -82,7 +85,8 @@ match_action = {"{" ~ expr? ~ ("," ~ expr)* ~ "}"}
 // RuleSet expression that holds multiple rules
 ruleset_expr = {^"ruleset" ~ "(" ~ ruleset_config?~ ")" ~ ident ~ "{" ~ rules? ~ "}" }
 // This should be flex
-ruleset_config = {"CONFIG"}
+ruleset_config = {ident}
+
 rules = _{("default:" ~ fn_call_expr)? ~ (rule_idents)*}
 rule_idents = { fn_call_expr | let_stmt }
 
@@ -166,7 +170,8 @@ string = _{ "\"" ~ ( raw_string )* ~ "\"" }
 raw_string = { (!( "\\" | "\"" ) ~ ANY )+ }
 
 // Type definition literal
-typedef_lit = { ( integer_type
+typedef_lit = { ( vector_type
+                  | integer_type
                   | unsigned_integer_type
                   | float_type
                   | complex_type
@@ -174,6 +179,7 @@ typedef_lit = { ( integer_type
                   | string_type
                   | qubit_type
 ) }
+vector_type = {"vec" ~ "[" ~ typedef_lit ~ "]"}
 integer_type = { ( "i32" | "i64" ) }
 unsigned_integer_type = { ( "u32" | "u64" ) }
 float_type = { ( "f32" | "f64" ) }

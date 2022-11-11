@@ -130,7 +130,7 @@ fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
     }
 }
 
-// Generate program
+// Generate progra
 // program: Program AST that contains a vector of Stmt
 fn generate_program(program: &mut Program) -> IResult<TokenStream> {
     // ident_tracker tracks all the identifier especially special values
@@ -164,6 +164,7 @@ fn generate_stmt(
             Ok(generate_let(let_stmt, rule_name, false, ident_tracker).unwrap())
         }
         StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
+        StmtKind::Config(config) => Ok(generate_config(config, ident_tracker).unwrap()),
         StmtKind::Expr(expr) => Ok(generate_expr(expr, rule_name, ident_tracker).unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
@@ -173,6 +174,32 @@ fn generate_stmt(
     Ok(quote!(#generated_stmt))
 }
 
+/// Generate config schema
+fn generate_config(
+    config_stmt: &mut Config,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
+    let config_name = generate_ident(&*config_stmt.name, ident_tracker, false).unwrap();
+    let mut generated_items = vec![];
+
+    for item in &mut *config_stmt.values {
+        generated_items.push(generate_config_item(item, ident_tracker).unwrap())
+    }
+    Ok(quote!(
+        pub struct #config_name{
+            #(#generated_items),*
+        }
+    ))
+}
+
+fn generate_config_item(
+    config_item: &mut ConfigItem,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
+    let value_name = generate_ident(&*config_item.value, ident_tracker, false).unwrap();
+    let type_def = generate_type_hint(&*config_item.type_def).unwrap();
+    Ok(quote!(#value_name: #type_def))
+}
 /// Generate 'let' statement
 ///
 /// # Arguments:
@@ -755,7 +782,7 @@ fn generate_ruleset_expr(
                 self.rules.push(rule);
             }
 
-            pub fn generate_ruleset(&self){}
+            pub fn gen_ruleset(&self){}
         }
     ))
 }
@@ -1188,6 +1215,7 @@ fn generate_ident(
             TypeHint::Str => Ok(quote!(#ident_contents.eval_str())),
             TypeHint::Boolean => Ok(quote!(#ident_contents.eval_bool())),
             TypeHint::Qubit => Ok(quote!(#ident_contents)),
+            TypeHint::Vector => Ok(quote!(#ident_contents)),
             TypeHint::Unknown => Ok(quote!(#ident_contents)),
             _ => {
                 todo!("{:#?}", ident)
@@ -1201,9 +1229,20 @@ fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
         TypeDef::Boolean => Ok(quote!(bool)),
         TypeDef::Integer32 => Ok(quote!(i32)),
         TypeDef::Integer64 => Ok(quote!(i64)),
+        TypeDef::UnsignedInteger32 => Ok(quote!(u32)),
+        TypeDef::UnsignedInteger64 => Ok(quote!(u64)),
         TypeDef::Str => Ok(quote!(String)),
         TypeDef::Qubit => Ok(quote!(&QubitInterface)),
-        _ => todo!(),
+        TypeDef::Vector(inner) => {
+            let inner_type = generate_type_hint(inner).unwrap();
+            Ok(quote!(Vec<#inner_type>))
+        }
+        TypeDef::PlaceHolder => {
+            return Err(RuLaCompileError::RuLaInitializationError(
+                InitializationError::new("at type hint generation"),
+            ))
+        }
+        _ => todo!("type {:#?} not yet implemented", type_hint),
     }
 }
 

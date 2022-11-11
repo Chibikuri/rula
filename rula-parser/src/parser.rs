@@ -83,6 +83,9 @@ fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
 // Parse statement <--> {Let statement | expression}
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
+        Rule::config_def => Ok(Stmt::new(StmtKind::Config(
+            build_ast_from_config_def(pair).unwrap(),
+        ))),
         Rule::interface_def => Ok(Stmt::new(StmtKind::Interface(
             build_ast_from_interface(pair).unwrap(),
         ))),
@@ -96,6 +99,40 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     }
 }
 
+fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
+    let mut config_def = Config::place_holder();
+    for config_block in pair.into_inner() {
+        match config_block.as_rule() {
+            Rule::config_item => {
+                config_def.add_value(build_ast_from_config_item(config_block).unwrap());
+            }
+            Rule::ident => {
+                config_def.update_config_name(build_ast_from_ident(config_block).unwrap());
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(config_def)
+}
+
+fn build_ast_from_config_item(pair: Pair<Rule>) -> IResult<ConfigItem> {
+    let mut config_item = ConfigItem::place_holder();
+    for block in pair.into_inner() {
+        println!("block {:#?}", block);
+        match block.as_rule() {
+            Rule::ident => {
+                config_item.update_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::typedef_lit => {
+                config_item.add_type_def(
+                    build_ast_from_typedef_lit(block.into_inner().next().unwrap()).unwrap(),
+                );
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(config_item)
+}
 // Parse Let statement (semi endpoint)
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<Let> {
     let mut let_stmt = Let::place_holder();
@@ -457,7 +494,6 @@ fn build_ast_from_match_condition(pair: Pair<Rule>) -> IResult<MatchCondition> {
 }
 
 fn build_ast_from_satisfiable(pair: Pair<Rule>) -> IResult<Satisfiable> {
-    println!("lit?{:#?}", &pair);
     match pair.as_rule() {
         // Rule::comp_expr => Ok(Satisfiable::Comp(build_ast_from_comp_expr(pair).unwrap())),
         // Rule::ident => Ok(Satisfiable::Ident(build_ast_from_ident(pair).unwrap())),
@@ -760,6 +796,17 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             "Qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
-        _ => todo!("Should be unknown type error here"),
+        Rule::vector_type => Ok(TypeDef::Vector(Box::new(
+            build_ast_from_typedef_lit(
+                pair.into_inner()
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .next()
+                    .unwrap(),
+            )
+            .unwrap(),
+        ))),
+        _ => todo!("Should be unknown type {:#?} error here", pair),
     }
 }
