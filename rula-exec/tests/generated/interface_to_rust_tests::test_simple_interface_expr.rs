@@ -7,6 +7,7 @@ mod rula {
     use once_cell::sync::OnceCell;
     use rula_std::prelude::*;
     use rula_std::qnic::QnicInterface;
+    use rula_std::qubit::QubitInterface;
     use rula_std::rule::*;
     use std::collections::HashMap;
     use tokio::sync::Mutex;

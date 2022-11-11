@@ -209,6 +209,13 @@ fn generate_let(
                 );
                 match &*let_stmt.ident.type_hint {
                     Some(hint) => {
+                        match hint {
+                            TypeDef::Qubit => ident_tracker.register(
+                                &*let_stmt.ident.name,
+                                Identifier::new(IdentType::QubitInterface, TypeHint::Qubit),
+                            ),
+                            _ => {}
+                        }
                         identifier = generate_ident(&*let_stmt.ident, ident_tracker, true).unwrap();
                     }
                     None => {
@@ -224,7 +231,14 @@ fn generate_let(
         }
     } else {
         match &*let_stmt.ident.type_hint {
-            Some(_) => {
+            Some(hint) => {
+                match hint {
+                    TypeDef::Qubit => ident_tracker.register(
+                        &*let_stmt.ident.name,
+                        Identifier::new(IdentType::QubitInterface, TypeHint::Qubit),
+                    ),
+                    _ => {}
+                }
                 identifier = generate_ident(&*let_stmt.ident, ident_tracker, true).unwrap();
             }
             None => {
@@ -234,13 +248,21 @@ fn generate_let(
         expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker).unwrap();
     }
     // This is also naive implementation
-    if !in_watch {
+    if in_watch {
         Ok(quote!(
-            let mut #identifier = #expr;
+            let mut interface = INTERFACES
+            .get()
+            .expect("unable to get interface")
+            .lock().await;
+            let mut #identifier = #expr.await;
         ))
     } else {
         Ok(quote!(
-            let mut #identifier = #expr.await;
+            let mut interface = INTERFACES
+            .get()
+            .expect("unable to get interface")
+            .lock().await;
+            let mut #identifier = #expr;
         ))
     }
 }
@@ -287,6 +309,7 @@ fn generate_interface(
         use tokio::sync::Mutex;
         use once_cell::sync::OnceCell;
         use rula_std::qnic::QnicInterface;
+        use rula_std::qubit::QubitInterface;
         pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
 
         pub async fn initialize_interface() {
@@ -317,7 +340,7 @@ fn generate_expr(
         ExprKind::While(while_expr) => Ok(generate_while(while_expr, ident_tracker).unwrap()),
         ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(fn_def_expr, ident_tracker).unwrap()),
         ExprKind::FnCall(fn_call_expr) => {
-            Ok(generate_fn_call(fn_call_expr, rule_name, ident_tracker).unwrap())
+            Ok(generate_fn_call(fn_call_expr, rule_name, ident_tracker, false).unwrap())
         }
         ExprKind::Struct(struct_expr) => Ok(generate_struct(struct_expr, ident_tracker).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(return_expr, ident_tracker).unwrap()),
@@ -524,6 +547,7 @@ fn generate_fn_call(
     fn_call_expr: &mut FnCall,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    do_await: bool,
 ) -> IResult<TokenStream> {
     // Before generating functions, check function table to check whether it's properly defined or not
     let fn_name = generate_ident(&fn_call_expr.func_name, ident_tracker, false).unwrap();
@@ -535,9 +559,15 @@ fn generate_fn_call(
         args
     };
     let (in_rule, r_name) = helper::check_in(rule_name);
-    Ok(quote!(
-        #fn_name (#(#generated_arguments),*)
-    ))
+    if do_await {
+        Ok(quote!(
+            #fn_name(#(#generated_arguments), *).await
+        ))
+    } else {
+        Ok(quote!(
+            #fn_name (#(#generated_arguments),*)
+        ))
+    }
 }
 
 fn generate_struct(struct_expr: &Struct, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
@@ -862,9 +892,14 @@ fn generate_rule_content(
         fn post_process(&self){
             #(#post_processes)*
         }
-
-        fn execute(&self){
-
+        // pub is implied in trait
+        async fn execute(&self){
+            loop{
+                let done = self.condition().await;
+                if done{
+                    break;
+                }
+            }
         }
     ))
 }
@@ -958,7 +993,6 @@ fn generate_awaitable(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     // Generating condition clauses to be met
-    let ruleset_facotry = RULESET_FACTORY.get().expect("Failed to get Rule Table");
     let (in_rule, r_name) = helper::check_in(rule_name);
     // Start creating a new condition and replace the old one with new condition?
     let mut awaitable = quote!();
@@ -967,9 +1001,9 @@ fn generate_awaitable(
             Awaitable::FnCall(fn_call) => {
                 // This should be flex
                 let generated_fn_call =
-                    generate_fn_call(fn_call, rule_name, ident_tracker).unwrap();
+                    generate_fn_call(fn_call, rule_name, ident_tracker, true).unwrap();
                 quote!(
-                    #generated_fn_call.await
+                    #generated_fn_call
                 )
             }
             Awaitable::VariableCallExpr(val_call) => {
@@ -1031,14 +1065,38 @@ fn generate_variable_call(
     if variable_call_expr.variables.len() == 0 {
         panic!("Internal Error. This needs to be treated in parser.")
     }
+    for (index, val) in &mut variable_call_expr.variables.iter().enumerate() {
+        let specified = if index == 0 {
+            false
+        } else {
+            match &variable_call_expr.variables[index - 1] {
+                Callable::Ident(ident) => {
+                    // If the variable is registered as qubit, operations should be awaited
+                    match ident_tracker.check_ident_type(&ident.name) {
+                        IdentType::QubitInterface => true,
+                        _ => false,
+                    }
+                }
+                _ => false,
+            }
+        };
 
-    for val in &mut variable_call_expr.variables {
-        match val {
-            Callable::FnCall(fn_call) => {
-                variable_calls.push(generate_fn_call(fn_call, rule_name, ident_tracker).unwrap());
+        match val.clone() {
+            Callable::FnCall(mut fn_call_inner) => {
+                if specified {
+                    variable_calls.push(
+                        generate_fn_call(&mut fn_call_inner, rule_name, ident_tracker, true)
+                            .unwrap(),
+                    );
+                } else {
+                    variable_calls.push(
+                        generate_fn_call(&mut fn_call_inner, rule_name, ident_tracker, false)
+                            .unwrap(),
+                    );
+                }
             }
             Callable::Ident(ident) => {
-                variable_calls.push(generate_ident(ident, ident_tracker, false).unwrap());
+                variable_calls.push(generate_ident(&ident, ident_tracker, false).unwrap());
             }
         }
     }
@@ -1090,12 +1148,7 @@ fn generate_ident(
         IdentType::QnicInterface => {
             let ident_str = SynLit::Str(LitStr::new(&*ident.name, Span::call_site()));
             quote!(
-                INTERFACES
-                .get()
-                .expect("unable to get interface")
-                .lock()
-                .await
-                .get_mut(#ident_str)
+                interface.get(#ident_str)
                 .expect("unable to get interface")
             )
         }
@@ -1108,8 +1161,6 @@ fn generate_ident(
         }
         _ => {
             quote!(#identifier)
-            // Locking in a single
-            // Should be syntax error here
         }
     };
     if with_type_annotation {
@@ -1127,6 +1178,7 @@ fn generate_ident(
             TypeHint::Float64 => Ok(quote!(#ident_contents.eval_float64())),
             TypeHint::Str => Ok(quote!(#ident_contents.eval_str())),
             TypeHint::Boolean => Ok(quote!(#ident_contents.eval_bool())),
+            TypeHint::Qubit => Ok(quote!(#ident_contents)),
             TypeHint::Unknown => Ok(quote!(#ident_contents)),
             _ => {
                 todo!("{:#?}", ident)
@@ -1141,6 +1193,7 @@ fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
         TypeDef::Integer32 => Ok(quote!(i32)),
         TypeDef::Integer64 => Ok(quote!(i64)),
         TypeDef::Str => Ok(quote!(String)),
+        TypeDef::Qubit => Ok(quote!(&QubitInterface)),
         _ => todo!(),
     }
 }
@@ -1521,7 +1574,7 @@ mod tests {
             "range",
             Identifier::new(IdentType::Other, TypeHint::Unknown),
         );
-        let test_stream = generate_fn_call(&mut simple_fn_call, None, &mut tracker).unwrap();
+        let test_stream = generate_fn_call(&mut simple_fn_call, None, &mut tracker, false).unwrap();
         assert_eq!("range ()", test_stream.to_string());
     }
 

@@ -44,6 +44,7 @@ pub enum TypeHint {
     UnsignedInteger64,
     Float64,
     Boolean,
+    Qubit,
     Unknown,
 }
 

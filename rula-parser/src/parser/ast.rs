@@ -1090,6 +1090,7 @@ pub struct Ident {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IdentType {
     QnicInterface,
+    QubitInterface,
     WatchedValue,
     RuleArgument,
     Other,

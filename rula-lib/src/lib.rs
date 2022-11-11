@@ -1,28 +1,44 @@
 pub mod prelude {
     use super::message::Message;
     use super::qubit::QubitInterface;
-    pub fn free(qubit: QubitInterface) {}
+    pub fn free(qubit: &QubitInterface) {}
     pub fn send(message: Message) {}
 }
 
 pub mod message {
     use std::net::IpAddr;
 
-    use crate::result::{QResult, MeasResult};
+    use crate::result::{MeasResult, QResult};
 
     use super::qnic::QnicInterface;
 
     pub fn Message(kind: &str, src_qnic: &QnicInterface, dst_qnic: &QnicInterface) -> Message {
-        Message::new(kind, src_qnic, dst_qnic, QResult {result: MeasResult{qubit_address: 0, output: "00".to_string()}  })
+        Message::new(
+            kind,
+            src_qnic,
+            dst_qnic,
+            QResult {
+                result: MeasResult {
+                    qubit_address: 0,
+                    output: "00".to_string(),
+                },
+            },
+        )
     }
+    #[derive(Debug, Clone)]
     pub struct Message {
         pub kind: String,
         pub src: IpAddr,
         pub dst: IpAddr,
-        pub body: QResult
+        pub body: QResult,
     }
     impl Message {
-        pub fn new(kind: &str, src: &QnicInterface, dst: &QnicInterface, result: QResult) -> Message {
+        pub fn new(
+            kind: &str,
+            src: &QnicInterface,
+            dst: &QnicInterface,
+            result: QResult,
+        ) -> Message {
             Message {
                 kind: String::from(kind),
                 src: src.address,
@@ -37,13 +53,13 @@ pub mod message {
 pub mod operation {
     use crate::qubit::QubitInterface;
 
-    pub fn bsm(q1: &mut QubitInterface, q2: &mut QubitInterface) -> String {
+    pub fn bsm(q1: &QubitInterface, q2: &QubitInterface) -> String {
         String::from("result")
     }
 }
 
 pub mod qnic {
-    use crate::result::{QResult, MeasResult};
+    use crate::result::{MeasResult, QResult};
 
     use super::message::Message;
     use super::qubit::QubitInterface;
@@ -51,6 +67,7 @@ pub mod qnic {
     use std::hash::Hash;
     use std::net::{IpAddr, Ipv4Addr};
 
+    #[derive(Clone, Debug)]
     pub struct QnicInterface {
         name: String,
         pub address: IpAddr,
@@ -70,20 +87,28 @@ pub mod qnic {
             }
         }
         pub async fn request_resource(
-            &mut self,
+            &self,
             number: u32,
             qnic_interface: &QnicInterface,
-        ) -> &mut QubitInterface {
-            self.qubit_interfaces
-                .get_mut("")
-                .expect("Unable to find qubit")
+        ) -> &QubitInterface {
+            self.qubit_interfaces.get("").expect("Unable to find qubit")
         }
-        pub async fn get_message(&self, src: &mut QnicInterface) -> Message {
+        pub async fn get_message(&self, src: &QnicInterface) -> Message {
             let mut dest = QnicInterface::place_holder();
-            Message::new("", src, &mut dest, QResult{result: MeasResult{qubit_address: 0, output: "00".to_string()}})
+            Message::new(
+                "",
+                src,
+                &mut dest,
+                QResult {
+                    result: MeasResult {
+                        qubit_address: 0,
+                        output: "00".to_string(),
+                    },
+                },
+            )
         }
-        pub fn get_qubit_by_partner(&self, src: IpAddr, qindex: u32) -> QubitInterface {
-            QubitInterface {}
+        pub fn get_qubit_by_partner(&self, src: IpAddr, qindex: u32) -> &QubitInterface {
+            &QubitInterface {}
         }
         pub fn get_partner_by_hop(&self, distance: u64) -> &QnicInterface {
             // access to the routing table
@@ -92,30 +117,36 @@ pub mod qnic {
     }
 }
 pub mod qubit {
+    #[derive(Debug, Clone)]
     pub struct QubitInterface {}
     impl QubitInterface {
         pub async fn ready(&self) -> bool {
             true
         }
-        pub async fn x(&self){
-
-        }
-        pub async fn z(&self){}
+        pub async fn x(&self) {}
+        pub async fn z(&self) {}
     }
 }
 
 pub mod result {
     use super::qubit::QubitInterface;
-    pub fn Result(qubit: &mut QubitInterface) -> QResult {
-        QResult {result: MeasResult { qubit_address: 0, output: "00".to_string() }}
+    pub fn Result(qubit: &QubitInterface) -> QResult {
+        QResult {
+            result: MeasResult {
+                qubit_address: 0,
+                output: "00".to_string(),
+            },
+        }
     }
+    #[derive(Clone, Debug)]
     pub struct QResult {
-        pub result: MeasResult
+        pub result: MeasResult,
     }
 
-    pub struct MeasResult{
+    #[derive(Clone, Debug)]
+    pub struct MeasResult {
         pub qubit_address: u32,
-        pub output: String, 
+        pub output: String,
     }
 
     impl QResult {
@@ -124,8 +155,8 @@ pub mod result {
         }
         pub fn add_result(&mut self, result: String) {}
     }
-    impl MeasResult{
-        pub fn get_output(&self) -> &str{
+    impl MeasResult {
+        pub fn get_output(&self) -> &str {
             &self.output
         }
     }
@@ -145,7 +176,7 @@ pub mod rule {
     pub trait Rulable {
         async fn condition(&self) -> bool;
         fn post_process(&self);
-        fn execute(&self);
+        async fn execute(&self);
     }
 
     #[derive(Debug, Clone, PartialEq)]
