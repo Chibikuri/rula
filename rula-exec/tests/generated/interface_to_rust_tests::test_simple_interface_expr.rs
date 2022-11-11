@@ -42,4 +42,8 @@ mod tests {
         assert!(interface.lock().await.contains_key("qn0"));
         assert!(interface.lock().await.contains_key("qn1"));
     }
+    #[tokio::test]
+    async fn run_main() {
+        main().await;
+    }
 }

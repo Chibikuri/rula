@@ -32,10 +32,7 @@ static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
-pub fn generate(
-    ast_tree: &mut Vec<AstNode>,
-    with_ruleset: bool,
-) -> IResult<(TokenStream, Option<RuleSet<ActionClauses>>)> {
+pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool) -> IResult<TokenStream> {
     // initialize all the global values (RULESET, RULE_TABLE)
     initialize_singleton();
 
@@ -64,6 +61,11 @@ pub fn generate(
             ruleset.add_rule(Box::new(rula::#rname_ident::new()))
         ))
     }
+    let ruleset_gen = if with_ruleset {
+        quote!(ruleset.gen_ruleset();)
+    } else {
+        quote!()
+    };
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
@@ -79,6 +81,7 @@ pub fn generate(
             rula::initialize_interface().await;
             let mut ruleset = rula::RuleSet::init();
             #(#rule_names);*;
+            #ruleset_gen
         }
 
         #[cfg(test)]
@@ -88,14 +91,7 @@ pub fn generate(
             #generated_tests
         }
     );
-
-    // This RULESET singleton will be deprecated.
-    if with_ruleset {
-        // FIXME
-        Ok((rula_token_stream, None))
-    } else {
-        Ok((rula_token_stream, None))
-    }
+    Ok(rula_token_stream)
 }
 
 // Initialize singleton values
@@ -758,6 +754,8 @@ fn generate_ruleset_expr(
             pub fn add_rule(&mut self, rule: Box<dyn Rulable>){
                 self.rules.push(rule);
             }
+
+            pub fn generate_ruleset(&self){}
         }
     ))
 }
@@ -1230,6 +1228,11 @@ pub mod helper {
                 let interface = INTERFACES.get().expect("Failed to get interface table");
                 assert!(interface.lock().await.contains_key("qn0"));
                 assert!(interface.lock().await.contains_key("qn1"));
+            }
+
+            #[tokio::test]
+            async fn run_main() {
+                main().await;
             }
         )
     }
