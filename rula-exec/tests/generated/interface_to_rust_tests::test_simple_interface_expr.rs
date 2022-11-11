@@ -25,8 +25,9 @@ mod rula {
         }
     }
 }
-pub fn main() {
-    rula::initialize_interface();
+pub async fn main() {
+    rula::initialize_interface().await;
+    let mut ruleset = rula::RuleSet::init();
 }
 #[cfg(test)]
 mod tests {
@@ -36,7 +37,7 @@ mod tests {
     #[tokio::test]
     async fn test_interface() {
         assert!(INTERFACES.get().is_none());
-        rula::initialize_interface();
+        rula::initialize_interface().await;
         let interface = INTERFACES.get().expect("Failed to get interface table");
         assert!(interface.lock().await.contains_key("qn0"));
         assert!(interface.lock().await.contains_key("qn1"));

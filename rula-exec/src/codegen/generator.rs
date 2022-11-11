@@ -26,8 +26,7 @@ use std::net::SocketAddr;
 
 // Right now, compilation is all single thread. In the future, this could be multi thread.
 // Mutex would be a good choice for that.
-type MutexRuleSet = Mutex<RuleSet<ActionClauses>>;
-static RULESET: OnceCell<MutexRuleSet> = OnceCell::new();
+static RULES: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
 
 static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 
@@ -39,6 +38,8 @@ pub fn generate(
 ) -> IResult<(TokenStream, Option<RuleSet<ActionClauses>>)> {
     // initialize all the global values (RULESET, RULE_TABLE)
     initialize_singleton();
+
+    let rules = RULES.get().expect("Unable to get rule table");
 
     // RuLa starts here
     if ast_tree.len() > 1 {
@@ -56,6 +57,13 @@ pub fn generate(
     };
     let generated_tests = helper::generate_test();
 
+    let mut rule_names = vec![];
+    for rname in rules.lock().unwrap().iter() {
+        let rname_ident = format_ident!("{}", rname);
+        rule_names.push(quote!(
+            ruleset.add_rule(Box::new(rula::#rname_ident::new()))
+        ))
+    }
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
@@ -67,8 +75,10 @@ pub fn generate(
             use async_trait::async_trait;
             #rula_program
         }
-        pub fn main(){
-            rula::initialize_interface();
+        pub async fn main(){
+            rula::initialize_interface().await;
+            let mut ruleset = rula::RuleSet::init();
+            #(#rule_names);*;
         }
 
         #[cfg(test)]
@@ -81,11 +91,8 @@ pub fn generate(
 
     // This RULESET singleton will be deprecated.
     if with_ruleset {
-        let opt_ruleset = RULESET.get();
-        match opt_ruleset {
-            Some(ruleset) => Ok((rula_token_stream, Some(ruleset.lock().unwrap().clone()))),
-            None => panic!("failed to generate RuleSet"),
-        }
+        // FIXME
+        Ok((rula_token_stream, None))
     } else {
         Ok((rula_token_stream, None))
     }
@@ -97,14 +104,13 @@ pub fn generate(
 fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     assert!(RULESET_FACTORY.get().is_none());
-    assert!(RULESET.get().is_none());
-
-    // closure to initialize with empty ruleset
-    let empty_ruleset = || Mutex::new(RuleSet::<ActionClauses>::new("empty_ruleset"));
-    let _ = RULESET.get_or_init(empty_ruleset);
+    assert!(RULES.get().is_none());
 
     let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
     let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
+
+    let initialize_rule = || Mutex::new(vec![]);
+    let _ = RULES.get_or_init(initialize_rule);
 }
 
 // Generate entire rula program
@@ -558,7 +564,6 @@ fn generate_fn_call(
         }
         args
     };
-    let (in_rule, r_name) = helper::check_in(rule_name);
     if do_await {
         Ok(quote!(
             #fn_name(#(#generated_arguments), *).await
@@ -701,28 +706,21 @@ fn generate_ruleset_expr(
     let ruleset_factory = RULESET_FACTORY
         .get()
         .expect("Failed to get Ruleset factory");
-    // Static RuleSet that can be output of this compiler
-    let glob_ruleset = RULESET.get().expect("Failed to get ruleset");
-    glob_ruleset.lock().unwrap().update_name(ruleset_name);
+
+    let rules = RULES.get().expect("Failed to get Rule table");
 
     // Closure that gets rule_name and evaluate if the rule is inside the table or not
     // If that Rule is in the table, add it to RuleSet
-    let rule_add_evaluater = |rule_name: &String| {
-        if !ruleset_factory.lock().unwrap().exist_rule(rule_name) {
-            return Err(RuLaCompileError::NoRuleFoundError);
-        } else {
-            let corr_rule = ruleset_factory.lock().unwrap().get_rule(rule_name);
-            glob_ruleset.lock().unwrap().add_rule(corr_rule);
-            Ok(())
-        }
-    };
-
     for rule in &ruleset_expr.rules {
         match rule {
             // Ordinary Rule call (e.g. swapping_rule())
             RuleIdentifier::FnCall(fn_call_expr) => {
                 // Rule without any return values
-                rule_add_evaluater(&*fn_call_expr.func_name.name).unwrap();
+                // rule_add_evaluater(&*fn_call_expr.func_name.name).unwrap();
+                rules
+                    .lock()
+                    .unwrap()
+                    .push(String::from(&*fn_call_expr.func_name.name));
             }
             RuleIdentifier::Let(let_stmt) => {
                 // Rule with return value
@@ -731,7 +729,11 @@ fn generate_ruleset_expr(
                 let expr = &*let_stmt.expr;
                 match &*expr.kind {
                     ExprKind::FnCall(fn_call) => {
-                        rule_add_evaluater(&*fn_call.func_name.name).unwrap();
+                        // rule_add_evaluater(&*fn_call.func_name.name).unwrap();
+                        rules
+                            .lock()
+                            .unwrap()
+                            .push(String::from(&*fn_call.func_name.name));
                     }
                     _ => unreachable!("So far RuleIdentifier can only be FnCall"),
                 }
@@ -744,10 +746,19 @@ fn generate_ruleset_expr(
 
     // 2. Generate RuleSet executable here
     Ok(quote!(
-        struct RuleSet<T: Rulable> {
-            rules: Vec<T>,
+        pub struct RuleSet {
+            rules: Vec<Box<dyn Rulable>>,
         }
-        impl<T: Rulable> RuleSet<T> {}
+        impl RuleSet {
+            pub fn init() -> Self{
+                RuleSet{
+                    rules: vec![],
+                }
+            }
+            pub fn add_rule(&mut self, rule: Box<dyn Rulable>){
+                self.rules.push(rule);
+            }
+        }
     ))
 }
 
@@ -834,7 +845,7 @@ fn generate_rule(
     let rule_name_token = generate_ident(rule_name, ident_tracker, false).unwrap();
 
     Ok(quote!(
-        struct #rule_name_token{
+        pub struct #rule_name_token{
             interfaces: Vec<String>,
             arguments: HashMap<String, Argument>
         }
@@ -1215,7 +1226,7 @@ pub mod helper {
             #[tokio::test]
             async fn test_interface() {
                 assert!(INTERFACES.get().is_none());
-                rula::initialize_interface();
+                rula::initialize_interface().await;
                 let interface = INTERFACES.get().expect("Failed to get interface table");
                 assert!(interface.lock().await.contains_key("qn0"));
                 assert!(interface.lock().await.contains_key("qn1"));
