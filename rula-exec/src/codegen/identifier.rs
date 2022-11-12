@@ -6,17 +6,25 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdentTracker {
     pub identifiers: HashMap<String, Identifier>,
+    // Should have better way to track this
+    pub config_name: Option<String>,
 }
 
 impl IdentTracker {
     pub fn new() -> Self {
         IdentTracker {
             identifiers: HashMap::new(),
+            config_name: None,
         }
     }
     pub fn register(&mut self, ident_name: &str, ident: Identifier) {
         self.identifiers.insert(ident_name.to_string(), ident);
     }
+
+    pub fn update_config_name(&mut self, config_name: &str) {
+        self.config_name = Some(String::from(config_name));
+    }
+
     pub fn check_ident_type(&mut self, ident_name: &str) -> IdentType {
         match self.identifiers.get(ident_name) {
             Some(ident) => ident.ident_type.clone(),

@@ -9,6 +9,7 @@ mod rula {
     use rula_std::qnic::QnicInterface;
     use rula_std::qubit::QubitInterface;
     use rula_std::rule::*;
+    use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use tokio::sync::Mutex;
     pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();

@@ -783,6 +783,9 @@ impl RuleSetExpr {
     pub fn add_name(&mut self, name: Ident) {
         self.name = Box::new(name);
     }
+    pub fn add_config_name(&mut self, name: Option<Ident>){
+        self.config = Box::new(name);
+    }
     pub fn add_default(&mut self, default: Option<FnCall>) {
         self.default = Box::new(default);
     }
@@ -1148,6 +1151,7 @@ pub struct Ident {
 pub enum IdentType {
     QnicInterface,
     QubitInterface,
+    ConfigName,
     WatchedValue,
     RuleArgument,
     Other,

@@ -35,15 +35,14 @@ fn main() {
         .expect("Something went wrong reading the file");
 
     let config = match args.config {
-        Some(conf) => {
-            Some(conf)
-        }
+        Some(conf) => Some(conf),
         None => None,
     };
     println!("config{:#?}", config);
     // parse rula program
     let mut ast = rula_parser::parse(&contents).unwrap();
-    let _generated = rula_exec::codegen::generator::generate(&mut ast, args.ruleset, config).unwrap();
+    let _generated =
+        rula_exec::codegen::generator::generate(&mut ast, args.ruleset, config).unwrap();
     if args.ruleset {
         println!("Generating RuleSet...");
     }

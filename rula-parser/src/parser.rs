@@ -551,7 +551,9 @@ fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
     let mut ruleset_expr = RuleSetExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ruleset_config => {}
+            Rule::ruleset_config => {
+                ruleset_expr.add_config_name(Some(build_ast_from_ident(block.into_inner().next().unwrap()).unwrap()));
+            }
             Rule::ident => {
                 ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
             }

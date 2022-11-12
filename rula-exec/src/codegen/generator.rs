@@ -14,8 +14,8 @@ use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
-use std::sync::Mutex;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use syn::Lit as SynLit;
 use syn::{LitFloat, LitStr};
 
@@ -33,9 +33,16 @@ static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
-pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool, config_pathl: Option<PathBuf>) -> IResult<TokenStream> {
+pub fn generate(
+    ast_tree: &mut Vec<AstNode>,
+    with_ruleset: bool,
+    config_path: Option<PathBuf>,
+) -> IResult<TokenStream> {
     // initialize all the global values (RULESET, RULE_TABLE)
     initialize_singleton();
+
+    // ident_tracker tracks all the identifier especially special values
+    let mut ident_tracker = IdentTracker::new();
 
     let rules = RULES.get().expect("Unable to get rule table");
 
@@ -46,7 +53,7 @@ pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool, config_pathl: O
 
     // Generated rula program
     let rula_program = match &mut ast_tree[0] {
-        AstNode::RuLa(rula) => generate_rula(rula).unwrap(),
+        AstNode::RuLa(rula) => generate_rula(rula, &mut ident_tracker).unwrap(),
         AstNode::PlaceHolder => {
             return Err(RuLaCompileError::RuLaInitializationError(
                 InitializationError::new("at very first generation"),
@@ -62,17 +69,42 @@ pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool, config_pathl: O
             ruleset.add_rule(Box::new(rula::#rname_ident::new()))
         ))
     }
+
+    let config_gen = match config_path {
+        Some(path) => {
+            let config_name = match &ident_tracker.config_name {
+                Some(conf_name) => {
+                    format_ident!("{}", conf_name)
+                }
+                None => panic!("Failed to resolve config name"),
+            };
+            let path_lit = SynLit::Str(LitStr::new(
+                &path.into_os_string().into_string().unwrap(),
+                Span::call_site(),
+            ));
+            quote!(
+                let config: rula::#config_name = toml::from_str(#path_lit).unwrap();
+                ruleset.resolve_config(config);
+            )
+        }
+        None => {
+            quote!()
+        }
+    };
+
     let ruleset_gen = if with_ruleset {
         quote!(ruleset.gen_ruleset();)
     } else {
         quote!()
     };
+
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
         #[allow(unused)]
         mod rula{
             use super::*;
+            use serde::{Deserialize, Serialize};
             use rula_std::rule::*;
             use rula_std::prelude::*;
             use async_trait::async_trait;
@@ -82,6 +114,7 @@ pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool, config_pathl: O
             rula::initialize_interface().await;
             let mut ruleset = rula::RuleSet::init();
             #(#rule_names);*;
+            #config_gen
             #ruleset_gen
         }
 
@@ -111,10 +144,10 @@ fn initialize_singleton() {
 }
 
 // Generate entire rula program
-fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
+fn generate_rula(rula: &mut RuLa, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
     match &mut *rula.rula {
         RuLaKind::Program(program) => {
-            let generated_program = generate_program(program).unwrap();
+            let generated_program = generate_program(program, ident_tracker).unwrap();
             return Ok(quote!(#generated_program));
         }
         RuLaKind::Ignore => return Ok(quote!()),
@@ -133,17 +166,17 @@ fn generate_rula(rula: &mut RuLa) -> IResult<TokenStream> {
 
 // Generate progra
 // program: Program AST that contains a vector of Stmt
-fn generate_program(program: &mut Program) -> IResult<TokenStream> {
-    // ident_tracker tracks all the identifier especially special values
-    let mut ident_tracker = IdentTracker::new();
-
+fn generate_program(
+    program: &mut Program,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     // A vector to store a set of generated stmts
     let mut stmts = vec![];
     for program_block in &mut program.programs {
         // Right now, a program can takes a stmt
         match program_block {
             ProgramKind::Stmt(stmt) => {
-                stmts.push(generate_stmt(stmt, None, &mut ident_tracker).unwrap())
+                stmts.push(generate_stmt(stmt, None, ident_tracker).unwrap())
             }
         }
     }
@@ -186,7 +219,10 @@ fn generate_config(
     for item in &mut *config_stmt.values {
         generated_items.push(generate_config_item(item, ident_tracker).unwrap())
     }
+
+    ident_tracker.update_config_name(&*config_stmt.name.name);
     Ok(quote!(
+        #[derive(Debug, Serialize, Deserialize)]
         pub struct #config_name{
             #(#generated_items),*
         }
@@ -766,7 +802,22 @@ fn generate_ruleset_expr(
     }
     // Replace all the TBD information with configed values
     // Expand Config here
-    let config = &*ruleset_expr.config;
+    let config = match &*ruleset_expr.config {
+        Some(conf_name) => {
+            if Some(String::from(&*conf_name.name)) != ident_tracker.config_name {
+                return Err(RuLaCompileError::NoConfigFound);
+            }
+            let name = generate_ident(conf_name, ident_tracker, false).unwrap();
+            quote!(
+                pub fn resolve_config(&mut self, config: #name){
+
+                }
+            )
+        }
+        None => {
+            quote!()
+        }
+    };
 
     // 2. Generate RuleSet executable here
     Ok(quote!(
@@ -782,6 +833,8 @@ fn generate_ruleset_expr(
             pub fn add_rule(&mut self, rule: Box<dyn Rulable>){
                 self.rules.push(rule);
             }
+
+            #config
 
             pub fn gen_ruleset(&self){}
         }
