@@ -36,20 +36,14 @@ fn main() {
 
     let config = match args.config {
         Some(conf) => {
-            let mut rula_config = File::open(conf).expect("Unable to open config file");
-            let mut config_contents = String::new();
-            rula_config
-                .read_to_string(&mut config_contents)
-                .expect("Failed to read the config file");
-            let config_toml: HashMap<String, String> = toml::from_str(&config_contents).unwrap();
-            Some(config_toml)
+            Some(conf)
         }
         None => None,
     };
     println!("config{:#?}", config);
     // parse rula program
     let mut ast = rula_parser::parse(&contents).unwrap();
-    let _generated = rula_exec::codegen::generator::generate(&mut ast, args.ruleset).unwrap();
+    let _generated = rula_exec::codegen::generator::generate(&mut ast, args.ruleset, config).unwrap();
     if args.ruleset {
         println!("Generating RuleSet...");
     }

@@ -15,6 +15,7 @@ use rula_parser::parser::ast::*;
 use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
 use std::sync::Mutex;
+use std::path::PathBuf;
 use syn::Lit as SynLit;
 use syn::{LitFloat, LitStr};
 
@@ -32,7 +33,7 @@ static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
-pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool) -> IResult<TokenStream> {
+pub fn generate(ast_tree: &mut Vec<AstNode>, with_ruleset: bool, config_pathl: Option<PathBuf>) -> IResult<TokenStream> {
     // initialize all the global values (RULESET, RULE_TABLE)
     initialize_singleton();
 

@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream;
 use std::env;
 use std::fs::File;
+use std::path::PathBuf;
 use std::io::{Read, Write};
 use std::process::Command;
 
@@ -37,10 +38,12 @@ mod generate_swapping_rust {
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
         let mut ast = rula_parser::parse(&contents).unwrap();
-        // println!("{:#?}", &ast);
+        
+
+        let config_file_path = PathBuf::from("../examples/entanglement_swapping.toml");
 
         // 2. generate ruleset (provide ruleset flag)
-        let generated = rula_exec::codegen::generator::generate(&mut ast, true).unwrap();
+        let generated = rula_exec::codegen::generator::generate(&mut ast, true, Some(config_file_path)).unwrap();
         generate_token_stream_file(generated, "test2.rs");
         assert_eq!(1, 2);
     }
