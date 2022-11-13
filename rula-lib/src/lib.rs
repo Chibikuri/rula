@@ -184,8 +184,6 @@ pub mod sync {
 }
 
 pub mod rule {
-    use std::any::Any;
-
     use async_trait::async_trait;
 
     #[async_trait]
@@ -239,6 +237,10 @@ pub mod rule {
             self.filled = true;
             self.value = value;
             self.type_hint = type_hint;
+        }
+
+        pub fn resolved(&self) -> bool {
+            self.filled
         }
     }
 

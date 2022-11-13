@@ -63,6 +63,40 @@ pub fn generate(
     let generated_tests = helper::generate_test();
 
     let mut rule_names = vec![];
+    let mut unready_rule_names = vec![];
+    let mut unready_rule_checker = vec![];
+    let mut arg_list_generator = vec![];
+    let mut arg_resolvers = vec![];
+    for rname in rules.lock().unwrap().iter() {
+        let rname_unready = format_ident!("unready_{}", rname);
+        unready_rule_names.push(quote!(
+            #rname_unready(#rname_unready)
+        ));
+        rule_names.push(quote!(
+            ruleset.add_unready_rule(
+                String::from(#rname),
+                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new())
+            )
+        ));
+        unready_rule_checker.push(quote!(
+            UnreadyRules::#rname_unready(#rname_unready) => {
+                #rname_unready.argument_resolved()
+            },
+        ));
+
+        arg_list_generator.push(quote!(
+            UnreadyRules::#rname_unready(#rname_unready) => {
+                #rname_unready.arg_list()
+            },
+        ));
+
+        arg_resolvers.push(quote!(
+            UnreadyRules::#rname_unready(#rname_unready) => {
+                self.resolve_argument(arg_name, argument);
+            },
+        ));
+    }
+
     let config_gen = match config_path {
         Some(path) => {
             let config_name = match &ident_tracker.config_name {
@@ -76,34 +110,12 @@ pub fn generate(
                 Span::call_site(),
             ));
 
-            for rname in rules.lock().unwrap().iter() {
-                let rname_ident = format_ident!("{}", rname);
-                rule_names.push(quote!(
-                    ruleset.add_rule(
-                        |argument|{
-                            Box::new(rula::#rname_ident::new(Some(argument)))
-                        }
-                    )
-                ))
-            }
-
             quote!(
                 let mut config: rula::#config_name = toml::from_str(#path_lit).unwrap();
                 config.finalize();
-                ruleset.resolve_config(config);
             )
         }
         None => {
-            for rname in rules.lock().unwrap().iter() {
-                let rname_ident = format_ident!("{}", rname);
-                rule_names.push(quote!(
-                    ruleset.add_rule(
-                        ||{
-                            Box::new(rula::#rname_ident::new(None))
-                        }
-                    )
-                ))
-            }
             quote!()
         }
     };
@@ -126,14 +138,43 @@ pub fn generate(
             use tokio::time::{sleep, Duration};
             use rula_std::rule::*;
             use rula_std::prelude::*;
+            use rula_std::ruleset::ruleset::*;
+            use rula_std::ruleset::condition::*;
+            use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
             use async_trait::async_trait;
+            use log::warn;
+
+            pub enum UnreadyRules{
+                #(#unready_rule_names),*
+            }
+            impl UnreadyRules{
+                pub fn check_arg_resolved(&self) -> Option<Box<dyn Rulable>>{
+                    match &self{
+                        #(#unready_rule_checker)*
+                        _ => {panic!("No rule name found");}
+                    }
+                }
+                pub fn arg_list(&self) -> Vec<String>{
+                    match &self{
+                        #(#arg_list_generator)*
+                        _ => {panic!("No rule name found");}
+                    }
+                }
+                pub fn resolve_argument(&mut self, arg_name: &str, argument: Argument){
+                    match &self{
+                        #(#arg_resolvers)*
+                        _ => {panic!("No rule name found");}
+                    }
+                }
+            }
             #rula_program
         }
         pub async fn main(){
             rula::initialize_interface().await;
-            let mut ruleset = rula::RuleSet::init();
+            let mut ruleset = rula::RuleSetExec::init();
             #config_gen
             #(#rule_names);*;
+            ruleset.resolve_config(config);
             #ruleset_gen
         }
 
@@ -237,8 +278,11 @@ fn generate_config(
     let mut generated_items = vec![];
 
     let mut conf_keys = vec![];
+    let mut conf_key_match = vec![];
     for item in &mut *config_stmt.values {
-        generated_items.push(generate_config_item(item, ident_tracker, &mut conf_keys).unwrap())
+        generated_items.push(
+            generate_config_item(item, ident_tracker, &mut conf_keys, &mut conf_key_match).unwrap(),
+        )
     }
 
     ident_tracker.update_config_name(&*config_stmt.name.name);
@@ -255,6 +299,25 @@ fn generate_config(
                 self.__names = Some(HashSet::from_iter(keys.iter().cloned()));
                 self.__num_nodes = Some(#num_nodes)
             }
+            pub fn get_num_node(&self) -> u64{
+                match self.__num_nodes{
+                    Some(number) => {number},
+                    None => {
+                        warn!("No config for the number of nodes found. This might not be what you want. Add #config(#number)");
+                        return 0;
+                    }
+                }
+            }
+            pub fn get_as_arg(&self, config_val: &str, index: Option<usize>) -> Argument{
+                if self.__names.as_ref().expect("Unable to find config item names").contains(config_val){
+                    match config_val{
+                        #(#conf_key_match),*,
+                        _ => {panic!("This should not happen")}
+                    }
+                }else{
+                    panic!("No config value {} found", config_val);
+                }
+            }
         }
     ))
 }
@@ -263,16 +326,57 @@ fn generate_config_item(
     config_item: &mut ConfigItem,
     ident_tracker: &mut IdentTracker,
     conf_keys: &mut Vec<SynLit>,
+    conf_key_match: &mut Vec<TokenStream>,
 ) -> IResult<TokenStream> {
     if &config_item.value.name[0..1] == "__" {
         panic!("Invalid config name: {}", &config_item.value.name[0..1])
     }
-    conf_keys.push(SynLit::Str(LitStr::new(
-        &config_item.value.name,
-        Span::call_site(),
-    )));
+    let conf_key_str = SynLit::Str(LitStr::new(&config_item.value.name, Span::call_site()));
+    conf_keys.push(conf_key_str.clone());
+
+    let value_type = &*config_item.type_def;
     let value_name = generate_ident(&*config_item.value, ident_tracker, false).unwrap();
     let type_def = generate_type_hint(&*config_item.type_def).unwrap();
+    // FIXME: shold make another helper function here
+    let (arg_val_token, type_hint_token) =
+        helper::arg_val_type_token_gen(&Ident::new("", Some(value_type.clone()), IdentType::Other));
+
+    // If this config value is vector, and the index is specified,
+    // This argument is expanded
+    match value_type {
+        TypeDef::Vector(vec_contents) => {
+            let (arg_val_token_in_vec, type_hint_token_in_vec) = helper::arg_val_type_token_gen(
+                &Ident::new("", Some(*vec_contents.clone()), IdentType::Other),
+            );
+            conf_key_match.push(
+                quote!(
+                    #conf_key_str => {
+                        let mut arg = Argument::init();
+                        match index{
+                            Some(ind) => {
+                                arg.add_argument(ArgVal::#arg_val_token_in_vec(self.#value_name[ind].clone()), #type_hint_token_in_vec);
+                                arg
+                            },
+                            None => {
+                                arg.add_argument(ArgVal::#arg_val_token(self.#value_name.clone()), #type_hint_token);
+                                arg
+                            }
+                        }
+                    }
+                )
+            )
+        }
+        _ => {
+            conf_key_match.push(quote!(
+                #conf_key_str => {
+                    let mut arg = Argument::init();
+                    arg.add_argument(ArgVal::#arg_val_token(self.#value_name), #type_hint_token);
+                    arg
+                }
+            ));
+        }
+    }
+
     Ok(quote!(pub #value_name: #type_def))
 }
 /// Generate 'let' statement
@@ -847,8 +951,13 @@ fn generate_ruleset_expr(
             (
                 quote!(config: #name),
                 quote!(
-                    pub fn resolve_config(&mut self, configs: #name){
-
+                    pub fn resolve_config(&mut self, config: #name){
+                        for (_, rule) in &mut self.unready_rules{
+                            for arg in &mut rule.arg_list(){
+                                let argument = config.get_as_arg(arg, None);
+                                rule.resolve_argument(arg, argument);
+                            }
+                        }
                     }
                 ),
             )
@@ -858,33 +967,55 @@ fn generate_ruleset_expr(
 
     // 2. Generate RuleSet executable here
     Ok(quote!(
-        pub struct RuleSet {
+        // pub struct RuleSetExec <F: std::marker::Copy>
+        // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
+        pub struct RuleSetExec
+        {
             name: String,
-            rules: Vec<Box<dyn Rulable>>,
+            unready_rules: HashMap<String, UnreadyRules>,
+            rules: HashMap<String, Box<dyn Rulable>>,
             rule_arguments: Vec<HashMap<String, Argument>>
         }
-        impl RuleSet {
+        // impl <F: std::marker::Copy>RuleSetExec <F>
+        // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
+        impl RuleSetExec
+        {
             pub fn init() -> Self{
-                RuleSet{
+                RuleSetExec{
                     name: #ruleset_name.to_string(),
-                    rules: vec![],
+                    unready_rules: HashMap::new(),
+                    rules: HashMap::new(),
                     rule_arguments: vec![],
                     // #conf_def,
                 }
             }
-            pub fn add_rule<F: std::marker::Copy>(&mut self, rule: F)
-            where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>
+            // pub fn add_rule<F: std::marker::Copy>(&mut self, name: String, rule: F)
+            pub fn add_unready_rule(&mut self, name: String, rule: UnreadyRules)
             {
-                for arg in self.rule_arguments.iter(){
-                    self.rules.push(rule(arg.clone()));
+                self.unready_rules.insert(name, rule);
+            }
+
+            pub fn check_arg_resolved(&mut self){
+                for (rname, u_rule) in &self.unready_rules{
+                    match u_rule.check_arg_resolved(){
+                        Some(resolved_rule) => {
+                            self.rules.insert(rname.to_string(), resolved_rule);
+                        },
+                        None => {
+
+                        }
+                    }
                 }
             }
 
             #config
 
-            pub fn gen_ruleset(&self){}
+            pub fn gen_ruleset(&self) -> RuleSet<ActionClausesV2>{
+                let mut ruleset = RuleSet::<ActionClausesV2>::new(&self.name);
+                ruleset
+            }
 
-            pub async fn execte(&self){}
+            pub async fn execute(&self){}
         }
     ))
 }
@@ -960,12 +1091,11 @@ fn generate_rule(
         let arg_string = SynLit::Str(LitStr::new(&arg.name, Span::call_site()));
         generated_args.push(arg_string.clone());
 
-        let gen_ident = format_ident!("{}", &*arg.name);
-        let (val_type, gen_type_hint) = helper::arg_val_type_token_gen(&arg);
+        // let gen_ident = format_ident!("{}", &*arg.name);
+        // let (val_type, gen_type_hint) = helper::arg_val_type_token_gen(&arg);
         argument_adder.push(quote!(
-                let mut arg = Argument::init();
-                arg.add_argument(ArgVal::#val_type(config_content.#gen_ident), #gen_type_hint);
-                argument_map.insert(#arg_string.to_string(), arg.clone());
+                let arg = Argument::init();
+                empty_argument.insert(#arg_string.to_string(), arg);
         ))
     }
 
@@ -980,30 +1110,63 @@ fn generate_rule(
 
     // RuLa runtime generation
     let rule_name_token = generate_ident(rule_name, ident_tracker, false).unwrap();
-
+    let unready_rule_name_token = format_ident!("unready_{}", &*rule_name.name);
     Ok(quote!(
         pub struct #rule_name_token{
             interfaces: Vec<String>,
             arguments: HashMap<String, Argument>,
         }
-        impl #rule_name_token{
+
+        pub struct #unready_rule_name_token{
+            interfaces: Vec<String>,
+            arguments: HashMap<String, Argument>,
+        }
+
+        impl #unready_rule_name_token{
             // pub fn new(args_from_prev_rule: Option<HashMap<String, Argument>>, config: Option<&CONFIG>) -> Self{
-            pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
-                match arguments{
-                    Some(args) =>{
-                        #rule_name_token{
-                            interfaces: vec![#(#interface_idents), *],
-                            arguments: args
-                        }
-                    }
-                    None => {
-                        #rule_name_token{
-                            interfaces: vec![#(#interface_idents), *],
-                            arguments: HashMap::new()
-                        }
-                    }
+            // pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
+            pub fn new() -> Self{
+                // 1. prepare empty arguments based on arugment list
+                let mut empty_argument = HashMap::new();
+                #(#argument_adder);*;
+                // 2. return structure
+                #unready_rule_name_token{
+                    interfaces: vec![#(#interface_idents), *],
+                    arguments: empty_argument,
                 }
             }
+
+            pub fn argument_resolved(&self) -> Option<Box<dyn Rulable>> {
+                for (_, arg) in &self.arguments{
+                    if !arg.resolved(){
+                        return None;
+                    }
+                }
+                Some(
+                    Box::new(
+                    #rule_name_token{
+                        interfaces: self.interfaces.clone(),
+                        arguments: self.arguments.clone(),
+                    }))
+            }
+
+            pub fn arg_exist(&self, arg_name: &str)-> bool {
+                self.arguments.contains_key(arg_name)
+            }
+
+            pub fn resolve_argument(&mut self, arg_name: &str, new_arg: Argument){
+                let mut arg = self.arguments.get_mut(arg_name).expect("Unable to find argument");
+                *arg = new_arg
+            }
+
+            pub fn arg_list(&self) -> Vec<String>{
+                let mut arg_vec = vec![];
+                for (arg, _) in &self.arguments{
+                    arg_vec.push(arg.clone());
+                }
+                arg_vec
+            }
+
         }
         #[async_trait]
         impl Rulable for #rule_name_token{

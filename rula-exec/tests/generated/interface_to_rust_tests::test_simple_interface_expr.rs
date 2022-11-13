@@ -4,17 +4,45 @@ use rula_lib as rula_std;
 mod rula {
     use super::*;
     use async_trait::async_trait;
-    use once_cell::sync::OnceCell;
+    use log::warn;
     use rula_std::prelude::*;
-    use rula_std::qnic::QnicInterface;
-    use rula_std::qubit::QubitInterface;
     use rula_std::rule::*;
+    use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
+    use rula_std::ruleset::condition::*;
+    use rula_std::ruleset::ruleset::*;
     use serde::{Deserialize, Serialize};
-    use std::collections::HashMap;
     use std::collections::HashSet;
     use std::iter::FromIterator;
-    use tokio::sync::Mutex;
     use tokio::time::{sleep, Duration};
+    pub enum UnreadyRules {}
+    impl UnreadyRules {
+        pub fn check_arg_resolved(&self) -> Option<Box<dyn Rulable>> {
+            match &self {
+                _ => {
+                    panic!("No rule name found");
+                }
+            }
+        }
+        pub fn arg_list(&self) -> Vec<String> {
+            match &self {
+                _ => {
+                    panic!("No rule name found");
+                }
+            }
+        }
+        pub fn resolve_argument(&mut self, arg_name: &str, argument: Argument) {
+            match &self {
+                _ => {
+                    panic!("No rule name found");
+                }
+            }
+        }
+    }
+    use once_cell::sync::OnceCell;
+    use rula_std::qnic::QnicInterface;
+    use rula_std::qubit::QubitInterface;
+    use std::collections::HashMap;
+    use tokio::sync::Mutex;
     pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
     pub async fn initialize_interface() {
         assert!(INTERFACES.get().is_none());
@@ -31,7 +59,8 @@ mod rula {
 }
 pub async fn main() {
     rula::initialize_interface().await;
-    let mut ruleset = rula::RuleSet::init();
+    let mut ruleset = rula::RuleSetExec::init();
+    ruleset.resolve_config(config);
 }
 #[cfg(test)]
 mod tests {

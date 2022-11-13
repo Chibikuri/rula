@@ -121,7 +121,6 @@ fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
 fn build_ast_from_config_item(pair: Pair<Rule>) -> IResult<ConfigItem> {
     let mut config_item = ConfigItem::place_holder();
     for block in pair.into_inner() {
-        println!("block {:#?}", block);
         match block.as_rule() {
             Rule::ident => {
                 config_item.update_name(build_ast_from_ident(block).unwrap());
