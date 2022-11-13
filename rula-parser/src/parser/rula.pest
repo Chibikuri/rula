@@ -11,7 +11,7 @@ stmt = { interface_def | config_def | let_stmt | brace_stmt | expr }
 interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 
 // config def
-config_def = {"#config: " ~ "{" ~ config_item? ~ ("," ~ config_item)* ~ ","? ~ "}" ~ ("=>" ~ ident)? ~ ";"}
+config_def = {"#config: " ~ "(" ~ int ~ ")" ~"{" ~ config_item? ~ ("," ~ config_item)* ~ ","? ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 config_item = { ident ~ ":" ~ typedef_lit}
 // Variable assignment
 let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ expr )? ~ ";" }

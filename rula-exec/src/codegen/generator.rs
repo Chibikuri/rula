@@ -17,7 +17,7 @@ use proc_macro2::{Span, TokenStream};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use syn::Lit as SynLit;
-use syn::{LitFloat, LitStr};
+use syn::{LitFloat, LitInt, LitStr};
 
 // These are used but only in quote! macro
 #[allow(unused_imports)]
@@ -63,13 +63,6 @@ pub fn generate(
     let generated_tests = helper::generate_test();
 
     let mut rule_names = vec![];
-    for rname in rules.lock().unwrap().iter() {
-        let rname_ident = format_ident!("{}", rname);
-        rule_names.push(quote!(
-            ruleset.add_rule(Box::new(rula::#rname_ident::new()))
-        ))
-    }
-
     let config_gen = match config_path {
         Some(path) => {
             let config_name = match &ident_tracker.config_name {
@@ -82,12 +75,35 @@ pub fn generate(
                 &path.into_os_string().into_string().unwrap(),
                 Span::call_site(),
             ));
+
+            for rname in rules.lock().unwrap().iter() {
+                let rname_ident = format_ident!("{}", rname);
+                rule_names.push(quote!(
+                    ruleset.add_rule(
+                        |argument|{
+                            Box::new(rula::#rname_ident::new(Some(argument)))
+                        }
+                    )
+                ))
+            }
+
             quote!(
-                let config: rula::#config_name = toml::from_str(#path_lit).unwrap();
+                let mut config: rula::#config_name = toml::from_str(#path_lit).unwrap();
+                config.finalize();
                 ruleset.resolve_config(config);
             )
         }
         None => {
+            for rname in rules.lock().unwrap().iter() {
+                let rname_ident = format_ident!("{}", rname);
+                rule_names.push(quote!(
+                    ruleset.add_rule(
+                        ||{
+                            Box::new(rula::#rname_ident::new(None))
+                        }
+                    )
+                ))
+            }
             quote!()
         }
     };
@@ -104,7 +120,10 @@ pub fn generate(
         #[allow(unused)]
         mod rula{
             use super::*;
+            use std::collections::HashSet;
+            use std::iter::FromIterator;
             use serde::{Deserialize, Serialize};
+            use tokio::time::{sleep, Duration};
             use rula_std::rule::*;
             use rula_std::prelude::*;
             use async_trait::async_trait;
@@ -113,8 +132,8 @@ pub fn generate(
         pub async fn main(){
             rula::initialize_interface().await;
             let mut ruleset = rula::RuleSet::init();
-            #(#rule_names);*;
             #config_gen
+            #(#rule_names);*;
             #ruleset_gen
         }
 
@@ -214,17 +233,28 @@ fn generate_config(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     let config_name = generate_ident(&*config_stmt.name, ident_tracker, false).unwrap();
+    let num_nodes = SynLit::Int(LitInt::new(&*config_stmt.num_node, Span::call_site()));
     let mut generated_items = vec![];
 
+    let mut conf_keys = vec![];
     for item in &mut *config_stmt.values {
-        generated_items.push(generate_config_item(item, ident_tracker).unwrap())
+        generated_items.push(generate_config_item(item, ident_tracker, &mut conf_keys).unwrap())
     }
 
     ident_tracker.update_config_name(&*config_stmt.name.name);
     Ok(quote!(
         #[derive(Debug, Serialize, Deserialize)]
         pub struct #config_name{
-            #(#generated_items),*
+            #(#generated_items),*,
+            __names: Option<HashSet<String>>,
+            __num_nodes: Option<u64>,
+        }
+        impl #config_name{
+            pub fn finalize(&mut self){
+                let keys = vec![#(#conf_keys.to_string()),*];
+                self.__names = Some(HashSet::from_iter(keys.iter().cloned()));
+                self.__num_nodes = Some(#num_nodes)
+            }
         }
     ))
 }
@@ -232,10 +262,18 @@ fn generate_config(
 fn generate_config_item(
     config_item: &mut ConfigItem,
     ident_tracker: &mut IdentTracker,
+    conf_keys: &mut Vec<SynLit>,
 ) -> IResult<TokenStream> {
+    if &config_item.value.name[0..1] == "__" {
+        panic!("Invalid config name: {}", &config_item.value.name[0..1])
+    }
+    conf_keys.push(SynLit::Str(LitStr::new(
+        &config_item.value.name,
+        Span::call_site(),
+    )));
     let value_name = generate_ident(&*config_item.value, ident_tracker, false).unwrap();
     let type_def = generate_type_hint(&*config_item.type_def).unwrap();
-    Ok(quote!(#value_name: #type_def))
+    Ok(quote!(pub #value_name: #type_def))
 }
 /// Generate 'let' statement
 ///
@@ -763,10 +801,6 @@ fn generate_ruleset_expr(
     // Get meta information for this RuleSet
     let ruleset_name = &*ruleset_expr.name.name;
 
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Failed to get Ruleset factory");
-
     let rules = RULES.get().expect("Failed to get Rule table");
 
     // Closure that gets rule_name and evaluate if the rule is inside the table or not
@@ -776,11 +810,13 @@ fn generate_ruleset_expr(
             // Ordinary Rule call (e.g. swapping_rule())
             RuleIdentifier::FnCall(fn_call_expr) => {
                 // Rule without any return values
-                // rule_add_evaluater(&*fn_call_expr.func_name.name).unwrap();
                 rules
                     .lock()
                     .unwrap()
                     .push(String::from(&*fn_call_expr.func_name.name));
+
+                // get argument name
+                // let rule_argument = &fn_call_expr.arguments;
             }
             RuleIdentifier::Let(let_stmt) => {
                 // Rule with return value
@@ -802,41 +838,53 @@ fn generate_ruleset_expr(
     }
     // Replace all the TBD information with configed values
     // Expand Config here
-    let config = match &*ruleset_expr.config {
+    let (conf_def, config) = match &*ruleset_expr.config {
         Some(conf_name) => {
             if Some(String::from(&*conf_name.name)) != ident_tracker.config_name {
                 return Err(RuLaCompileError::NoConfigFound);
             }
             let name = generate_ident(conf_name, ident_tracker, false).unwrap();
-            quote!(
-                pub fn resolve_config(&mut self, config: #name){
+            (
+                quote!(config: #name),
+                quote!(
+                    pub fn resolve_config(&mut self, configs: #name){
 
-                }
+                    }
+                ),
             )
         }
-        None => {
-            quote!()
-        }
+        None => (quote!(), quote!()),
     };
 
     // 2. Generate RuleSet executable here
     Ok(quote!(
         pub struct RuleSet {
+            name: String,
             rules: Vec<Box<dyn Rulable>>,
+            rule_arguments: Vec<HashMap<String, Argument>>
         }
         impl RuleSet {
             pub fn init() -> Self{
                 RuleSet{
+                    name: #ruleset_name.to_string(),
                     rules: vec![],
+                    rule_arguments: vec![],
+                    // #conf_def,
                 }
             }
-            pub fn add_rule(&mut self, rule: Box<dyn Rulable>){
-                self.rules.push(rule);
+            pub fn add_rule<F: std::marker::Copy>(&mut self, rule: F)
+            where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>
+            {
+                for arg in self.rule_arguments.iter(){
+                    self.rules.push(rule(arg.clone()));
+                }
             }
 
             #config
 
             pub fn gen_ruleset(&self){}
+
+            pub async fn execte(&self){}
         }
     ))
 }
@@ -898,6 +946,7 @@ fn generate_rule(
         .add_rule(&rule_name_string, rule);
 
     let mut generated_args = vec![];
+    let mut argument_adder = vec![];
     for arg in &mut rule_expr.args {
         ruleset_factory
             .lock()
@@ -908,7 +957,16 @@ fn generate_rule(
             Identifier::new(IdentType::RuleArgument, helper::type_filler(&arg)),
         );
         arg.update_ident_type(IdentType::RuleArgument);
-        generated_args.push(SynLit::Str(LitStr::new(&arg.name, Span::call_site())));
+        let arg_string = SynLit::Str(LitStr::new(&arg.name, Span::call_site()));
+        generated_args.push(arg_string.clone());
+
+        let gen_ident = format_ident!("{}", &*arg.name);
+        let (val_type, gen_type_hint) = helper::arg_val_type_token_gen(&arg);
+        argument_adder.push(quote!(
+                let mut arg = Argument::init();
+                arg.add_argument(ArgVal::#val_type(config_content.#gen_ident), #gen_type_hint);
+                argument_map.insert(#arg_string.to_string(), arg.clone());
+        ))
     }
 
     // 2. Generate executable Rule
@@ -926,17 +984,24 @@ fn generate_rule(
     Ok(quote!(
         pub struct #rule_name_token{
             interfaces: Vec<String>,
-            arguments: HashMap<String, Argument>
+            arguments: HashMap<String, Argument>,
         }
         impl #rule_name_token{
-            pub fn new() -> Self{
-                let mut argument_map = HashMap::new();
-                for i in vec![#(#generated_args),*]{
-                    argument_map.insert(i.to_string(), Argument::init());
-                }
-                #rule_name_token{
-                    interfaces: vec![#(#interface_idents), *],
-                    arguments: argument_map
+            // pub fn new(args_from_prev_rule: Option<HashMap<String, Argument>>, config: Option<&CONFIG>) -> Self{
+            pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
+                match arguments{
+                    Some(args) =>{
+                        #rule_name_token{
+                            interfaces: vec![#(#interface_idents), *],
+                            arguments: args
+                        }
+                    }
+                    None => {
+                        #rule_name_token{
+                            interfaces: vec![#(#interface_idents), *],
+                            arguments: HashMap::new()
+                        }
+                    }
                 }
             }
         }
@@ -989,6 +1054,7 @@ fn generate_rule_content(
                 if done{
                     break;
                 }
+                sleep(Duration::from_micros(100));
             }
         }
     ))
@@ -1003,7 +1069,6 @@ fn generate_watch(
     // e.g.
     // watch:
     //      let qubit = qn0.get_qubit();
-
     let mut generated_watch = vec![];
     // let mut watched_values = vec![];
     match rule_name {
@@ -1269,7 +1334,11 @@ fn generate_ident(
             TypeHint::Str => Ok(quote!(#ident_contents.eval_str())),
             TypeHint::Boolean => Ok(quote!(#ident_contents.eval_bool())),
             TypeHint::Qubit => Ok(quote!(#ident_contents)),
-            TypeHint::Vector => Ok(quote!(#ident_contents)),
+            TypeHint::StrVector => Ok(quote!(#ident_contents.eval_str_vec())),
+            TypeHint::I64Vector => Ok(quote!(#ident_contents.eval_i64_vec())),
+            TypeHint::F64Vector => Ok(quote!(#ident_contents.eval_f64_vec())),
+            TypeHint::U64Vector => Ok(quote!(#ident_contents.eval_u64_vec())),
+            TypeHint::BoolVector => Ok(quote!(#ident_contents.eval_bool_vec())),
             TypeHint::Unknown => Ok(quote!(#ident_contents)),
             _ => {
                 todo!("{:#?}", ident)
@@ -1343,12 +1412,90 @@ pub mod helper {
                     TypeDef::UnsignedInteger32 => TypeHint::UnsignedInteger64,
                     TypeDef::UnsignedInteger64 => TypeHint::UnsignedInteger64,
                     TypeDef::Boolean => TypeHint::Boolean,
+                    TypeDef::Vector(inner) => match &**inner {
+                        TypeDef::Integer32 => TypeHint::I64Vector,
+                        TypeDef::Integer64 => TypeHint::I64Vector,
+                        TypeDef::Float32 => TypeHint::F64Vector,
+                        TypeDef::Float64 => TypeHint::F64Vector,
+                        TypeDef::Str => TypeHint::StrVector,
+                        TypeDef::UnsignedInteger32 => TypeHint::U64Vector,
+                        TypeDef::UnsignedInteger64 => TypeHint::U64Vector,
+                        TypeDef::Boolean => TypeHint::BoolVector,
+                        _ => todo!(),
+                    },
                     _ => {
                         todo!("Other type conversion is not yet implemented {:#?}", hint)
                     }
                 }
             }
             None => TypeHint::Unknown,
+        }
+    }
+
+    pub fn arg_val_type_token_gen(ident: &Ident) -> (TokenStream, TokenStream) {
+        match &*ident.type_hint {
+            Some(hint) => {
+                match hint {
+                    // Convert to available type
+                    TypeDef::Integer32 => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
+                    TypeDef::Integer64 => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
+                    TypeDef::Float32 => (quote!(Float64), quote!(LibTypeHint::Float64)),
+                    TypeDef::Float64 => (quote!(Float64), quote!(LibTypeHint::Float64)),
+                    TypeDef::Str => (quote!(Str), quote!(LibTypeHint::Str)),
+                    TypeDef::UnsignedInteger32 => (
+                        quote!(UnsignedInteger64),
+                        quote!(LibTypeHint::UnsignedInteger64),
+                    ),
+                    TypeDef::UnsignedInteger64 => (
+                        quote!(UnsignedInteger64),
+                        quote!(LibTypeHint::UnsignedInteger64),
+                    ),
+                    TypeDef::Boolean => (quote!(Boolean), quote!(TypeHint::Boolean)),
+                    TypeDef::Vector(content_type) => match &**content_type {
+                        TypeDef::Integer32 => (
+                            quote!(I64Vector),
+                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Integer64))),
+                        ),
+                        TypeDef::Integer64 => (
+                            quote!(I64Vector),
+                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Integer64))),
+                        ),
+                        TypeDef::UnsignedInteger32 => (
+                            quote!(U64Vector),
+                            quote!(LibTypeHint::Vector(Box::new(
+                                LibTypeHint::UnsignedInteger64
+                            ))),
+                        ),
+                        TypeDef::UnsignedInteger64 => (
+                            quote!(U64Vector),
+                            quote!(LibTypeHint::Vector(Box::new(
+                                LibTypeHint::UnsignedInteger64
+                            ))),
+                        ),
+                        TypeDef::Float32 => (
+                            quote!(F64Vector),
+                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Float64))),
+                        ),
+                        TypeDef::Float64 => (
+                            quote!(F64Vector),
+                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Float64))),
+                        ),
+                        TypeDef::Str => (
+                            quote!(StrVector),
+                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Str))),
+                        ),
+                        TypeDef::Boolean => (
+                            quote!(BoolVector),
+                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Boolean))),
+                        ),
+                        _ => todo!(),
+                    },
+                    _ => {
+                        todo!("Other type conversion is not yet implemented {:#?}", hint)
+                    }
+                }
+            }
+            None => (quote!(), quote!(TypeHint::Unknown)),
         }
     }
 }

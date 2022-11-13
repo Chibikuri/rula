@@ -103,6 +103,9 @@ fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
     let mut config_def = Config::place_holder();
     for config_block in pair.into_inner() {
         match config_block.as_rule() {
+            Rule::int => {
+                config_def.update_num_node(config_block.as_str());
+            }
             Rule::config_item => {
                 config_def.add_value(build_ast_from_config_item(config_block).unwrap());
             }
@@ -552,7 +555,9 @@ fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ruleset_config => {
-                ruleset_expr.add_config_name(Some(build_ast_from_ident(block.into_inner().next().unwrap()).unwrap()));
+                ruleset_expr.add_config_name(Some(
+                    build_ast_from_ident(block.into_inner().next().unwrap()).unwrap(),
+                ));
             }
             Rule::ident => {
                 ruleset_expr.add_name(build_ast_from_ident(block).unwrap());

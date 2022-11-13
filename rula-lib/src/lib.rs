@@ -6,11 +6,10 @@ pub mod prelude {
 }
 
 pub mod message {
-    use std::net::IpAddr;
-
-    use crate::result::{MeasResult, QResult};
-
     use super::qnic::QnicInterface;
+    use crate::result::{MeasResult, QResult};
+    use serde::{Deserialize, Serialize};
+    use std::net::IpAddr;
 
     pub fn Message(kind: &str, src_qnic: &QnicInterface, dst_qnic: &QnicInterface) -> Message {
         Message::new(
@@ -25,7 +24,7 @@ pub mod message {
             },
         )
     }
-    #[derive(Debug, Clone)]
+    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct Message {
         pub kind: String,
         pub src: IpAddr,
@@ -63,11 +62,19 @@ pub mod qnic {
 
     use super::message::Message;
     use super::qubit::QubitInterface;
+    use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
-    use std::hash::Hash;
     use std::net::{IpAddr, Ipv4Addr};
 
-    #[derive(Clone, Debug)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum QnicType {
+        QnicE,
+        QnicP,
+        QnicRp,
+        QnicN, // place holder
+    }
+
+    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QnicInterface {
         name: String,
         pub address: IpAddr,
@@ -117,9 +124,14 @@ pub mod qnic {
     }
 }
 pub mod qubit {
-    #[derive(Debug, Clone)]
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QubitInterface {}
     impl QubitInterface {
+        pub fn new() -> Self {
+            QubitInterface {}
+        }
         pub async fn ready(&self) -> bool {
             true
         }
@@ -130,6 +142,7 @@ pub mod qubit {
 
 pub mod result {
     use super::qubit::QubitInterface;
+    use serde::{Deserialize, Serialize};
     pub fn Result(qubit: &QubitInterface) -> QResult {
         QResult {
             result: MeasResult {
@@ -138,12 +151,13 @@ pub mod result {
             },
         }
     }
-    #[derive(Clone, Debug)]
+
+    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QResult {
         pub result: MeasResult,
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct MeasResult {
         pub qubit_address: u32,
         pub output: String,
@@ -170,6 +184,8 @@ pub mod sync {
 }
 
 pub mod rule {
+    use std::any::Any;
+
     use async_trait::async_trait;
 
     #[async_trait]
@@ -183,7 +199,7 @@ pub mod rule {
     pub struct Argument {
         pub filled: bool,
         pub value: ArgVal,
-        pub type_hint: TypeHint,
+        pub type_hint: LibTypeHint,
     }
 
     // TODO: Argument func should be more flex
@@ -193,7 +209,7 @@ pub mod rule {
             Argument {
                 filled: false,
                 value: ArgVal::PlaceHolder,
-                type_hint: TypeHint::Unknown,
+                type_hint: LibTypeHint::Unknown,
             }
         }
 
@@ -213,11 +229,22 @@ pub mod rule {
             self.value.eval_bool()
         }
 
+        // pub fn eval_u64_vec(&self) -> Vec<u>
+
         pub fn eval_unsigned_int64(&self) -> u64 {
             self.value.eval_unsigned_int64()
         }
+
+        pub fn add_argument(&mut self, value: ArgVal, type_hint: LibTypeHint) {
+            self.filled = true;
+            self.value = value;
+            self.type_hint = type_hint;
+        }
     }
 
+    // TODO: Should think of using generics here for vector contents,
+    // But this makes another complexity for generated code.
+    // For now, this has so many vector types inside
     #[derive(Debug, Clone, PartialEq)]
     pub enum ArgVal {
         Str(String),
@@ -225,16 +252,22 @@ pub mod rule {
         Float64(f64),
         UnsignedInteger64(u64),
         Boolean(bool),
+        StrVector(Vec<String>),
+        I64Vector(Vec<i64>),
+        F64Vector(Vec<f64>),
+        U64Vector(Vec<u64>),
+        BoolVector(Vec<bool>),
         PlaceHolder,
     }
 
     #[derive(Debug, Clone, PartialEq)]
-    pub enum TypeHint {
+    pub enum LibTypeHint {
         Str,
-        Int64,
-        UnsignedInt64,
+        Inteter64,
+        UnsignedInteger64,
         Float64,
         Boolean,
+        Vector(Box<LibTypeHint>),
         Unknown,
     }
 
@@ -274,5 +307,45 @@ pub mod rule {
                 _ => panic!("This needs to be a boolean"),
             }
         }
+
+        pub fn eval_str_vec(&self) -> Vec<String> {
+            match self {
+                ArgVal::StrVector(str_vec) => str_vec.to_vec(),
+                _ => panic!("This needs to be a vector"),
+            }
+        }
+
+        pub fn eval_i64_vec(&self) -> Vec<i64> {
+            match self {
+                ArgVal::I64Vector(i64vec) => i64vec.to_vec(),
+                _ => panic!("This needs to be integer 64 vector"),
+            }
+        }
+        pub fn eval_f64_vec(&self) -> Vec<f64> {
+            match self {
+                ArgVal::F64Vector(f64vec) => f64vec.to_vec(),
+                _ => panic!("This needs to be float 64 vector"),
+            }
+        }
+
+        pub fn eval_u64vec(&self) -> Vec<u64> {
+            match self {
+                ArgVal::U64Vector(u64vec) => u64vec.to_vec(),
+                _ => panic!("This needs to be unsigned integer 64 vector"),
+            }
+        }
+
+        pub fn eval_bool_vec(&self) -> Vec<bool> {
+            match self {
+                ArgVal::BoolVector(bool_vec) => bool_vec.to_vec(),
+                _ => panic!("This needs to be integer 64 vector"),
+            }
+        }
     }
+}
+
+pub mod ruleset {
+    pub mod action;
+    pub mod condition;
+    pub mod ruleset;
 }

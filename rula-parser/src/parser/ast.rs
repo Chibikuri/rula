@@ -142,13 +142,15 @@ pub enum StmtKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub name: Box<Ident>,
+    pub num_node: Box<String>,
     pub values: Vec<ConfigItem>,
 }
 
 impl Config {
-    pub fn new(name: Ident, values: Vec<ConfigItem>) -> Self {
+    pub fn new(name: Ident, num_node: String, values: Vec<ConfigItem>) -> Self {
         Config {
             name: Box::new(name),
+            num_node: Box::new(num_node),
             values: values,
         }
     }
@@ -156,8 +158,13 @@ impl Config {
     pub fn place_holder() -> Self {
         Config {
             name: Box::new(Ident::place_holder()),
+            num_node: Box::new(String::from("0")),
             values: vec![],
         }
+    }
+
+    pub fn update_num_node(&mut self, num_conf: &str) {
+        self.num_node = Box::new(String::from(num_conf));
     }
 
     pub fn update_config_name(&mut self, name: Ident) {
@@ -783,7 +790,7 @@ impl RuleSetExpr {
     pub fn add_name(&mut self, name: Ident) {
         self.name = Box::new(name);
     }
-    pub fn add_config_name(&mut self, name: Option<Ident>){
+    pub fn add_config_name(&mut self, name: Option<Ident>) {
         self.config = Box::new(name);
     }
     pub fn add_default(&mut self, default: Option<FnCall>) {

@@ -8,8 +8,8 @@ import std::operation::bsm;
 
 // This can also be defined by toml file
 // CONFIG includes node specific variables
-#config: {
-    distance: vec[u32],
+#config: (5){
+    distance: vec[u64],
 } => CONFIG;
 
 //rule default<qn0>() {

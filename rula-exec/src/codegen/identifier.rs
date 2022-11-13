@@ -53,7 +53,11 @@ pub enum TypeHint {
     Float64,
     Boolean,
     Qubit,
-    Vector,
+    StrVector,
+    I64Vector,
+    U64Vector,
+    F64Vector,
+    BoolVector,
     Unknown,
 }
 
