@@ -121,9 +121,20 @@ pub fn generate(
     };
 
     let ruleset_gen = if with_ruleset {
-        quote!(ruleset.gen_ruleset();)
+        quote!(let ruleset = ruleset.gen_ruleset();)
     } else {
         quote!()
+    };
+
+    let num_node = match &ident_tracker.num_node {
+        Some(number) => {
+            let num = SynLit::Int(LitInt::new(number, Span::call_site()));
+            quote!(#num)
+        }
+        None => {
+            let number = SynLit::Int(LitInt::new("1", Span::call_site()));
+            quote!(#number)
+        }
     };
 
     // All ast are supposed to be evaluated here
@@ -171,11 +182,15 @@ pub fn generate(
         }
         pub async fn main(){
             rula::initialize_interface().await;
-            let mut ruleset = rula::RuleSetExec::init();
-            #config_gen
-            #(#rule_names);*;
-            ruleset.resolve_config(config);
-            #ruleset_gen
+            let mut rulesets = vec![];
+            for i in 0..#num_node{
+                let mut ruleset = rula::RuleSetExec::init();
+                #config_gen
+                #(#rule_names);*;
+                ruleset.resolve_config(config, Some(i as usize));
+                #ruleset_gen
+                rulesets.push(ruleset);
+            }
         }
 
         #[cfg(test)]
@@ -286,6 +301,7 @@ fn generate_config(
     }
 
     ident_tracker.update_config_name(&*config_stmt.name.name);
+    ident_tracker.update_num_node(&config_stmt.num_node);
     Ok(quote!(
         #[derive(Debug, Serialize, Deserialize)]
         pub struct #config_name{
@@ -308,8 +324,13 @@ fn generate_config(
                     }
                 }
             }
+
+            pub fn key_exist(&self, value: &str) -> bool{
+                self.__names.as_ref().expect("Unable to find config item names").contains(value)
+
+            }
             pub fn get_as_arg(&self, config_val: &str, index: Option<usize>) -> Argument{
-                if self.__names.as_ref().expect("Unable to find config item names").contains(config_val){
+                if self.key_exist(config_val){
                     match config_val{
                         #(#conf_key_match),*,
                         _ => {panic!("This should not happen")}
@@ -951,10 +972,10 @@ fn generate_ruleset_expr(
             (
                 quote!(config: #name),
                 quote!(
-                    pub fn resolve_config(&mut self, config: #name){
+                    pub fn resolve_config(&mut self, config: #name, index: Option<usize>){
                         for (_, rule) in &mut self.unready_rules{
                             for arg in &mut rule.arg_list(){
-                                let argument = config.get_as_arg(arg, None);
+                                let argument = config.get_as_arg(arg, index);
                                 rule.resolve_argument(arg, argument);
                             }
                         }
@@ -1010,8 +1031,12 @@ fn generate_ruleset_expr(
 
             #config
 
-            pub fn gen_ruleset(&self) -> RuleSet<ActionClausesV2>{
+            pub fn gen_ruleset(&mut self) -> RuleSet<ActionClausesV2>{
                 let mut ruleset = RuleSet::<ActionClausesV2>::new(&self.name);
+
+                for (_, rule) in &self.rules{
+                    rule.gen_ruleset(&mut ruleset);
+                }
                 ruleset
             }
 
@@ -1171,6 +1196,9 @@ fn generate_rule(
         #[async_trait]
         impl Rulable for #rule_name_token{
             #generated
+
+            fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
+            }
         }
 
     ))

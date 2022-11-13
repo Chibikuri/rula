@@ -139,7 +139,6 @@ pub mod tests {
     use super::super::action::v2::ActionClauses;
     use super::super::action::Action;
     use super::*;
-    use std::net::Ipv4Addr;
 
     #[test]
     fn test_ruleset_new() {

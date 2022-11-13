@@ -8,6 +8,7 @@ pub struct IdentTracker {
     pub identifiers: HashMap<String, Identifier>,
     // Should have better way to track this
     pub config_name: Option<String>,
+    pub num_node: Option<String>,
 }
 
 impl IdentTracker {
@@ -15,6 +16,7 @@ impl IdentTracker {
         IdentTracker {
             identifiers: HashMap::new(),
             config_name: None,
+            num_node: None,
         }
     }
     pub fn register(&mut self, ident_name: &str, ident: Identifier) {
@@ -23,6 +25,10 @@ impl IdentTracker {
 
     pub fn update_config_name(&mut self, config_name: &str) {
         self.config_name = Some(String::from(config_name));
+    }
+
+    pub fn update_num_node(&mut self, num_node: &str) {
+        self.num_node = Some(String::from(num_node));
     }
 
     pub fn check_ident_type(&mut self, ident_name: &str) -> IdentType {

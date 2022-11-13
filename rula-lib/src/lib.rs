@@ -186,11 +186,15 @@ pub mod sync {
 pub mod rule {
     use async_trait::async_trait;
 
+    use crate::ruleset::ruleset::RuleSet;
+    use crate::ruleset::action::v2::ActionClauses;
+
     #[async_trait]
     pub trait Rulable {
         async fn condition(&self) -> bool;
         fn post_process(&self);
         async fn execute(&self);
+        fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClauses>);
     }
 
     #[derive(Debug, Clone, PartialEq)]

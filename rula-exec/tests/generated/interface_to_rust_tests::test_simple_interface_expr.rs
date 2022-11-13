@@ -59,8 +59,12 @@ mod rula {
 }
 pub async fn main() {
     rula::initialize_interface().await;
-    let mut ruleset = rula::RuleSetExec::init();
-    ruleset.resolve_config(config);
+    let mut rulesets = vec![];
+    for i in 0..1 {
+        let mut ruleset = rula::RuleSetExec::init();
+        ruleset.resolve_config(config, Some(i as usize));
+        rulesets.push(ruleset);
+    }
 }
 #[cfg(test)]
 mod tests {
