@@ -312,9 +312,15 @@ fn generate_stmt(
     in_static: bool,
 ) -> IResult<TokenStream> {
     let generated_stmt = match &mut *stmt.kind {
-        StmtKind::Let(let_stmt) => {
-            Ok(generate_let(let_stmt, rule_name, false, ident_tracker, in_static).unwrap())
-        }
+        StmtKind::Let(let_stmt) => Ok(generate_let(
+            let_stmt,
+            rule_name,
+            false,
+            ident_tracker,
+            in_static,
+            &mut vec![],
+        )
+        .unwrap()),
         StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
         StmtKind::Config(config) => Ok(generate_config(config, ident_tracker).unwrap()),
         StmtKind::Expr(expr) => {
@@ -460,6 +466,7 @@ fn generate_let(
     in_watch: bool,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
+    action_var_collection: &mut Vec<TokenStream>,
 ) -> IResult<TokenStream> {
     // RuleSet singleton to store ruleset information
     let ruleset_factory = RULESET_FACTORY
@@ -536,12 +543,16 @@ fn generate_let(
     if in_watch {
         if in_static {
             let static_identifier = format_ident!("{}", &*let_stmt.ident.name);
+            action_var_collection.push(quote!(#static_identifier));
             Ok(quote!(
                 let mut interface = INTERFACES
                     .get()
                     .expect("Unable to get interface")
                     .lock().await;
                     let mut #static_identifier = #expr.await;
+                    for condition in &#static_identifier.generated_conditions{
+                        self.condition_clauses.push(condition.clone());
+                    }
             ))
         } else {
             Ok(quote!(
@@ -555,6 +566,7 @@ fn generate_let(
     } else {
         if in_static {
             let static_identifier = format_ident!("{}", &*let_stmt.ident.name);
+            action_var_collection.push(quote!(#static_identifier));
             Ok(quote!(
                 let mut #static_identifier = #expr.clone();
             ))
@@ -1363,7 +1375,7 @@ fn generate_rule_content(
             }
         }
         #[doc = "No execution, but gen ruleset"]
-        async fn static_ruleset_gen(&self){
+        async fn static_ruleset_gen(&mut self){
             #static_cond
             #static_act
         }
@@ -1389,7 +1401,15 @@ fn generate_watch(
                 // watched_values.push(generate_ident(&value.ident).unwrap());
                 value.ident.update_ident_type(IdentType::WatchedValue);
                 generated_watch.push(
-                    generate_let(value, Some(&name), true, ident_tracker, in_static).unwrap(),
+                    generate_let(
+                        value,
+                        Some(&name),
+                        true,
+                        ident_tracker,
+                        in_static,
+                        &mut vec![],
+                    )
+                    .unwrap(),
                 );
                 // watch can be
             }
@@ -1518,8 +1538,17 @@ fn generate_act(
     for action in &mut act_expr.operatable {
         // TODO: Should integrate but for now, we need to know if there is ";" at the end
         match &mut *action.kind {
-            StmtKind::Let(let_stmt) => action_calls
-                .push(generate_let(let_stmt, rule_name, false, ident_tracker, false).unwrap()),
+            StmtKind::Let(let_stmt) => action_calls.push(
+                generate_let(
+                    let_stmt,
+                    rule_name,
+                    false,
+                    ident_tracker,
+                    false,
+                    &mut vec![],
+                )
+                .unwrap(),
+            ),
             _ => {
                 let generated = generate_stmt(action, rule_name, ident_tracker, false).unwrap();
                 action_calls.push(quote!(
@@ -1540,10 +1569,20 @@ fn generate_static_act(
 ) -> IResult<TokenStream> {
     let mut static_action_calls = vec![];
 
+    let mut action_collected = vec![];
     for action in &mut *action_expr.operatable {
         match &mut *action.kind {
-            StmtKind::Let(let_stmt) => static_action_calls
-                .push(generate_let(let_stmt, rule_name, false, ident_tracker, true).unwrap()),
+            StmtKind::Let(let_stmt) => static_action_calls.push(
+                generate_let(
+                    let_stmt,
+                    rule_name,
+                    false,
+                    ident_tracker,
+                    true,
+                    &mut action_collected,
+                )
+                .unwrap(),
+            ),
             _ => {
                 let generated = generate_stmt(action, rule_name, ident_tracker, true).unwrap();
                 static_action_calls.push(quote!(
@@ -1552,8 +1591,15 @@ fn generate_static_act(
             }
         }
     }
+    let mut final_action_collection = vec![];
+    for coll in action_collected {
+        final_action_collection.push(quote!(for action in &#coll.generated_actions {
+            self.action_clauses.push(action.clone())
+        }))
+    }
     Ok(quote!(
         #(#static_action_calls);*
+        #(#final_action_collection)*
     ))
 }
 

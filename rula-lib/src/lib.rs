@@ -44,6 +44,7 @@ pub mod message {
                     qubit_address: 0,
                     output: "00".to_string(),
                 },
+                generated_actions: vec![],
             },
         )
     }
@@ -62,6 +63,7 @@ pub mod message {
                     qubit_address: 0,
                     output: "00".to_string(),
                 },
+                generated_actions: vec![],
             },
         )
     }
@@ -72,7 +74,8 @@ pub mod message {
         pub dst: IpAddr,
         pub body: QResult,
 
-        generated_conditions: Vec<ConditionClauses>,
+        pub generated_conditions: Vec<ConditionClauses>,
+        pub generated_actions: Vec<ActionClauses>,    
     }
     impl Message {
         pub fn new(
@@ -88,6 +91,7 @@ pub mod message {
                 body: result,
 
                 generated_conditions: vec![],
+                generated_actions: vec![],
             }
         }
         pub fn append_body(&mut self, result: QResult) {}
@@ -142,8 +146,6 @@ pub mod qnic {
         messages: HashMap<String, Message>,
         // This will be deprecated
         routing_table: HashMap<u64, QnicInterface>,
-
-        generated_conditions: Vec<ConditionClauses>,
     }
     impl QnicInterface {
         pub fn place_holder() -> Self {
@@ -153,8 +155,6 @@ pub mod qnic {
                 qubit_interfaces: HashMap::new(),
                 messages: HashMap::new(),
                 routing_table: HashMap::new(),
-
-                generated_conditions: vec![],
             }
         }
         pub async fn request_resource(
@@ -170,8 +170,9 @@ pub mod qnic {
             number: u32,
             qnic_interface: QnicInterface,
         ) -> QubitInterface {
-            self.generated_conditions.push(ConditionClauses::Wait);
-            self.qubit_interfaces.get("").expect("msg").clone()
+            let qubit = self.qubit_interfaces.get_mut("").expect("msg");
+            qubit.generated_conditions.push(ConditionClauses::Wait);
+            qubit.clone()
         }
 
         pub async fn get_message(&self, src: &QnicInterface) -> Message {
@@ -185,12 +186,12 @@ pub mod qnic {
                         qubit_address: 0,
                         output: "00".to_string(),
                     },
+                    generated_actions: vec![]
                 },
             )
         }
 
         pub async fn __static__get_message(&mut self, src: QnicInterface) -> Message {
-            self.generated_conditions.push(ConditionClauses::Wait);
             let mut dest = QnicInterface::place_holder();
             Message::new(
                 "",
@@ -201,6 +202,7 @@ pub mod qnic {
                         qubit_address: 0,
                         output: "00".to_string(),
                     },
+                    generated_actions: vec![]
                 },
             )
         }
@@ -233,16 +235,18 @@ pub mod qubit {
     use super::*;
     use serde::{Deserialize, Serialize};
 
-    use crate::ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses};
+    use crate::ruleset::{action::{v2::ActionClauses, Action}, condition::v1::ConditionClauses};
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QubitInterface {
-        generated_conditions: Vec<ConditionClauses>,
+        pub generated_conditions: Vec<ConditionClauses>,
+        pub generated_actions: Vec<ActionClauses>,
     }
     impl QubitInterface {
         pub fn new() -> Self {
             QubitInterface {
                 generated_conditions: vec![],
+                generated_actions: vec![],
             }
         }
         pub async fn ready(&self) -> bool {
@@ -271,6 +275,7 @@ pub mod result {
                 qubit_address: 0,
                 output: "00".to_string(),
             },
+            generated_actions: vec![],
         }
     }
 
@@ -280,12 +285,15 @@ pub mod result {
                 qubit_address: 0,
                 output: "00".to_string(),
             },
+            generated_actions: vec![],
         }
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QResult {
         pub result: MeasResult,
+
+        pub generated_actions: Vec<ActionClauses>,
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
