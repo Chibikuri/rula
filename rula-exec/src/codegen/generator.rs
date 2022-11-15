@@ -100,13 +100,13 @@ pub fn generate(
 
         arg_resolvers.push(quote!(
             UnreadyRules::#rname_unready(#rname_unready) => {
-                self.resolve_argument(arg_name, argument);
+                #rname_unready.resolve_argument(arg_name, argument);
             },
         ));
 
         ruleset_gen_enum.push(quote!(
-            ReadyRules::#rname_ready(#rname_ready) => {
-                self.gen_ruleset(ruleset);
+            UnreadyRules::#rname_unready(#rname_unready) => {
+                #rname_unready.gen_ruleset(ruleset);
             },
         ))
     }
@@ -125,7 +125,8 @@ pub fn generate(
             ));
 
             quote!(
-                let mut config: rula::#config_name = toml::from_str(#path_lit).unwrap();
+                let content = fs::read_to_string(#path_lit).unwrap();
+                let mut config: rula::#config_name = toml::from_str(&content).unwrap();
                 config.finalize();
             )
         }
@@ -135,7 +136,10 @@ pub fn generate(
     };
 
     let ruleset_gen = if with_ruleset {
-        quote!(let ruleset = ruleset.gen_ruleset();)
+        quote!(
+            let ruleset = ruleset.gen_ruleset();
+            println!("{:#?}", ruleset);
+        )
     } else {
         quote!()
     };
@@ -154,6 +158,7 @@ pub fn generate(
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
+        use std::fs;
         #[allow(unused)]
         mod rula{
             use super::*;
@@ -171,6 +176,7 @@ pub fn generate(
             use rula_std::operation::*;
             use rula_std::ruleset::ruleset::*;
             use rula_std::ruleset::condition::*;
+            use rula_std::ruleset::action::Action;
             use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
             use rula_std::ruleset::condition::v1::ConditionClauses;
             use tokio::sync::Mutex;
@@ -199,9 +205,15 @@ pub fn generate(
                     }
                 }
                 pub fn resolve_argument(&mut self, arg_name: &str, argument: Argument){
-                    match &self{
+                    match self{
                         #(#arg_resolvers)*
                         _ => {panic!("No rule name found");}
+                    }
+                }
+                pub fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
+                    match self{
+                        #(#ruleset_gen_enum)*
+                        _ => {panic!("No rule name found")}
                     }
                 }
             }
@@ -209,15 +221,6 @@ pub fn generate(
 
             pub enum ReadyRules{
                 #(#ready_rule_names),*
-            }
-
-            impl ReadyRules{
-                pub fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
-                    match self{
-                        #(#ruleset_gen_enum)*
-                        _ => {panic!("No rule name found")}
-                    }
-                }
             }
 
             #rula_program
@@ -229,7 +232,7 @@ pub fn generate(
             for i in 0..#num_node{
                 let mut ruleset = rula::RuleSetExec::init();
                 #(#rule_names);*;
-                ruleset.resolve_config(&config, Some(i as usize));
+                ruleset.resolve_config(Box::new(&config), Some(i as usize));
                 #ruleset_gen
                 rulesets.push(ruleset);
             }
@@ -1078,7 +1081,7 @@ fn generate_ruleset_expr(
             (
                 quote!(config: #name),
                 quote!(
-                    pub fn resolve_config(&mut self, config: &#name, index: Option<usize>){
+                    pub fn resolve_config(&mut self, config: Box<&#name>, index: Option<usize>){
                         for (_, rule) in &mut self.unready_rules{
                             for arg in &mut rule.arg_list(){
                                 let argument = config.get_as_arg(arg, index);
@@ -1140,7 +1143,7 @@ fn generate_ruleset_expr(
             pub fn gen_ruleset(&mut self) -> RuleSet<ActionClausesV2>{
                 let mut ruleset = RuleSet::<ActionClausesV2>::new(&self.name);
 
-                for (_, rule) in &self.rules{
+                for (_, rule) in &self.unready_rules{
                     rule.gen_ruleset(&mut ruleset);
                 }
                 ruleset
@@ -1242,17 +1245,31 @@ fn generate_rule(
     // RuLa runtime generation
     let rule_name_token = generate_ident(rule_name, ident_tracker, false, false).unwrap();
     let unready_rule_name_token = format_ident!("unready_{}", &*rule_name.name);
+
+    let static_act = generate_static_act(
+        &mut *rule_expr.rule_content.action_expr,
+        Some(&*rule_name.name),
+        ident_tracker,
+    )
+    .unwrap();
+    let static_cond = generate_static_cond(
+        &mut *rule_expr.rule_content.condition_expr,
+        Some(&*rule_name.name),
+        ident_tracker,
+    )
+    .unwrap();
+
     Ok(quote!(
         pub struct #rule_name_token{
             interfaces: Vec<String>,
             arguments: HashMap<String, Argument>,
-            condition_clauses: Vec<ConditionClauses>,
-            action_clauses: Vec<ActionClausesV2>,
         }
 
         pub struct #unready_rule_name_token{
             interfaces: Vec<String>,
             arguments: HashMap<String, Argument>,
+            condition_clauses: Vec<ConditionClauses>,
+            action_clauses: Vec<ActionClausesV2>,
         }
 
         impl #unready_rule_name_token{
@@ -1266,6 +1283,8 @@ fn generate_rule(
                 #unready_rule_name_token{
                     interfaces: vec![#(#interface_idents), *],
                     arguments: empty_argument,
+                    condition_clauses: vec![],
+                    action_clauses: vec![],
                 }
             }
 
@@ -1280,8 +1299,6 @@ fn generate_rule(
                     #rule_name_token{
                         interfaces: self.interfaces.clone(),
                         arguments: self.arguments.clone(),
-                        condition_clauses: vec![],
-                        action_clauses: vec![],
                     }))
             }
 
@@ -1301,15 +1318,29 @@ fn generate_rule(
                 }
                 arg_vec
             }
+            #[doc = "No execution, but gen ruleset"]
+            async fn static_ruleset_gen(&mut self){
+                #static_cond
+                #static_act
+            }
+
+            fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
+                let mut rule = Rule::<ActionClausesV2>::new(#rule_name_string);
+                let mut condition = Condition::new(None);
+                let mut action = Action::new(None);
+                for (cond, act) in &mut self.condition_clauses.iter().zip(&self.action_clauses){
+                    condition.add_condition_clause(cond.clone());
+                    action.add_action_clause(act.clone());
+                }
+                rule.set_condition(condition);
+                rule.set_action(action);
+            }
 
         }
         // #[async_trait]
         // impl Rulable for #rule_name_token{
         impl #rule_name_token{
             #generated
-
-            fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
-            }
         }
 
     ))
@@ -1333,19 +1364,6 @@ fn generate_rule_content(
         rule_name,
         ident_tracker,
         &generated_act,
-    )
-    .unwrap();
-
-    let static_act = generate_static_act(
-        &mut *rule_content_expr.action_expr,
-        rule_name,
-        ident_tracker,
-    )
-    .unwrap();
-    let static_cond = generate_static_cond(
-        &mut *rule_content_expr.condition_expr,
-        rule_name,
-        ident_tracker,
     )
     .unwrap();
 
@@ -1373,11 +1391,6 @@ fn generate_rule_content(
                 }
                 sleep(Duration::from_micros(100));
             }
-        }
-        #[doc = "No execution, but gen ruleset"]
-        async fn static_ruleset_gen(&mut self){
-            #static_cond
-            #static_act
         }
     ))
 }
@@ -1840,6 +1853,7 @@ pub mod helper {
             #[tokio::test]
             async fn run_main() {
                 main().await;
+                assert_eq!(1, 2);
             }
         )
     }

@@ -75,7 +75,7 @@ pub mod message {
         pub body: QResult,
 
         pub generated_conditions: Vec<ConditionClauses>,
-        pub generated_actions: Vec<ActionClauses>,    
+        pub generated_actions: Vec<ActionClauses>,
     }
     impl Message {
         pub fn new(
@@ -186,7 +186,7 @@ pub mod qnic {
                         qubit_address: 0,
                         output: "00".to_string(),
                     },
-                    generated_actions: vec![]
+                    generated_actions: vec![],
                 },
             )
         }
@@ -202,7 +202,7 @@ pub mod qnic {
                         qubit_address: 0,
                         output: "00".to_string(),
                     },
-                    generated_actions: vec![]
+                    generated_actions: vec![],
                 },
             )
         }
@@ -235,7 +235,10 @@ pub mod qubit {
     use super::*;
     use serde::{Deserialize, Serialize};
 
-    use crate::ruleset::{action::{v2::ActionClauses, Action}, condition::v1::ConditionClauses};
+    use crate::ruleset::{
+        action::{v2::ActionClauses, Action},
+        condition::v1::ConditionClauses,
+    };
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QubitInterface {

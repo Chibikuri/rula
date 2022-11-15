@@ -91,8 +91,6 @@ pub struct Rule<T> {
     pub condition: Condition,
     /// A list of actions to be acted
     pub action: Action<T>,
-    /// Next rule
-    pub next_rule_id: u32,
     /// If this is the final rule or not
     pub is_finalized: bool,
 }
@@ -106,7 +104,6 @@ impl<T> Rule<T> {
             shared_tag: 0,
             condition: Condition::new(None),
             action: Action::new(None),
-            next_rule_id: 0,
             is_finalized: false,
         }
     }
@@ -125,9 +122,6 @@ impl<T> Rule<T> {
     }
     pub fn update_shared_tag(&mut self, tag: u32) {
         self.shared_tag = tag;
-    }
-    pub fn update_next_rule_id(&mut self, next_rule_id: u32) {
-        self.next_rule_id = next_rule_id;
     }
     pub fn update_finalized(&mut self, finalize: bool) {
         self.is_finalized = finalize;
@@ -168,7 +162,6 @@ pub mod tests {
         assert_eq!(rule.id, 0);
         assert_eq!(rule.condition, Condition::new(None));
         assert_eq!(rule.action, Action::<ActionClauses>::new(None));
-        assert_eq!(rule.next_rule_id, 0);
         assert_eq!(rule.shared_tag, 0);
         assert_eq!(rule.is_finalized, false);
     }
