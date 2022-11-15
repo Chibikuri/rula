@@ -1,13 +1,36 @@
+use ruleset::action::v2::ActionClauses;
+use ruleset::condition::v1::ConditionClauses;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::cell::UnsafeCell;
+use std::rc::Rc;
+use std::sync::Arc;
+type CellConditionClauses = Vec<ConditionClauses>;
+type CellActionClauses = RefCell<Vec<ActionClauses>>;
+
 pub mod prelude {
+    use crate::ruleset::action::v2::ActionClauses;
+    use crate::ruleset::condition::v1::ConditionClauses;
+    use crate::{CellActionClauses, CellConditionClauses};
+
     use super::message::Message;
     use super::qubit::QubitInterface;
     pub fn free(qubit: &QubitInterface) {}
+    pub fn __static__free(qubit: QubitInterface) {}
     pub fn send(message: Message) {}
+    pub fn __static__send(message: Message) {}
 }
 
 pub mod message {
     use super::qnic::QnicInterface;
-    use crate::result::{MeasResult, QResult};
+    use super::*;
+    use crate::{
+        result::{MeasResult, QResult},
+        ruleset::{
+            action::v2::ActionClauses,
+            condition::{v1::ConditionClauses, Condition},
+        },
+    };
     use serde::{Deserialize, Serialize};
     use std::net::IpAddr;
 
@@ -24,12 +47,32 @@ pub mod message {
             },
         )
     }
+
+    pub fn __static__Message(
+        kind: &str,
+        src_qnic: QnicInterface,
+        dst_qnic: QnicInterface,
+    ) -> Message {
+        Message::new(
+            kind,
+            &src_qnic,
+            &dst_qnic,
+            QResult {
+                result: MeasResult {
+                    qubit_address: 0,
+                    output: "00".to_string(),
+                },
+            },
+        )
+    }
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct Message {
         pub kind: String,
         pub src: IpAddr,
         pub dst: IpAddr,
         pub body: QResult,
+
+        generated_conditions: Vec<ConditionClauses>,
     }
     impl Message {
         pub fn new(
@@ -43,30 +86,45 @@ pub mod message {
                 src: src.address,
                 dst: dst.address,
                 body: result,
+
+                generated_conditions: vec![],
             }
         }
         pub fn append_body(&mut self, result: QResult) {}
+        pub fn __static__append_body(&mut self, result: QResult) {}
     }
 }
 
 pub mod operation {
-    use crate::qubit::QubitInterface;
+    use super::*;
+    use crate::{
+        qubit::QubitInterface,
+        ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses},
+    };
 
     pub fn bsm(q1: &QubitInterface, q2: &QubitInterface) -> String {
         String::from("result")
+    }
+    pub fn __static__bsm(_q1: QubitInterface, q2: QubitInterface) -> String {
+        String::from("static __result")
     }
 }
 
 pub mod qnic {
     use crate::result::{MeasResult, QResult};
     use crate::ruleset::action::v2::ActionClauses;
+    use crate::ruleset::condition;
     use crate::ruleset::condition::v1::ConditionClauses;
 
     use super::message::Message;
     use super::qubit::QubitInterface;
+    use super::*;
     use serde::{Deserialize, Serialize};
+    use std::borrow::BorrowMut;
+    use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
     use std::net::{IpAddr, Ipv4Addr};
+    use std::rc::Rc;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum QnicType {
@@ -84,6 +142,8 @@ pub mod qnic {
         messages: HashMap<String, Message>,
         // This will be deprecated
         routing_table: HashMap<u64, QnicInterface>,
+
+        generated_conditions: Vec<ConditionClauses>,
     }
     impl QnicInterface {
         pub fn place_holder() -> Self {
@@ -93,6 +153,8 @@ pub mod qnic {
                 qubit_interfaces: HashMap::new(),
                 messages: HashMap::new(),
                 routing_table: HashMap::new(),
+
+                generated_conditions: vec![],
             }
         }
         pub async fn request_resource(
@@ -104,13 +166,12 @@ pub mod qnic {
         }
 
         pub async fn __static__request_resource(
-            &self,
-            condition_clauses: &mut Vec<ConditionClauses>,
+            &mut self,
             number: u32,
-            qnic_interface: &QnicInterface,
-        ) -> &QubitInterface {
-            condition_clauses.push(ConditionClauses::Wait);
-            self.qubit_interfaces.get("").expect("msg")
+            qnic_interface: QnicInterface,
+        ) -> QubitInterface {
+            self.generated_conditions.push(ConditionClauses::Wait);
+            self.qubit_interfaces.get("").expect("msg").clone()
         }
 
         pub async fn get_message(&self, src: &QnicInterface) -> Message {
@@ -128,16 +189,12 @@ pub mod qnic {
             )
         }
 
-        pub async fn __static__get_message(
-            &self,
-            condition_clauses: &mut Vec<ConditionClauses>,
-            src: &QnicInterface,
-        ) -> Message {
-            condition_clauses.push(ConditionClauses::Wait);
+        pub async fn __static__get_message(&mut self, src: QnicInterface) -> Message {
+            self.generated_conditions.push(ConditionClauses::Wait);
             let mut dest = QnicInterface::place_holder();
             Message::new(
                 "",
-                src,
+                &src.clone(),
                 &mut dest,
                 QResult {
                     result: MeasResult {
@@ -148,49 +205,76 @@ pub mod qnic {
             )
         }
         pub fn get_qubit_by_partner(&self, src: IpAddr, qindex: u32) -> &QubitInterface {
-            &QubitInterface {}
+            self.qubit_interfaces
+                .get("")
+                .expect("Unable to find a qubit")
+        }
+
+        pub fn __static__get_qubit_by_partner(
+            &mut self,
+            src: IpAddr,
+            qindex: u32,
+        ) -> &QubitInterface {
+            self.qubit_interfaces
+                .get("")
+                .expect("Unable to find a qubit")
         }
         pub fn get_partner_by_hop(&self, distance: u64) -> &QnicInterface {
             // access to the routing table
             self.routing_table.get(&distance).unwrap()
         }
 
-        pub fn __static__get_partner_by_hop(
-            &self,
-            _: &mut Vec<ConditionClauses>,
-            distance: u64,
-        ) -> &QnicInterface {
-            self.routing_table.get(&distance).unwrap()
+        pub fn __static__get_partner_by_hop(&mut self, distance: u64) -> QnicInterface {
+            self.routing_table.get(&distance).unwrap().clone()
         }
     }
 }
 pub mod qubit {
+    use super::*;
     use serde::{Deserialize, Serialize};
 
-    use crate::ruleset::condition::v1::ConditionClauses;
+    use crate::ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses};
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-    pub struct QubitInterface {}
+    pub struct QubitInterface {
+        generated_conditions: Vec<ConditionClauses>,
+    }
     impl QubitInterface {
         pub fn new() -> Self {
-            QubitInterface {}
+            QubitInterface {
+                generated_conditions: vec![],
+            }
         }
         pub async fn ready(&self) -> bool {
             true
         }
-        pub async fn __static__ready(&self, condition_clauses: &mut Vec<ConditionClauses>) -> bool {
-            condition_clauses.push(ConditionClauses::Wait);
+        pub async fn __static__ready(&mut self) -> bool {
+            self.generated_conditions.push(ConditionClauses::Wait);
             true
         }
         pub async fn x(&self) {}
+        pub async fn __static__x(&self) {}
         pub async fn z(&self) {}
+        pub async fn __static__z(&self) {}
     }
 }
 
 pub mod result {
+    use crate::ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses};
+
     use super::qubit::QubitInterface;
+    use super::*;
     use serde::{Deserialize, Serialize};
     pub fn Result(qubit: &QubitInterface) -> QResult {
+        QResult {
+            result: MeasResult {
+                qubit_address: 0,
+                output: "00".to_string(),
+            },
+        }
+    }
+
+    pub fn __static__Result(ubit: QubitInterface) -> QResult {
         QResult {
             result: MeasResult {
                 qubit_address: 0,
@@ -214,10 +298,17 @@ pub mod result {
         pub fn add_tag(&mut self, tag: &str) -> &mut Self {
             self
         }
+        pub fn __static__add_tag(&mut self, tag: &str) -> &mut Self {
+            self
+        }
         pub fn add_result(&mut self, result: String) {}
+        pub fn __static__add_result(&mut self, result: String) {}
     }
     impl MeasResult {
         pub fn get_output(&self) -> &str {
+            &self.output
+        }
+        pub fn __static__get_output(&self) -> &str {
             &self.output
         }
     }
