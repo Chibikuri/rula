@@ -1,5 +1,8 @@
 use rula_parser::parser::ast::IdentType;
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    vec,
+};
 
 // This should be fixed in the future
 // If there are two same name variables in the different rules, this would duplicate it.
@@ -7,6 +10,7 @@ use std::collections::HashMap;
 pub struct IdentTracker {
     pub identifiers: HashMap<String, Identifier>,
     // Should have better way to track this
+    pub interface_names: HashSet<String>,
     pub config_name: Option<String>,
     pub num_node: Option<String>,
 }
@@ -15,6 +19,7 @@ impl IdentTracker {
     pub fn new() -> Self {
         IdentTracker {
             identifiers: HashMap::new(),
+            interface_names: HashSet::new(),
             config_name: None,
             num_node: None,
         }
@@ -29,6 +34,10 @@ impl IdentTracker {
 
     pub fn update_num_node(&mut self, num_node: &str) {
         self.num_node = Some(String::from(num_node));
+    }
+
+    pub fn add_interface_name(&mut self, interface_name: &str) {
+        self.interface_names.insert(String::from(interface_name));
     }
 
     pub fn check_ident_type(&mut self, ident_name: &str) -> IdentType {

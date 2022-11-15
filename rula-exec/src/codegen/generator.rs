@@ -287,7 +287,7 @@ fn generate_program(
         // Right now, a program can takes a stmt
         match program_block {
             ProgramKind::Stmt(stmt) => {
-                stmts.push(generate_stmt(stmt, None, ident_tracker).unwrap())
+                stmts.push(generate_stmt(stmt, None, ident_tracker, false).unwrap())
             }
         }
     }
@@ -303,14 +303,17 @@ fn generate_stmt(
     stmt: &mut Stmt,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     let generated_stmt = match &mut *stmt.kind {
         StmtKind::Let(let_stmt) => {
-            Ok(generate_let(let_stmt, rule_name, false, ident_tracker).unwrap())
+            Ok(generate_let(let_stmt, rule_name, false, ident_tracker, in_static).unwrap())
         }
         StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
         StmtKind::Config(config) => Ok(generate_config(config, ident_tracker).unwrap()),
-        StmtKind::Expr(expr) => Ok(generate_expr(expr, rule_name, ident_tracker).unwrap()),
+        StmtKind::Expr(expr) => {
+            Ok(generate_expr(expr, rule_name, ident_tracker, in_static).unwrap())
+        }
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
         )),
@@ -450,13 +453,13 @@ fn generate_let(
     rule_name: Option<&String>,
     in_watch: bool,
     ident_tracker: &mut IdentTracker,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     // RuleSet singleton to store ruleset information
     let ruleset_factory = RULESET_FACTORY
         .get()
         .expect("Failed to get Ruleset factory");
     let (mut identifier, mut expr) = (quote!(), quote!());
-
     // If this let stmt is in the watch clause
     if in_watch {
         // Register values to watched_values in RuleMeta
@@ -488,7 +491,8 @@ fn generate_let(
                             generate_ident(&*let_stmt.ident, ident_tracker, false).unwrap();
                     }
                 }
-                expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker).unwrap();
+                expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker, in_static)
+                    .unwrap();
             }
             None => {
                 todo!("No rule found")
@@ -510,23 +514,40 @@ fn generate_let(
                 identifier = generate_ident(&*let_stmt.ident, ident_tracker, false).unwrap();
             }
         }
-        expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker).unwrap();
+        expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker, in_static).unwrap();
     }
-    // This is also naive implementation
+
+    let mut interface_name_list = vec![];
+    for interface_name in &ident_tracker.interface_names {
+        let string_name = SynLit::Str(LitStr::new(interface_name, Span::call_site()));
+        interface_name_list.push(string_name);
+    }
     if in_watch {
-        Ok(quote!(
-            let mut interface = INTERFACES
-            .get()
-            .expect("unable to get interface")
-            .lock().await;
-            let mut #identifier = #expr.await;
-        ))
+        if in_static {
+            let static_identifier = format_ident!("{}", &*let_stmt.ident.name);
+            Ok(quote!(
+                let mut interface = INTERFACES
+                    .get()
+                    .expect("Unable to get interface")
+                    .lock().await;
+                let mut #static_identifier = #expr.await;
+                // for __interface_name in vec![#(#interface_name_list),*]{
+                //     for __cond_clause in interface.get(__interface_name).expect("unable to get interface").generated_conditions.iter(){
+                //         __condition_clauses.push(__cond_clause);
+                //     }
+                // }
+            ))
+        } else {
+            Ok(quote!(
+                let mut interface = INTERFACES
+                .get()
+                .expect("unable to get interface")
+                .lock().await;
+                let mut #identifier = #expr.await;
+            ))
+        }
     } else {
         Ok(quote!(
-            let mut interface = INTERFACES
-            .get()
-            .expect("unable to get interface")
-            .lock().await;
             let mut #identifier = #expr;
         ))
     }
@@ -589,7 +610,7 @@ fn generate_expr(
     expr: &mut Expr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
-    // watched_value: Option<&String>,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     match &mut *expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(import_expr, ident_tracker).unwrap()),
@@ -598,7 +619,7 @@ fn generate_expr(
         ExprKind::While(while_expr) => Ok(generate_while(while_expr, ident_tracker).unwrap()),
         ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(fn_def_expr, ident_tracker).unwrap()),
         ExprKind::FnCall(fn_call_expr) => {
-            Ok(generate_fn_call(fn_call_expr, rule_name, ident_tracker, false).unwrap())
+            Ok(generate_fn_call(fn_call_expr, rule_name, ident_tracker, false, in_static).unwrap())
         }
         ExprKind::Struct(struct_expr) => Ok(generate_struct(struct_expr, ident_tracker).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(return_expr, ident_tracker).unwrap()),
@@ -611,13 +632,16 @@ fn generate_expr(
         }
         ExprKind::RuleExpr(rule_expr) => Ok(generate_rule(rule_expr, ident_tracker).unwrap()),
         ExprKind::CondExpr(cond_expr) => {
-            Ok(generate_cond(cond_expr, rule_name, ident_tracker, quote!()).unwrap())
+            Ok(generate_cond(cond_expr, rule_name, ident_tracker, &quote!()).unwrap())
         }
         ExprKind::ActExpr(act_expr) => {
             Ok(generate_act(act_expr, rule_name, ident_tracker).unwrap())
         }
         ExprKind::VariableCallExpr(variable_call_expr) => {
-            Ok(generate_variable_call(variable_call_expr, rule_name, ident_tracker).unwrap())
+            Ok(
+                generate_variable_call(variable_call_expr, rule_name, ident_tracker, in_static)
+                    .unwrap(),
+            )
         }
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr, ident_tracker).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr, ident_tracker).unwrap()),
@@ -671,15 +695,16 @@ fn generate_import(
 
 fn generate_if(if_expr: &mut If, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
     // block could have invalid expression here.
-    let block_quote = generate_expr(&mut *if_expr.block, None, ident_tracker).unwrap();
-    let stmt_quote = generate_stmt(&mut *if_expr.stmt, None, ident_tracker).unwrap();
+    let block_quote = generate_expr(&mut *if_expr.block, None, ident_tracker, false).unwrap();
+    let stmt_quote = generate_stmt(&mut *if_expr.stmt, None, ident_tracker, false).unwrap();
     if if_expr.elif.len() > 0 {
         // no elif statement
         if if_expr.elif[0] == None {
             match &mut *if_expr.els {
                 // With else statement
                 Some(els_stmt) => {
-                    let els_stmt_quote = generate_stmt(els_stmt, None, ident_tracker).unwrap();
+                    let els_stmt_quote =
+                        generate_stmt(els_stmt, None, ident_tracker, false).unwrap();
                     return Ok(quote!(
                         if #block_quote{
                             #stmt_quote
@@ -712,7 +737,8 @@ fn generate_if(if_expr: &mut If, ident_tracker: &mut IdentTracker) -> IResult<To
 
             match &mut *if_expr.els {
                 Some(els_stmt) => {
-                    let els_stmt_quote = generate_stmt(els_stmt, None, ident_tracker).unwrap();
+                    let els_stmt_quote =
+                        generate_stmt(els_stmt, None, ident_tracker, false).unwrap();
                     Ok(quote!(
                         if #block_quote {
                             #stmt_quote
@@ -741,8 +767,8 @@ fn generate_for(for_expr: &mut For, ident_tracker: &mut IdentTracker) -> IResult
     for ident in for_expr.pattern.iter() {
         ident_list.push(generate_ident(ident, ident_tracker, false).unwrap());
     }
-    let generator = generate_expr(&mut for_expr.generator, None, ident_tracker).unwrap();
-    let stmt = generate_stmt(&mut for_expr.stmt, None, ident_tracker).unwrap();
+    let generator = generate_expr(&mut for_expr.generator, None, ident_tracker, false).unwrap();
+    let stmt = generate_stmt(&mut for_expr.stmt, None, ident_tracker, false).unwrap();
     if ident_list.len() == 1 {
         let var = &ident_list[0];
         Ok(quote!(
@@ -767,8 +793,8 @@ fn generate_while(
     while_expr: &mut While,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let block = generate_expr(&mut while_expr.block, None, ident_tracker).unwrap();
-    let stmt = generate_stmt(&mut while_expr.stmt, None, ident_tracker).unwrap();
+    let block = generate_expr(&mut while_expr.block, None, ident_tracker, false).unwrap();
+    let stmt = generate_stmt(&mut while_expr.stmt, None, ident_tracker, false).unwrap();
     Ok(quote!(
         while #block{
             #stmt
@@ -791,7 +817,7 @@ fn generate_fn_def(
             }
         }
     }
-    let stmt = generate_stmt(&mut fn_def_expr.stmt, None, ident_tracker).unwrap();
+    let stmt = generate_stmt(&mut fn_def_expr.stmt, None, ident_tracker, false).unwrap();
     // TODO: register this function to function name list and make it checkable
     // Here could have generics in the future
     Ok(quote!(
@@ -806,24 +832,43 @@ fn generate_fn_call(
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
     do_await: bool,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     // Before generating functions, check function table to check whether it's properly defined or not
-    let fn_name = generate_ident(&fn_call_expr.func_name, ident_tracker, false).unwrap();
+    let mut fn_name = format_ident!("__temp");
+    if in_static {
+        fn_name = format_ident!("__static__{}", &*fn_call_expr.func_name.name);
+    } else {
+        fn_name = format_ident!("{}", &*fn_call_expr.func_name.name)
+    }
+    // let fn_name = generate_ident(&fn_call_expr.func_name, ident_tracker, false).unwrap();
     let generated_arguments = {
         let mut args = vec![];
         for arg in &mut fn_call_expr.arguments {
-            args.push(generate_expr(arg, rule_name, ident_tracker).unwrap());
+            args.push(generate_expr(arg, rule_name, ident_tracker, in_static).unwrap());
         }
         args
     };
-    if do_await {
-        Ok(quote!(
-            #fn_name(#(#generated_arguments), *).await
-        ))
+    if in_static {
+        if do_await {
+            Ok(quote!(
+                #fn_name(&mut __condition_clauses, #(#generated_arguments),*).await
+            ))
+        } else {
+            Ok(quote!(
+                #fn_name(&mut __condition_clauses, #(#generated_arguments),*)
+            ))
+        }
     } else {
-        Ok(quote!(
-            #fn_name (#(#generated_arguments),*)
-        ))
+        if do_await {
+            Ok(quote!(
+                #fn_name(#(#generated_arguments),*).await
+            ))
+        } else {
+            Ok(quote!(
+                #fn_name(#(#generated_arguments),*)
+            ))
+        }
     }
 }
 
@@ -845,7 +890,7 @@ fn generate_return(
     return_expr: &mut Return,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let expr = generate_expr(&mut return_expr.target, None, ident_tracker).unwrap();
+    let expr = generate_expr(&mut return_expr.target, None, ident_tracker, false).unwrap();
     Ok(quote!(
         return #expr;
     ))
@@ -855,7 +900,7 @@ fn generate_match(
     match_expr: &mut Match,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let generated_expr = generate_expr(&mut match_expr.expr, None, ident_tracker).unwrap();
+    let generated_expr = generate_expr(&mut match_expr.expr, None, ident_tracker, false).unwrap();
     let mut match_arms = vec![];
 
     for arm in &mut match_expr.match_arms {
@@ -917,7 +962,7 @@ fn generate_match_action(
 ) -> IResult<TokenStream> {
     let mut actionables = vec![];
     for actionable in &mut *match_action.actionable {
-        actionables.push(generate_expr(actionable, None, ident_tracker).unwrap());
+        actionables.push(generate_expr(actionable, None, ident_tracker, false).unwrap());
     }
     Ok(quote!(
         #(#actionables);*
@@ -929,8 +974,8 @@ fn generate_comp(
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let lhs = generate_expr(&mut comp_expr.lhs, rule_name, ident_tracker).unwrap();
-    let rhs = generate_expr(&mut comp_expr.rhs, rule_name, ident_tracker).unwrap();
+    let lhs = generate_expr(&mut comp_expr.lhs, rule_name, ident_tracker, false).unwrap();
+    let rhs = generate_expr(&mut comp_expr.rhs, rule_name, ident_tracker, false).unwrap();
     let op = match *comp_expr.comp_op {
         CompOpKind::Lt => quote!(<),
         CompOpKind::Gt => quote!(>),
@@ -1250,17 +1295,32 @@ fn generate_rule_content(
         ident_tracker,
     )
     .unwrap();
+
     let generated_cond = generate_cond(
         &mut *rule_content_expr.condition_expr,
         rule_name,
         ident_tracker,
-        generated_act,
+        &generated_act,
     )
     .unwrap();
+
+    let static_act = generate_static_act(
+        &mut *rule_content_expr.action_expr,
+        rule_name,
+        ident_tracker,
+    )
+    .unwrap();
+    let static_cond = generate_static_cond(
+        &mut *rule_content_expr.condition_expr,
+        rule_name,
+        ident_tracker,
+    )
+    .unwrap();
+
     let post_process = &mut rule_content_expr.post_processing;
     let mut post_processes = vec![];
     for stmt in post_process {
-        post_processes.push(generate_stmt(stmt, None, ident_tracker).unwrap());
+        post_processes.push(generate_stmt(stmt, None, ident_tracker, false).unwrap());
     }
     // Generate executable
     // Here we should consider to use TaskMonitor in tokio to track the status of watched values
@@ -1275,12 +1335,19 @@ fn generate_rule_content(
         // pub is implied in trait
         async fn execute(&self){
             loop{
-                let done = self.condition().await;
-                if done{
+                let __done = self.condition().await;
+                if __done{
                     break;
                 }
                 sleep(Duration::from_micros(100));
             }
+        }
+        #[doc = "No execution, but gen ruleset"]
+        async fn static_ruleset_gen(&self){
+            let mut __condition_clauses = vec![];
+            let mut __action_clauses = vec![];
+            #static_cond
+            #static_act
         }
     ))
 }
@@ -1289,6 +1356,7 @@ fn generate_watch(
     watch_expr: &mut WatchExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     // Watch expression defines the set of parameters whose state can be changed in the future
     // e.g.
@@ -1302,8 +1370,9 @@ fn generate_watch(
                 // start watch value generation process with `in_watch=true`
                 // watched_values.push(generate_ident(&value.ident).unwrap());
                 value.ident.update_ident_type(IdentType::WatchedValue);
-                generated_watch
-                    .push(generate_let(value, Some(&name), true, ident_tracker).unwrap());
+                generated_watch.push(
+                    generate_let(value, Some(&name), true, ident_tracker, in_static).unwrap(),
+                );
                 // watch can be
             }
         }
@@ -1321,7 +1390,7 @@ fn generate_cond(
     cond_expr: &mut CondExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
-    act_tokens: TokenStream,
+    act_tokens: &TokenStream,
 ) -> IResult<TokenStream> {
     let mut generated_clauses = vec![];
     let (in_rule, r_name) = helper::check_in(rule_name);
@@ -1332,12 +1401,12 @@ fn generate_cond(
     if in_rule {
         for clause in &mut cond_expr.clauses {
             generated_clauses
-                .push(generate_awaitable(clause, Some(&r_name), ident_tracker).unwrap());
+                .push(generate_awaitable(clause, Some(&r_name), ident_tracker, false).unwrap());
         }
         match &mut *cond_expr.watch_expr {
             Some(watch_expr) => {
                 let generated_watch =
-                    generate_watch(watch_expr, Some(&r_name), ident_tracker).unwrap();
+                    generate_watch(watch_expr, Some(&r_name), ident_tracker, false).unwrap();
                 Ok(quote!(
                    #generated_watch
                    if #(#generated_clauses)&&*{
@@ -1371,6 +1440,7 @@ fn generate_awaitable(
     awaitable_expr: &mut Awaitable,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     // Generating condition clauses to be met
     let (in_rule, r_name) = helper::check_in(rule_name);
@@ -1381,7 +1451,7 @@ fn generate_awaitable(
             Awaitable::FnCall(fn_call) => {
                 // This should be flex
                 let generated_fn_call =
-                    generate_fn_call(fn_call, rule_name, ident_tracker, true).unwrap();
+                    generate_fn_call(fn_call, rule_name, ident_tracker, true, in_static).unwrap();
                 quote!(
                     #generated_fn_call
                 )
@@ -1389,10 +1459,15 @@ fn generate_awaitable(
             Awaitable::VariableCallExpr(val_call) => {
                 // Check if the value is properly watched or not
                 let generated_val =
-                    generate_variable_call(val_call, Some(&r_name), ident_tracker).unwrap();
-                quote!(
-                    #generated_val.await
-                )
+                    generate_variable_call(val_call, Some(&r_name), ident_tracker, in_static)
+                        .unwrap();
+                if in_static {
+                    quote!(#generated_val)
+                } else {
+                    quote!(
+                            #generated_val.await
+                    )
+                }
             }
             Awaitable::Comp(comp) => {
                 let generated_comp = generate_comp(comp, rule_name, ident_tracker).unwrap();
@@ -1402,11 +1477,17 @@ fn generate_awaitable(
             }
         }
     } else {
-        todo!("Currently, not ruleset generation version has not yet been supported")
+        todo!("Currently, non ruleset generation version has not yet been supported")
     }
-    Ok(quote!(
-        #awaitable
-    ))
+    if in_static {
+        Ok(quote!(
+            let _ = #awaitable;
+        ))
+    } else {
+        Ok(quote!(
+            #awaitable
+        ))
+    }
 }
 
 fn generate_act(
@@ -1419,11 +1500,10 @@ fn generate_act(
     for action in &mut act_expr.operatable {
         // TODO: Should integrate but for now, we need to know if there is ";" at the end
         match &mut *action.kind {
-            StmtKind::Let(let_stmt) => {
-                action_calls.push(generate_let(let_stmt, rule_name, false, ident_tracker).unwrap())
-            }
+            StmtKind::Let(let_stmt) => action_calls
+                .push(generate_let(let_stmt, rule_name, false, ident_tracker, false).unwrap()),
             _ => {
-                let generated = generate_stmt(action, rule_name, ident_tracker).unwrap();
+                let generated = generate_stmt(action, rule_name, ident_tracker, false).unwrap();
                 action_calls.push(quote!(
                     #generated;
                 ))
@@ -1435,10 +1515,57 @@ fn generate_act(
     ))
 }
 
+fn generate_static_act(
+    action_expr: &mut ActExpr,
+    rule_name: Option<&String>,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
+    let mut static_action_calls = vec![];
+
+    for action in &mut *action_expr.operatable {
+        match &mut *action.kind {
+            StmtKind::Let(let_stmt) => static_action_calls
+                .push(generate_let(let_stmt, rule_name, false, ident_tracker, true).unwrap()),
+            _ => {
+                let generated = generate_stmt(action, rule_name, ident_tracker, true).unwrap();
+                static_action_calls.push(quote!(
+                    #generated;
+                ))
+            }
+        }
+    }
+    Ok(quote!())
+}
+
+fn generate_static_cond(
+    cond_expr: &mut CondExpr,
+    rule_name: Option<&String>,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
+    let mut generated_clauses = vec![];
+    for clause in &mut cond_expr.clauses {
+        generated_clauses.push(generate_awaitable(clause, rule_name, ident_tracker, true).unwrap());
+    }
+    match &mut *cond_expr.watch_expr {
+        Some(watch_expr) => {
+            let generated_watch =
+                generate_watch(watch_expr, rule_name, ident_tracker, true).unwrap();
+            Ok(quote!(
+               #generated_watch
+               #(#generated_clauses)*
+            ))
+        }
+        None => Ok(quote!(
+            #(#generated_clauses)*
+        )),
+    }
+}
+
 fn generate_variable_call(
     variable_call_expr: &mut VariableCallExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     let mut variable_calls = vec![];
 
@@ -1465,13 +1592,25 @@ fn generate_variable_call(
             Callable::FnCall(mut fn_call_inner) => {
                 if specified {
                     variable_calls.push(
-                        generate_fn_call(&mut fn_call_inner, rule_name, ident_tracker, true)
-                            .unwrap(),
+                        generate_fn_call(
+                            &mut fn_call_inner,
+                            rule_name,
+                            ident_tracker,
+                            true,
+                            in_static,
+                        )
+                        .unwrap(),
                     );
                 } else {
                     variable_calls.push(
-                        generate_fn_call(&mut fn_call_inner, rule_name, ident_tracker, false)
-                            .unwrap(),
+                        generate_fn_call(
+                            &mut fn_call_inner,
+                            rule_name,
+                            ident_tracker,
+                            false,
+                            in_static,
+                        )
+                        .unwrap(),
                     );
                 }
             }
@@ -1526,6 +1665,7 @@ fn generate_ident(
     let identifier = format_ident!("{}", *ident.name);
     let ident_contents = match ident_tracker.check_ident_type(&*ident.name) {
         IdentType::QnicInterface => {
+            ident_tracker.add_interface_name(&*ident.name);
             let ident_str = SynLit::Str(LitStr::new(&*ident.name, Span::call_site()));
             quote!(
                 interface.get(#ident_str)
@@ -2053,7 +2193,8 @@ mod tests {
             "range",
             Identifier::new(IdentType::Other, TypeHint::Unknown),
         );
-        let test_stream = generate_fn_call(&mut simple_fn_call, None, &mut tracker, false).unwrap();
+        let test_stream =
+            generate_fn_call(&mut simple_fn_call, None, &mut tracker, false, false).unwrap();
         assert_eq!("range ()", test_stream.to_string());
     }
 

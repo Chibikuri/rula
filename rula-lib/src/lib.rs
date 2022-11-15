@@ -59,6 +59,8 @@ pub mod operation {
 
 pub mod qnic {
     use crate::result::{MeasResult, QResult};
+    use crate::ruleset::action::v2::ActionClauses;
+    use crate::ruleset::condition::v1::ConditionClauses;
 
     use super::message::Message;
     use super::qubit::QubitInterface;
@@ -100,7 +102,38 @@ pub mod qnic {
         ) -> &QubitInterface {
             self.qubit_interfaces.get("").expect("Unable to find qubit")
         }
+
+        pub async fn __static__request_resource(
+            &self,
+            condition_clauses: &mut Vec<ConditionClauses>,
+            number: u32,
+            qnic_interface: &QnicInterface,
+        ) -> &QubitInterface {
+            condition_clauses.push(ConditionClauses::Wait);
+            self.qubit_interfaces.get("").expect("msg")
+        }
+
         pub async fn get_message(&self, src: &QnicInterface) -> Message {
+            let mut dest = QnicInterface::place_holder();
+            Message::new(
+                "",
+                src,
+                &mut dest,
+                QResult {
+                    result: MeasResult {
+                        qubit_address: 0,
+                        output: "00".to_string(),
+                    },
+                },
+            )
+        }
+
+        pub async fn __static__get_message(
+            &self,
+            condition_clauses: &mut Vec<ConditionClauses>,
+            src: &QnicInterface,
+        ) -> Message {
+            condition_clauses.push(ConditionClauses::Wait);
             let mut dest = QnicInterface::place_holder();
             Message::new(
                 "",
@@ -121,10 +154,20 @@ pub mod qnic {
             // access to the routing table
             self.routing_table.get(&distance).unwrap()
         }
+
+        pub fn __static__get_partner_by_hop(
+            &self,
+            _: &mut Vec<ConditionClauses>,
+            distance: u64,
+        ) -> &QnicInterface {
+            self.routing_table.get(&distance).unwrap()
+        }
     }
 }
 pub mod qubit {
     use serde::{Deserialize, Serialize};
+
+    use crate::ruleset::condition::v1::ConditionClauses;
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
     pub struct QubitInterface {}
@@ -133,6 +176,10 @@ pub mod qubit {
             QubitInterface {}
         }
         pub async fn ready(&self) -> bool {
+            true
+        }
+        pub async fn __static__ready(&self, condition_clauses: &mut Vec<ConditionClauses>) -> bool {
+            condition_clauses.push(ConditionClauses::Wait);
             true
         }
         pub async fn x(&self) {}
@@ -186,8 +233,8 @@ pub mod sync {
 pub mod rule {
     use async_trait::async_trait;
 
-    use crate::ruleset::ruleset::RuleSet;
     use crate::ruleset::action::v2::ActionClauses;
+    use crate::ruleset::ruleset::RuleSet;
 
     #[async_trait]
     pub trait Rulable {
