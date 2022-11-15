@@ -64,14 +64,22 @@ pub fn generate(
 
     let mut rule_names = vec![];
     let mut unready_rule_names = vec![];
+    let mut ready_rule_names = vec![];
     let mut unready_rule_checker = vec![];
     let mut arg_list_generator = vec![];
     let mut arg_resolvers = vec![];
+    let mut ruleset_gen_enum = vec![];
     for rname in rules.lock().unwrap().iter() {
         let rname_unready = format_ident!("unready_{}", rname);
         unready_rule_names.push(quote!(
             #rname_unready(#rname_unready)
         ));
+
+        let rname_ready = format_ident!("{}", rname);
+        ready_rule_names.push(quote!(
+            #rname_ready(#rname_ready)
+        ));
+
         rule_names.push(quote!(
             ruleset.add_unready_rule(
                 String::from(#rname),
@@ -95,6 +103,12 @@ pub fn generate(
                 self.resolve_argument(arg_name, argument);
             },
         ));
+
+        ruleset_gen_enum.push(quote!(
+            ReadyRules::#rname_ready(#rname_ready) => {
+                self.gen_ruleset(ruleset);
+            },
+        ))
     }
 
     let config_gen = match config_path {
@@ -143,7 +157,7 @@ pub fn generate(
         #[allow(unused)]
         mod rula{
             use super::*;
-            use std::collections::HashSet;
+            use std::collections::{HashSet, HashMap};
             use std::iter::FromIterator;
             use serde::{Deserialize, Serialize};
             use tokio::time::{sleep, Duration};
@@ -152,14 +166,21 @@ pub fn generate(
             use rula_std::ruleset::ruleset::*;
             use rula_std::ruleset::condition::*;
             use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
+            use rula_std::ruleset::condition::v1::ConditionClauses;
+            use tokio::sync::Mutex;
+            use once_cell::sync::OnceCell;
+            use rula_std::qnic::QnicInterface;
+            use rula_std::qubit::QubitInterface;
             use async_trait::async_trait;
             use log::warn;
+
+            pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
 
             pub enum UnreadyRules{
                 #(#unready_rule_names),*
             }
             impl UnreadyRules{
-                pub fn check_arg_resolved(&self) -> Option<Box<dyn Rulable>>{
+                pub fn check_arg_resolved(&self) -> Option<ReadyRules>{
                     match &self{
                         #(#unready_rule_checker)*
                         _ => {panic!("No rule name found");}
@@ -178,16 +199,31 @@ pub fn generate(
                     }
                 }
             }
+
+
+            pub enum ReadyRules{
+                #(#ready_rule_names),*
+            }
+
+            impl ReadyRules{
+                pub fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
+                    match self{
+                        #(#ruleset_gen_enum)*
+                        _ => {panic!("No rule name found")}
+                    }
+                }
+            }
+
             #rula_program
         }
         pub async fn main(){
             rula::initialize_interface().await;
             let mut rulesets = vec![];
+            #config_gen
             for i in 0..#num_node{
                 let mut ruleset = rula::RuleSetExec::init();
-                #config_gen
                 #(#rule_names);*;
-                ruleset.resolve_config(config, Some(i as usize));
+                ruleset.resolve_config(&config, Some(i as usize));
                 #ruleset_gen
                 rulesets.push(ruleset);
             }
@@ -534,13 +570,6 @@ fn generate_interface(
         Identifier::new(IdentType::QnicInterface, TypeHint::Unknown),
     );
     Ok(quote!(
-        use std::collections::HashMap;
-        use tokio::sync::Mutex;
-        use once_cell::sync::OnceCell;
-        use rula_std::qnic::QnicInterface;
-        use rula_std::qubit::QubitInterface;
-        pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-
         pub async fn initialize_interface() {
             assert!(INTERFACES.get().is_none());
             let initialize_interface = || Mutex::new(HashMap::new());
@@ -972,7 +1001,7 @@ fn generate_ruleset_expr(
             (
                 quote!(config: #name),
                 quote!(
-                    pub fn resolve_config(&mut self, config: #name, index: Option<usize>){
+                    pub fn resolve_config(&mut self, config: &#name, index: Option<usize>){
                         for (_, rule) in &mut self.unready_rules{
                             for arg in &mut rule.arg_list(){
                                 let argument = config.get_as_arg(arg, index);
@@ -994,7 +1023,7 @@ fn generate_ruleset_expr(
         {
             name: String,
             unready_rules: HashMap<String, UnreadyRules>,
-            rules: HashMap<String, Box<dyn Rulable>>,
+            rules: HashMap<String, ReadyRules>,
             rule_arguments: Vec<HashMap<String, Argument>>
         }
         // impl <F: std::marker::Copy>RuleSetExec <F>
@@ -1140,6 +1169,8 @@ fn generate_rule(
         pub struct #rule_name_token{
             interfaces: Vec<String>,
             arguments: HashMap<String, Argument>,
+            condition_clauses: Vec<ConditionClauses>,
+            action_clauses: Vec<ActionClausesV2>,
         }
 
         pub struct #unready_rule_name_token{
@@ -1161,17 +1192,19 @@ fn generate_rule(
                 }
             }
 
-            pub fn argument_resolved(&self) -> Option<Box<dyn Rulable>> {
+            pub fn argument_resolved(&self) -> Option<ReadyRules> {
                 for (_, arg) in &self.arguments{
                     if !arg.resolved(){
                         return None;
                     }
                 }
                 Some(
-                    Box::new(
+                    ReadyRules::#rule_name_token(
                     #rule_name_token{
                         interfaces: self.interfaces.clone(),
                         arguments: self.arguments.clone(),
+                        condition_clauses: vec![],
+                        action_clauses: vec![],
                     }))
             }
 
@@ -1193,8 +1226,9 @@ fn generate_rule(
             }
 
         }
-        #[async_trait]
-        impl Rulable for #rule_name_token{
+        // #[async_trait]
+        // impl Rulable for #rule_name_token{
+        impl #rule_name_token{
             #generated
 
             fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){

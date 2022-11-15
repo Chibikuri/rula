@@ -5,18 +5,24 @@ mod rula {
     use super::*;
     use async_trait::async_trait;
     use log::warn;
+    use once_cell::sync::OnceCell;
     use rula_std::prelude::*;
+    use rula_std::qnic::QnicInterface;
+    use rula_std::qubit::QubitInterface;
     use rula_std::rule::*;
     use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
+    use rula_std::ruleset::condition::v1::ConditionClauses;
     use rula_std::ruleset::condition::*;
     use rula_std::ruleset::ruleset::*;
     use serde::{Deserialize, Serialize};
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
+    use tokio::sync::Mutex;
     use tokio::time::{sleep, Duration};
+    pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
     pub enum UnreadyRules {}
     impl UnreadyRules {
-        pub fn check_arg_resolved(&self) -> Option<Box<dyn Rulable>> {
+        pub fn check_arg_resolved(&self) -> Option<ReadyRules> {
             match &self {
                 _ => {
                     panic!("No rule name found");
@@ -38,12 +44,16 @@ mod rula {
             }
         }
     }
-    use once_cell::sync::OnceCell;
-    use rula_std::qnic::QnicInterface;
-    use rula_std::qubit::QubitInterface;
-    use std::collections::HashMap;
-    use tokio::sync::Mutex;
-    pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
+    pub enum ReadyRules {}
+    impl ReadyRules {
+        pub fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>) {
+            match self {
+                _ => {
+                    panic!("No rule name found")
+                }
+            }
+        }
+    }
     pub async fn initialize_interface() {
         assert!(INTERFACES.get().is_none());
         let initialize_interface = || Mutex::new(HashMap::new());
@@ -62,7 +72,7 @@ pub async fn main() {
     let mut rulesets = vec![];
     for i in 0..1 {
         let mut ruleset = rula::RuleSetExec::init();
-        ruleset.resolve_config(config, Some(i as usize));
+        ruleset.resolve_config(&config, Some(i as usize));
         rulesets.push(ruleset);
     }
 }
