@@ -139,7 +139,7 @@ pub mod tests {
     use super::super::action::v2::ActionClauses;
     use super::super::action::Action;
     use super::*;
-    use mock_components::hardware::qnic::QnicType;
+    use mock_components::hardware::mock_qnic::QnicType;
     use std::net::Ipv4Addr;
 
     #[test]

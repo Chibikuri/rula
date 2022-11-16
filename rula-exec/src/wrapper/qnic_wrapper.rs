@@ -7,7 +7,7 @@ use crate::rulep::condition::v1::*;
 use rula_parser::parser::ast::{Expr, FnCall};
 
 // This should be removed later
-use mock_components::hardware::qnic::QnicType;
+use mock_components::hardware::mock_qnic::QnicType;
 
 type IResult<T> = Result<T, QnicInterfaceWrapperError>;
 

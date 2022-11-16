@@ -1,5 +1,5 @@
 use super::error::HardwareError;
-use super::qubit::{GateType, MockQubit, QubitInstruction, Returnable};
+use super::mock_qubit::{GateType, MockQubit, QubitInstruction, Returnable};
 use super::result::{MeasBasis, MeasResult, Outcome};
 use super::IResult;
 use serde::{Deserialize, Serialize};
@@ -8,14 +8,14 @@ use std::net::IpAddr;
 
 pub struct MockQnic {
     /// `qubits` can only be accessed by proper function calls
-    qubits: HashMap<u64, MockQubit>,
-    register: HashMap<u64, MeasResult>,
+    pub qubits: HashMap<u64, MockQubit>,
+    pub register: HashMap<u64, MeasResult>,
     /// Index for qubit
-    index: u64,
+    pub index: u64,
     /// Basic qnic information.
     qnic_type: Option<QnicType>,
     qnic_id: Option<u32>,
-    qnic_address: Option<IpAddr>,
+    pub qnic_address: Option<IpAddr>,
 }
 
 #[derive(Debug)]
@@ -216,6 +216,7 @@ impl MockQnic {
 
     async fn send(&mut self, send: &Send) -> IResult<()> {
         // How to do this?
+        // Just mock now and set the timeout rate
         Ok(())
     }
 

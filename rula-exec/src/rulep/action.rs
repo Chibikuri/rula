@@ -30,7 +30,7 @@ impl<T> Action<T> {
 pub mod v1 {
     /// Version 1 actions
     use super::*;
-    use mock_components::hardware::qnic::QnicType;
+    use mock_components::hardware::mock_qnic::QnicType;
     use std::net::Ipv4Addr;
 
     // old version of action clauses
