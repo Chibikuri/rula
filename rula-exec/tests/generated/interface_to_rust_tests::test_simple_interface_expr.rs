@@ -25,9 +25,12 @@ mod rula {
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
     use std::rc::Rc;
-    use tokio::sync::Mutex;
+    use std::sync::Mutex as StdMutex;
+    use tokio::sync::Mutex as TokioMutex;
     use tokio::time::{sleep, Duration};
-    pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
+    pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
+    pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> =
+        OnceCell::new();
     pub enum UnreadyRules {}
     impl UnreadyRules {
         pub fn check_arg_resolved(&self) -> Option<ReadyRules> {
@@ -51,7 +54,7 @@ mod rula {
                 }
             }
         }
-        pub fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>) {
+        pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>) {
             match self {
                 _ => {
                     panic!("No rule name found")
@@ -62,7 +65,7 @@ mod rula {
     pub enum ReadyRules {}
     pub async fn initialize_interface() {
         assert!(INTERFACES.get().is_none());
-        let initialize_interface = || Mutex::new(HashMap::new());
+        let initialize_interface = || TokioMutex::new(HashMap::new());
         INTERFACES.get_or_init(initialize_interface);
         let interface_list = INTERFACES.get().expect("Failed to get interface");
         for interface_name in vec!["qn0", "INTERFACE"] {
@@ -72,9 +75,23 @@ mod rula {
                 .insert(interface_name.to_string(), QnicInterface::place_holder());
         }
     }
+    #[doc = "Non async interface generation for static ruleset generation"]
+    pub fn initialize_static_interface() {
+        assert!(STATIC_INTERFACES.get().is_none());
+        let initialize_interface = || StdMutex::new(HashMap::new());
+        STATIC_INTERFACES.get_or_init(initialize_interface);
+        let interface_list = STATIC_INTERFACES.get().expect("Failed to get interface");
+        for interface_name in vec!["qn0", "INTERFACE"] {
+            interface_list
+                .lock()
+                .unwrap()
+                .insert(interface_name.to_string(), QnicInterface::place_holder());
+        }
+    }
 }
 pub async fn main() {
     rula::initialize_interface().await;
+    rula::initialize_static_interface();
     let mut rulesets = vec![];
     for i in 0..1 {
         let mut ruleset = rula::RuleSetExec::init();

@@ -1,4 +1,5 @@
 // This is entory point to generate code from AST
+use super::default_token::*;
 use super::error::*;
 use super::identifier::*;
 use super::rule_meta::*;
@@ -60,8 +61,12 @@ pub fn generate(
             ))
         }
     };
+
+    // Generate tests for generaetd rust code.
+    // This is just returns tokenstream that describes the test contents
     let generated_tests = helper::generate_test();
 
+    // Used to make enums for the different types of rules
     let mut rule_names = vec![];
     let mut unready_rule_names = vec![];
     let mut ready_rule_names = vec![];
@@ -86,29 +91,18 @@ pub fn generate(
                 rula::UnreadyRules::#rname_unready(rula::#rname_unready::new())
             )
         ));
-        unready_rule_checker.push(quote!(
-            UnreadyRules::#rname_unready(#rname_unready) => {
-                #rname_unready.argument_resolved()
-            },
-        ));
 
-        arg_list_generator.push(quote!(
-            UnreadyRules::#rname_unready(#rname_unready) => {
-                #rname_unready.arg_list()
-            },
-        ));
-
-        arg_resolvers.push(quote!(
-            UnreadyRules::#rname_unready(#rname_unready) => {
-                #rname_unready.resolve_argument(arg_name, argument);
-            },
-        ));
-
-        ruleset_gen_enum.push(quote!(
-            UnreadyRules::#rname_unready(#rname_unready) => {
-                #rname_unready.gen_ruleset(ruleset);
-            },
-        ))
+        let match_maker = |func_name: TokenStream| {
+            quote!(
+                UnreadyRules::#rname_unready(#rname_unready) => {
+                    #rname_unready.#func_name
+                },
+            )
+        };
+        unready_rule_checker.push(match_maker(quote!(argument_resolved())));
+        arg_list_generator.push(match_maker(quote!(arg_list())));
+        arg_resolvers.push(match_maker(quote!(resolve_argument(arg_name, argument);)));
+        ruleset_gen_enum.push(match_maker(quote!(gen_ruleset(ruleset);)));
     }
 
     let config_gen = match config_path {
@@ -119,15 +113,11 @@ pub fn generate(
                 }
                 None => panic!("Failed to resolve config name"),
             };
-            let path_lit = SynLit::Str(LitStr::new(
-                &path.into_os_string().into_string().unwrap(),
-                Span::call_site(),
-            ));
-
+            let path_lit = &path.into_os_string().into_string().unwrap();
             quote!(
                 let content = fs::read_to_string(#path_lit).unwrap();
                 let mut config: rula::#config_name = toml::from_str(&content).unwrap();
-                config.finalize();
+                config.__finalize();
             )
         }
         None => {
@@ -155,39 +145,17 @@ pub fn generate(
         }
     };
 
+    let default_imports = default_imports();
+
     // All ast are supposed to be evaluated here
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
         use std::fs;
         #[allow(unused)]
         mod rula{
-            use super::*;
-            use std::collections::{HashSet, HashMap};
-            use std::iter::FromIterator;
-            use std::borrow::BorrowMut;
-            use std::cell::{RefCell, Cell};
-            use std::rc::Rc;
-            use serde::{Deserialize, Serialize};
-            use tokio::time::{sleep, Duration};
-            use rula_std::rule::*;
-            use rula_std::prelude::*;
-            use rula_std::message::*;
-            use rula_std::result::*;
-            use rula_std::operation::*;
-            use rula_std::ruleset::ruleset::*;
-            use rula_std::ruleset::condition::*;
-            use rula_std::ruleset::action::Action;
-            use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
-            use rula_std::ruleset::condition::v1::ConditionClauses;
-            use tokio::sync::Mutex;
-            use once_cell::sync::OnceCell;
-            use rula_std::qnic::QnicInterface;
-            use rula_std::qubit::QubitInterface;
-            use async_trait::async_trait;
-            use log::warn;
-
-            pub static INTERFACES: OnceCell<Mutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-
+            #default_imports
+            pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
+            pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
             pub enum UnreadyRules{
                 #(#unready_rule_names),*
             }
@@ -210,7 +178,7 @@ pub fn generate(
                         _ => {panic!("No rule name found");}
                     }
                 }
-                pub fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
+                pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
                     match self{
                         #(#ruleset_gen_enum)*
                         _ => {panic!("No rule name found")}
@@ -227,6 +195,7 @@ pub fn generate(
         }
         pub async fn main(){
             rula::initialize_interface().await;
+            rula::initialize_static_interface();
             let mut rulesets = vec![];
             #config_gen
             for i in 0..#num_node{
@@ -342,49 +311,56 @@ fn generate_config(
     config_stmt: &mut Config,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let config_name = generate_ident(&*config_stmt.name, ident_tracker, false, false).unwrap();
-    let num_nodes = SynLit::Int(LitInt::new(&*config_stmt.num_node, Span::call_site()));
-    let mut generated_items = vec![];
-
+    // The only keys in config
     let mut conf_keys = vec![];
+    // Match arms that allows us to call config by string (name_string => config_value)
     let mut conf_key_match = vec![];
+    // Key:Value pairs of config contents
+    let mut generated_items = vec![];
     for item in &mut *config_stmt.values {
         generated_items.push(
             generate_config_item(item, ident_tracker, &mut conf_keys, &mut conf_key_match).unwrap(),
         )
     }
 
+    // The name of config that is refered to by the ruleset
+    let config_name = generate_ident(&*config_stmt.name, ident_tracker, false, false).unwrap();
+
+    // The number of node in the network
+    let num_nodes = SynLit::Int(LitInt::new(&*config_stmt.num_node, Span::call_site()));
+
+    // Track the name of config and the number of nodes in indentifier tracker
     ident_tracker.update_config_name(&*config_stmt.name.name);
-    ident_tracker.update_num_node(&config_stmt.num_node);
+    ident_tracker.update_num_node(&*config_stmt.num_node);
+
+    // Generated code
     Ok(quote!(
+        // Actual config with additional __names and __num_nodes field
         #[derive(Debug, Serialize, Deserialize)]
         pub struct #config_name{
             #(#generated_items),*,
             __names: Option<HashSet<String>>,
             __num_nodes: Option<u64>,
         }
+
+        // Implementation of this config
         impl #config_name{
-            pub fn finalize(&mut self){
+            // Add additional values and finalize this config generation
+            pub fn __finalize(&mut self){
                 let keys = vec![#(#conf_keys.to_string()),*];
                 self.__names = Some(HashSet::from_iter(keys.iter().cloned()));
                 self.__num_nodes = Some(#num_nodes)
             }
-            pub fn get_num_node(&self) -> u64{
-                match self.__num_nodes{
-                    Some(number) => {number},
-                    None => {
-                        warn!("No config for the number of nodes found. This might not be what you want. Add #config(#number)");
-                        return 0;
-                    }
-                }
-            }
 
-            pub fn key_exist(&self, value: &str) -> bool{
+            // Check if the config key exist
+            fn __key_exist(&self, value: &str) -> bool{
                 self.__names.as_ref().expect("Unable to find config item names").contains(value)
 
             }
-            pub fn get_as_arg(&self, config_val: &str, index: Option<usize>) -> Argument{
-                if self.key_exist(config_val){
+
+            // If there is a config name exist, return the corresponding value as an Argument type
+            pub fn __get_as_arg(&self, config_val: &str, index: Option<usize>) -> Argument{
+                if self.__key_exist(config_val){
                     match config_val{
                         #(#conf_key_match),*,
                         _ => {panic!("This should not happen")}
@@ -400,18 +376,20 @@ fn generate_config(
 fn generate_config_item(
     config_item: &mut ConfigItem,
     ident_tracker: &mut IdentTracker,
-    conf_keys: &mut Vec<SynLit>,
+    conf_keys: &mut Vec<String>,
     conf_key_match: &mut Vec<TokenStream>,
 ) -> IResult<TokenStream> {
     if &config_item.value.name[0..1] == "__" {
         panic!("Invalid config name: {}", &config_item.value.name[0..1])
     }
-    let conf_key_str = SynLit::Str(LitStr::new(&config_item.value.name, Span::call_site()));
-    conf_keys.push(conf_key_str.clone());
-
+    let conf_key_str = &config_item.value.name;
     let value_type = &*config_item.type_def;
+    conf_keys.push(String::from(&*config_item.value.name));
+
+    // Generate config key and type def e.g. value: u32, conf_vector: Vec<u32>
     let value_name = generate_ident(&*config_item.value, ident_tracker, false, false).unwrap();
     let type_def = generate_type_hint(&*config_item.type_def).unwrap();
+
     // FIXME: shold make another helper function here
     let (arg_val_token, type_hint_token) =
         helper::arg_val_type_token_gen(&Ident::new("", Some(value_type.clone()), IdentType::Other));
@@ -548,11 +526,11 @@ fn generate_let(
             let static_identifier = format_ident!("{}", &*let_stmt.ident.name);
             action_var_collection.push(quote!(#static_identifier));
             Ok(quote!(
-                let mut interface = INTERFACES
+                let mut interface = STATIC_INTERFACES
                     .get()
                     .expect("Unable to get interface")
-                    .lock().await;
-                    let mut #static_identifier = #expr.await;
+                    .lock().unwrap();
+                    let mut #static_identifier = #expr;
                     for condition in &#static_identifier.generated_conditions{
                         self.condition_clauses.push(condition.clone());
                     }
@@ -621,13 +599,26 @@ fn generate_interface(
     Ok(quote!(
         pub async fn initialize_interface() {
             assert!(INTERFACES.get().is_none());
-            let initialize_interface = || Mutex::new(HashMap::new());
+            let initialize_interface = || TokioMutex::new(HashMap::new());
             INTERFACES.get_or_init(initialize_interface);
             let interface_list = INTERFACES.get().expect("Failed to get interface");
             for interface_name in vec![#(#interface_names),*] {
                 interface_list
                     .lock()
                     .await
+                    .insert(interface_name.to_string(), QnicInterface::place_holder());
+            }
+        }
+        #[doc = "Non async interface generation for static ruleset generation"]
+        pub fn initialize_static_interface() {
+            assert!(STATIC_INTERFACES.get().is_none());
+            let initialize_interface = || StdMutex::new(HashMap::new());
+            STATIC_INTERFACES.get_or_init(initialize_interface);
+            let interface_list = STATIC_INTERFACES.get().expect("Failed to get interface");
+            for interface_name in vec![#(#interface_names),*] {
+                interface_list
+                    .lock()
+                    .unwrap()
                     .insert(interface_name.to_string(), QnicInterface::place_holder());
             }
         }
@@ -881,15 +872,9 @@ fn generate_fn_call(
         args
     };
     if in_static {
-        if do_await {
-            Ok(quote!(
-                #fn_name(#(#generated_arguments.clone()),*).await
-            ))
-        } else {
-            Ok(quote!(
-                #fn_name(#(#generated_arguments.clone()),*)
-            ))
-        }
+        Ok(quote!(
+            #fn_name(#(#generated_arguments.clone()),*)
+        ))
     } else {
         if do_await {
             Ok(quote!(
@@ -1037,6 +1022,7 @@ fn generate_ruleset_expr(
 
     let rules = RULES.get().expect("Failed to get Rule table");
 
+    let mut rule_names = vec![];
     // Closure that gets rule_name and evaluate if the rule is inside the table or not
     // If that Rule is in the table, add it to RuleSet
     for rule in &ruleset_expr.rules {
@@ -1048,7 +1034,7 @@ fn generate_ruleset_expr(
                     .lock()
                     .unwrap()
                     .push(String::from(&*fn_call_expr.func_name.name));
-
+                rule_names.push(String::from(&*fn_call_expr.func_name.name));
                 // get argument name
                 // let rule_argument = &fn_call_expr.arguments;
             }
@@ -1064,12 +1050,14 @@ fn generate_ruleset_expr(
                             .lock()
                             .unwrap()
                             .push(String::from(&*fn_call.func_name.name));
+                        rule_names.push(String::from(&*fn_call.func_name.name));
                     }
                     _ => unreachable!("So far RuleIdentifier can only be FnCall"),
                 }
             }
         }
     }
+
     // Replace all the TBD information with configed values
     // Expand Config here
     let (conf_def, config) = match &*ruleset_expr.config {
@@ -1084,7 +1072,7 @@ fn generate_ruleset_expr(
                     pub fn resolve_config(&mut self, config: Box<&#name>, index: Option<usize>){
                         for (_, rule) in &mut self.unready_rules{
                             for arg in &mut rule.arg_list(){
-                                let argument = config.get_as_arg(arg, index);
+                                let argument = config.__get_as_arg(arg, index);
                                 rule.resolve_argument(arg, argument);
                             }
                         }
@@ -1142,9 +1130,11 @@ fn generate_ruleset_expr(
 
             pub fn gen_ruleset(&mut self) -> RuleSet<ActionClausesV2>{
                 let mut ruleset = RuleSet::<ActionClausesV2>::new(&self.name);
-
-                for (_, rule) in &self.unready_rules{
-                    rule.gen_ruleset(&mut ruleset);
+                for rname in vec![#(#rule_names),*]{
+                    self.unready_rules
+                    .get_mut(rname)
+                    .expect("unable to find rule")
+                    .gen_ruleset(&mut ruleset);
                 }
                 ruleset
             }
@@ -1319,12 +1309,13 @@ fn generate_rule(
                 arg_vec
             }
             #[doc = "No execution, but gen ruleset"]
-            async fn static_ruleset_gen(&mut self){
+            fn static_ruleset_gen(&mut self){
                 #static_cond
                 #static_act
             }
 
-            fn gen_ruleset(&self, ruleset: &mut RuleSet<ActionClausesV2>){
+            fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
+                self.static_ruleset_gen();
                 let mut rule = Rule::<ActionClausesV2>::new(#rule_name_string);
                 let mut condition = Condition::new(None);
                 let mut action = Action::new(None);
@@ -1334,6 +1325,7 @@ fn generate_rule(
                 }
                 rule.set_condition(condition);
                 rule.set_action(action);
+                ruleset.add_rule(rule);
             }
 
         }

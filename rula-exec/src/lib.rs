@@ -6,6 +6,7 @@ pub mod codegen {
     #[cfg(not(tarpaulin_include))]
     mod error;
 
+    pub mod default_token;
     pub mod generator;
     pub mod identifier;
     pub mod rule_meta;

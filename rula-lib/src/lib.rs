@@ -165,7 +165,7 @@ pub mod qnic {
             self.qubit_interfaces.get("").expect("Unable to find qubit")
         }
 
-        pub async fn __static__request_resource(
+        pub fn __static__request_resource(
             &mut self,
             number: u32,
             qnic_interface: QnicInterface,
@@ -191,7 +191,7 @@ pub mod qnic {
             )
         }
 
-        pub async fn __static__get_message(&mut self, src: QnicInterface) -> Message {
+        pub fn __static__get_message(&mut self, src: QnicInterface) -> Message {
             let mut dest = QnicInterface::place_holder();
             Message::new(
                 "",
@@ -255,14 +255,13 @@ pub mod qubit {
         pub async fn ready(&self) -> bool {
             true
         }
-        pub async fn __static__ready(&mut self) -> bool {
-            self.generated_conditions.push(ConditionClauses::Wait);
+        pub fn __static__ready(&mut self) -> bool {
             true
         }
         pub async fn x(&self) {}
-        pub async fn __static__x(&self) {}
+        pub fn __static__x(&self) {}
         pub async fn z(&self) {}
-        pub async fn __static__z(&self) {}
+        pub fn __static__z(&self) {}
     }
 }
 
