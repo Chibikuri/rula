@@ -9,7 +9,7 @@ use super::IResult;
 use crate::rulep::action::v2::ActionClauses;
 use crate::rulep::action::Action;
 use crate::rulep::condition::Condition;
-use crate::rulep::ruleset::{Rule, RuleSet};
+use crate::rulep::ruleset::Rule;
 use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
 use rula_parser::parser::ast::*;
 
@@ -220,7 +220,7 @@ pub fn generate(
 // Initialize singleton values
 // RULESET_FACTORY: collect information needed to create a RuleSet
 // RULESET: ruleset instance (will be deprecated in generator)
-fn initialize_singleton() {
+pub(super) fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     assert!(RULESET_FACTORY.get().is_none());
     assert!(RULES.get().is_none());
@@ -233,7 +233,10 @@ fn initialize_singleton() {
 }
 
 // Generate entire rula program
-fn generate_rula(rula: &mut RuLa, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
+pub(super) fn generate_rula(
+    rula: &mut RuLa,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     match &mut *rula.rula {
         RuLaKind::Program(program) => {
             let generated_program = generate_program(program, ident_tracker).unwrap();
@@ -255,7 +258,7 @@ fn generate_rula(rula: &mut RuLa, ident_tracker: &mut IdentTracker) -> IResult<T
 
 // Generate progra
 // program: Program AST that contains a vector of Stmt
-fn generate_program(
+pub(super) fn generate_program(
     program: &mut Program,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -277,7 +280,7 @@ fn generate_program(
 //  stmt: Stmt AST
 //  rule_name: Option<String> a name of corresponding Rule
 //  ident_tracker: List of identifiers that need to be tracked
-fn generate_stmt(
+pub(super) fn generate_stmt(
     stmt: &mut Stmt,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -307,7 +310,7 @@ fn generate_stmt(
 }
 
 /// Generate config schema
-fn generate_config(
+pub(super) fn generate_config(
     config_stmt: &mut Config,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -373,7 +376,7 @@ fn generate_config(
     ))
 }
 
-fn generate_config_item(
+pub(super) fn generate_config_item(
     config_item: &mut ConfigItem,
     ident_tracker: &mut IdentTracker,
     conf_keys: &mut Vec<String>,
@@ -441,7 +444,7 @@ fn generate_config_item(
 /// * 'in_watch' - (bool) boolean value if this let statement is in watch or not.
 ///                 this can be included AST Node later
 ///
-fn generate_let(
+pub(super) fn generate_let(
     let_stmt: &mut Let,
     rule_name: Option<&String>,
     in_watch: bool,
@@ -518,8 +521,8 @@ fn generate_let(
 
     let mut interface_name_list = vec![];
     for interface_name in &ident_tracker.interface_names {
-        let string_name = SynLit::Str(LitStr::new(interface_name, Span::call_site()));
-        interface_name_list.push(string_name);
+        // let string_name = SynLit::Str(LitStr::new(interface_name, Span::call_site()));
+        interface_name_list.push(interface_name);
     }
     if in_watch {
         if in_static {
@@ -559,7 +562,7 @@ fn generate_let(
     }
 }
 
-fn generate_interface(
+pub(super) fn generate_interface(
     interface_expr: &mut Interface,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -616,16 +619,17 @@ fn generate_interface(
             STATIC_INTERFACES.get_or_init(initialize_interface);
             let interface_list = STATIC_INTERFACES.get().expect("Failed to get interface");
             for interface_name in vec![#(#interface_names),*] {
+                let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
                 interface_list
                     .lock()
                     .unwrap()
-                    .insert(interface_name.to_string(), QnicInterface::place_holder());
+                    .insert(interface_name.to_string(), mock_qnic);
             }
         }
     ))
 }
 
-fn generate_expr(
+pub(super) fn generate_expr(
     expr: &mut Expr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -673,7 +677,7 @@ fn generate_expr(
     }
 }
 
-fn generate_import(
+pub(super) fn generate_import(
     import_expr: &mut Import,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -715,7 +719,10 @@ fn generate_import(
     ))
 }
 
-fn generate_if(if_expr: &mut If, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
+pub(super) fn generate_if(
+    if_expr: &mut If,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     // block could have invalid expression here.
     let block_quote = generate_expr(&mut *if_expr.block, None, ident_tracker, false).unwrap();
     let stmt_quote = generate_stmt(&mut *if_expr.stmt, None, ident_tracker, false).unwrap();
@@ -784,7 +791,10 @@ fn generate_if(if_expr: &mut If, ident_tracker: &mut IdentTracker) -> IResult<To
     }
 }
 
-fn generate_for(for_expr: &mut For, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
+pub(super) fn generate_for(
+    for_expr: &mut For,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     let mut ident_list = vec![];
     for ident in for_expr.pattern.iter() {
         ident_list.push(generate_ident(ident, ident_tracker, false, false).unwrap());
@@ -811,7 +821,7 @@ fn generate_for(for_expr: &mut For, ident_tracker: &mut IdentTracker) -> IResult
     }
 }
 
-fn generate_while(
+pub(super) fn generate_while(
     while_expr: &mut While,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -824,7 +834,7 @@ fn generate_while(
     ))
 }
 
-fn generate_fn_def(
+pub(super) fn generate_fn_def(
     fn_def_expr: &mut FnDef,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -849,7 +859,7 @@ fn generate_fn_def(
     ))
 }
 
-fn generate_fn_call(
+pub(super) fn generate_fn_call(
     fn_call_expr: &mut FnCall,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -867,7 +877,12 @@ fn generate_fn_call(
     let generated_arguments = {
         let mut args = vec![];
         for arg in &mut fn_call_expr.arguments {
-            args.push(generate_expr(arg, rule_name, ident_tracker, in_static).unwrap());
+            let generated_arg = generate_expr(arg, rule_name, ident_tracker, in_static).unwrap();
+            if in_static {
+                args.push(generated_arg);
+            } else {
+                args.push(quote!(&#generated_arg));
+            }
         }
         args
     };
@@ -888,7 +903,10 @@ fn generate_fn_call(
     }
 }
 
-fn generate_struct(struct_expr: &Struct, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
+pub(super) fn generate_struct(
+    struct_expr: &Struct,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     // todo!("Structure definition would be deprecated");
     let struct_name = generate_ident(&struct_expr.name, ident_tracker, false, false).unwrap();
     let mut struct_items = vec![];
@@ -902,7 +920,7 @@ fn generate_struct(struct_expr: &Struct, ident_tracker: &mut IdentTracker) -> IR
     ))
 }
 
-fn generate_return(
+pub(super) fn generate_return(
     return_expr: &mut Return,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -912,7 +930,7 @@ fn generate_return(
     ))
 }
 
-fn generate_match(
+pub(super) fn generate_match(
     match_expr: &mut Match,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
@@ -950,7 +968,7 @@ fn generate_match(
     }
 }
 
-fn generate_match_arm(
+pub(super) fn generate_match_arm(
     match_arm: &mut MatchArm,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
@@ -962,7 +980,7 @@ fn generate_match_arm(
     Ok(quote!(#generated_match_condition => {#generated_match_action}))
 }
 
-fn generate_match_condition(
+pub(super) fn generate_match_condition(
     match_condition: &mut MatchCondition,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -975,7 +993,7 @@ fn generate_match_condition(
     }
 }
 
-fn generate_match_action(
+pub(super) fn generate_match_action(
     match_action: &mut MatchAction,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
@@ -989,7 +1007,7 @@ fn generate_match_action(
     ))
 }
 
-fn generate_comp(
+pub(super) fn generate_comp(
     comp_expr: &mut Comp,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1012,7 +1030,7 @@ fn generate_comp(
     Ok(quote!(#lhs #op #rhs))
 }
 
-fn generate_ruleset_expr(
+pub(super) fn generate_ruleset_expr(
     ruleset_expr: &RuleSetExpr,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -1144,7 +1162,7 @@ fn generate_ruleset_expr(
     ))
 }
 
-fn generate_rule(
+pub(super) fn generate_rule(
     rule_expr: &mut RuleExpr,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
@@ -1338,7 +1356,7 @@ fn generate_rule(
     ))
 }
 
-fn generate_rule_content(
+pub(super) fn generate_rule_content(
     rule_content_expr: &mut RuleContentExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1387,7 +1405,7 @@ fn generate_rule_content(
     ))
 }
 
-fn generate_watch(
+pub(super) fn generate_watch(
     watch_expr: &mut WatchExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1429,7 +1447,7 @@ fn generate_watch(
     ))
 }
 
-fn generate_cond(
+pub(super) fn generate_cond(
     cond_expr: &mut CondExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1479,7 +1497,7 @@ fn generate_cond(
     }
 }
 
-fn generate_awaitable(
+pub(super) fn generate_awaitable(
     awaitable_expr: &mut Awaitable,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1533,7 +1551,7 @@ fn generate_awaitable(
     }
 }
 
-fn generate_act(
+pub(super) fn generate_act(
     act_expr: &mut ActExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1567,7 +1585,7 @@ fn generate_act(
     ))
 }
 
-fn generate_static_act(
+pub(super) fn generate_static_act(
     action_expr: &mut ActExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1608,7 +1626,7 @@ fn generate_static_act(
     ))
 }
 
-fn generate_static_cond(
+pub(super) fn generate_static_cond(
     cond_expr: &mut CondExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1632,7 +1650,7 @@ fn generate_static_cond(
     }
 }
 
-fn generate_variable_call(
+pub(super) fn generate_variable_call(
     variable_call_expr: &mut VariableCallExpr,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
@@ -1694,7 +1712,10 @@ fn generate_variable_call(
     Ok(quote!(#(#variable_calls).*))
 }
 
-fn generate_array(array_expr: &Array, ident_tracker: &mut IdentTracker) -> IResult<TokenStream> {
+pub(super) fn generate_array(
+    array_expr: &Array,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<TokenStream> {
     let mut items = vec![];
     for lits in array_expr.items.iter() {
         items.push(generate_lit(lits, ident_tracker, false).unwrap());
@@ -1702,7 +1723,7 @@ fn generate_array(array_expr: &Array, ident_tracker: &mut IdentTracker) -> IResu
     Ok(quote!(vec![#(#items),*]))
 }
 
-fn generate_lit(
+pub(super) fn generate_lit(
     lit: &Lit,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
@@ -1723,14 +1744,14 @@ fn generate_lit(
     }
 }
 
-fn generate_term(term_expr: f64) -> IResult<TokenStream> {
+pub(super) fn generate_term(term_expr: f64) -> IResult<TokenStream> {
     // We could make Term struct instead of direct calc
     // For now, this function just returns calc result as f64
     let val = LitFloat::new(&term_expr.to_string(), Span::call_site());
     Ok(quote!(#val))
 }
 // Generate identifier token from Ident ast
-fn generate_ident(
+pub(super) fn generate_ident(
     ident: &Ident,
     ident_tracker: &mut IdentTracker,
     with_type_annotation: bool,
@@ -1797,7 +1818,7 @@ fn generate_ident(
     }
 }
 
-fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
+pub(super) fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
     match type_hint {
         TypeDef::Boolean => Ok(quote!(bool)),
         TypeDef::Integer32 => Ok(quote!(i32)),
@@ -1948,437 +1969,5 @@ pub mod helper {
             }
             None => (quote!(), quote!(TypeHint::Unknown)),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // ident tests
-    #[test]
-    fn test_ident_no_type_hint() {
-        initialize_singleton();
-        let test_ident = Ident::new("hello", None, IdentType::Other);
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_ident(&test_ident, &mut tracker, false, false).unwrap();
-        assert_eq!("hello", test_stream.to_string());
-    }
-    #[test]
-    fn test_ident_with_type_hint() {
-        let test_ident = Ident::new("hello", Some(TypeDef::Boolean), IdentType::Other);
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_ident(&test_ident, &mut tracker, true, false).unwrap();
-        assert_eq!("hello : bool", test_stream.to_string());
-    }
-
-    // Import test
-    #[test]
-    fn test_simple_import() {
-        // assert!(IDENT_TABLE.get().is_none());
-        // let initialize_ident_table = || Mutex::new(HashMap::<String, IdentType>::new());
-        // let _ = IDENT_TABLE.get_or_init(initialize_ident_table);
-        // import hello;
-        let expected_paths = vec![["hello"].iter().collect()];
-        let mut test_import = Import::new(PathKind::from(expected_paths));
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_import(&mut test_import, &mut tracker).unwrap();
-        assert_eq!("use hello ;", test_stream.to_string());
-    }
-
-    // If test
-    #[test]
-    fn test_simple_if() {
-        // if (block) {expression}
-        let mut simple_if = If::new(
-            // (block)
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "block",
-                None,
-                IdentType::Other,
-            ))))),
-            // {expression}
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-            ))))),
-            // elif ~
-            None,
-            // else ~
-            None,
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "block",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_if(&mut simple_if, &mut tracker).unwrap();
-        assert_eq!("if block { expression }", test_stream.to_string());
-    }
-
-    #[test]
-    fn test_if_else() {
-        // initialize_singleton();
-        // if (block) {expression} else {expression2}
-        let mut if_else = If::new(
-            // (block)
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "block",
-                None,
-                IdentType::Other,
-            ))))),
-            // {expression}
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-            ))))),
-            // elif ~
-            None,
-            // else ~
-            Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
-                Lit::new(LitKind::Ident(Ident::new(
-                    "expression2",
-                    None,
-                    IdentType::Other,
-                ))),
-            ))))),
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "block",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression2",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_if(&mut if_else, &mut tracker).unwrap();
-        assert_eq!(
-            "if block { expression } else { expression2 }",
-            test_stream.to_string()
-        );
-    }
-
-    #[test]
-    fn test_if_elif_else() {
-        // initialize_singleton();
-        // if(block){expression} else if (block2){expression2} else {expression3}
-        let mut if_elif_else = If::new(
-            // (block)
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "block",
-                None,
-                IdentType::Other,
-            ))))),
-            // {expression}
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-            ))))),
-            // elif ~
-            Some(If::new(
-                // else if (block)
-                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block2",
-                    None,
-                    IdentType::Other,
-                ))))),
-                // else if () {statement2;};
-                Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                    LitKind::Ident(Ident::new("expression2", None, IdentType::Other)),
-                ))))),
-                None,
-                None,
-            )),
-            // else ~
-            Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
-                Lit::new(LitKind::Ident(Ident::new(
-                    "expression3",
-                    None,
-                    IdentType::Other,
-                ))),
-            ))))),
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "block",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "block2",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression2",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression3",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_if(&mut if_elif_else, &mut tracker).unwrap();
-        assert_eq!(
-            "if block { expression } else if block2 { expression2 } else { expression3 }",
-            test_stream.to_string()
-        );
-    }
-
-    // for test
-    #[test]
-    fn test_simple_for_generation() {
-        // for (i) in generator {hello}
-        let mut simple_for = For::new(
-            vec![Ident::new("i", None, IdentType::Other)],
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "generator",
-                None,
-                IdentType::Other,
-            ))))),
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
-            ))))),
-        );
-
-        let mut tracker = IdentTracker::new();
-        tracker.register("i", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        tracker.register(
-            "generator",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_for(&mut simple_for, &mut tracker).unwrap();
-        assert_eq!("for i in generator { hello }", test_stream.to_string());
-    }
-
-    #[test]
-    fn test_multi_arg_for_generation() {
-        // for (a, b, c) in generator{hello}
-        let mut multi_for = For::new(
-            vec![
-                Ident::new("a", None, IdentType::Other),
-                Ident::new("b", None, IdentType::Other),
-                Ident::new("c", None, IdentType::Other),
-            ],
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "generator",
-                None,
-                IdentType::Other,
-            ))))),
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
-            ))))),
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register("a", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        tracker.register("b", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        tracker.register("c", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        tracker.register(
-            "generator",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_for(&mut multi_for, &mut tracker).unwrap();
-        assert_eq!(
-            "for (a , b , c) in generator { hello }",
-            test_stream.to_string()
-        );
-    }
-    // While test
-    #[test]
-    fn test_simple_while() {
-        let mut simple_while = While::new(
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "count",
-                None,
-                IdentType::Other,
-            ))))),
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-            ))))),
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "count",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_while(&mut simple_while, &mut tracker).unwrap();
-        assert_eq!("while count { expression }", test_stream.to_string());
-    }
-
-    // FnDef test
-    #[test]
-    fn test_simple_fn_def() {
-        // fn(block:i32, hello:str){expression}
-        let mut simple_fn_def = FnDef::new(
-            vec![
-                Ident::new("block", Some(TypeDef::Integer32), IdentType::Other),
-                Ident::new("hello", Some(TypeDef::Str), IdentType::Other),
-            ],
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-            ))))),
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "block",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "expression",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_fn_def(&mut simple_fn_def, &mut tracker).unwrap();
-        assert_eq!(
-            "pub fn (block : i32 , hello : String) { expression }",
-            test_stream.to_string()
-        );
-    }
-
-    // FnCall test
-    #[test]
-    fn test_simple_fn_call() {
-        // range()
-        let mut simple_fn_call = FnCall::new(Ident::new("range", None, IdentType::Other), vec![]);
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "range",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream =
-            generate_fn_call(&mut simple_fn_call, None, &mut tracker, false, false).unwrap();
-        assert_eq!("range ()", test_stream.to_string());
-    }
-
-    // Struct test
-    #[test]
-    fn test_simple_struct() {
-        // struct Test{flag: bool}
-        let simple_struct = Struct::new(
-            Ident::new("Test", None, IdentType::Other),
-            vec![Ident::new("flag", Some(TypeDef::Boolean), IdentType::Other)],
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register("Test", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        tracker.register("flag", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        let test_stream = generate_struct(&simple_struct, &mut tracker).unwrap();
-        assert_eq!("struct Test { flag : bool }", test_stream.to_string());
-    }
-
-    // Return test
-    #[test]
-    fn test_simple_return() {
-        // return hello
-        let mut simple_return = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
-            Ident::new("hello", None, IdentType::Other),
-        )))));
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "hello",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_return(&mut simple_return, &mut tracker).unwrap();
-        assert_eq!("return hello ;", test_stream.to_string());
-    }
-
-    // Comp expr test
-    #[test]
-    fn test_simple_comp() {
-        // count > prev_count
-        let mut comp_expr = Comp::new(
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "count",
-                None,
-                IdentType::Other,
-            ))))),
-            CompOpKind::Gt,
-            Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "prev_count",
-                None,
-                IdentType::Other,
-            ))))),
-        );
-        let mut tracker = IdentTracker::new();
-        tracker.register(
-            "count",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        tracker.register(
-            "prev_count",
-            Identifier::new(IdentType::Other, TypeHint::Unknown),
-        );
-        let test_stream = generate_comp(&mut comp_expr, None, &mut tracker).unwrap();
-        assert_eq!("count > prev_count", test_stream.to_string());
-    }
-
-    #[test]
-    fn test_simple_array() {
-        // [1, 2, 3, 4, 5]
-        let array_expr = Array::new(vec![
-            Lit::new(LitKind::NumberLit(NumberLit::new("1"))),
-            Lit::new(LitKind::NumberLit(NumberLit::new("2"))),
-            Lit::new(LitKind::NumberLit(NumberLit::new("3"))),
-            Lit::new(LitKind::NumberLit(NumberLit::new("4"))),
-            Lit::new(LitKind::NumberLit(NumberLit::new("5"))),
-        ]);
-        let test_stream = generate_array(&array_expr, &mut IdentTracker::new()).unwrap();
-        assert_eq!("vec ! [1 , 2 , 3 , 4 , 5]", test_stream.to_string());
-    }
-
-    #[test]
-    fn test_simple_rule() {
-        // rule hello<qn0>(q2: Qubit){expression}
-        // let rule_expr = RuleExpr::new(
-        //     Ident::new("hello", None),
-        //     vec![Ident::new("qn0", None)],
-        //     vec![Ident::new("q2", Some(TypeDef::Qubit))],
-        //     vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
-        //         Lit::new(LitKind::Ident(Ident::new("expression", None))),
-        //     ))))],
-        // );
-        // let test_stream = generate_rule(&rule_expr).unwrap();
-        // assert_eq!(
-        //     "rule hello<qn0>(q2: Qubit){expression}",
-        //     test_stream.to_string()
-        // );
-    }
-
-    #[test]
-    fn test_interface_generation() {
-        // #interface: {qn0, qn1} => qnall;
     }
 }

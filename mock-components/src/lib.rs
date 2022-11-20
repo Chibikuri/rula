@@ -8,6 +8,6 @@ pub mod hardware {
 }
 
 pub mod software {
-    pub mod resource_allocator;
     pub mod mock_routing_daemon;
+    pub mod resource_allocator;
 }

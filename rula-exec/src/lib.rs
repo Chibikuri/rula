@@ -12,6 +12,9 @@ pub mod codegen {
     pub mod rule_meta;
     pub mod ruleset_generator;
 
+    #[cfg(test)]
+    pub mod test_generator;
+
     use error::RuLaCompileError;
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 }

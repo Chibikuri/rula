@@ -86,7 +86,7 @@ pub struct Rule<T> {
     pub shared_tag: u32,
     /// Interface information (will be deprecated)
     // #[deprecated(since = "0.2.0", note = "old version ruleset")]
-    pub qnic_interfaces: HashMap<String, QnicInterface>,
+    // pub qnic_interfaces: HashMap<String, QnicInterface>,
     /// A list of conditions to be met
     pub condition: Condition,
     /// A list of actions to be acted
@@ -99,7 +99,7 @@ impl<T> Rule<T> {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
-            qnic_interfaces: HashMap::new(),
+            // qnic_interfaces: HashMap::new(),
             id: 0,
             shared_tag: 0,
             condition: Condition::new(None),

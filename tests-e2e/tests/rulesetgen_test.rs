@@ -9,7 +9,7 @@ use rula_exec::wrapper::qnic_wrapper::QnicInterfaceWrapper;
 use rula_exec::wrapper::qubit_wrapper::QubitInterfaceWrapper;
 
 // Is this proper one?
-use mock_components::hardware::qnic::QnicType;
+use mock_components::hardware::mock_qnic::QnicType;
 
 use std::fs::File;
 use std::io::Read;

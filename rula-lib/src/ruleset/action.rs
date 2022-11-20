@@ -1,7 +1,7 @@
 use crate::qnic::QnicInterface;
 use crate::qubit::QubitInterface;
-use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Action<T> {

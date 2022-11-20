@@ -1,4 +1,5 @@
-#[derive(Debug, PartialEq, Clone)]
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MeasResult {
     pub basis: MeasBasis,
     pub result: Outcome,
@@ -19,14 +20,14 @@ impl MeasResult {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum MeasBasis {
     X,
     Y,
     Z,
     PlaceHolder,
 }
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Outcome {
     Zero,
     One,

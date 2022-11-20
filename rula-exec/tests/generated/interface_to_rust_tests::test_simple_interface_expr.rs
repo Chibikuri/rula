@@ -82,10 +82,11 @@ mod rula {
         STATIC_INTERFACES.get_or_init(initialize_interface);
         let interface_list = STATIC_INTERFACES.get().expect("Failed to get interface");
         for interface_name in vec!["qn0", "INTERFACE"] {
+            let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
             interface_list
                 .lock()
                 .unwrap()
-                .insert(interface_name.to_string(), QnicInterface::place_holder());
+                .insert(interface_name.to_string(), mock_qnic);
         }
     }
 }
