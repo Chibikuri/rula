@@ -55,6 +55,8 @@ impl MockQnicRoutingTable {
         self.add_destination(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)), qnic1);
         self.add_destination(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)), qnic2);
 
+        // self
+        self.add_distance(0, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 0)));
         // Single hop
         self.add_distance(1, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
         self.add_distance(1, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)));

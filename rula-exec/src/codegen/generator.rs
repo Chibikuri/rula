@@ -88,7 +88,7 @@ pub fn generate(
         rule_names.push(quote!(
             ruleset.add_unready_rule(
                 String::from(#rname),
-                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new())
+                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new().await)
             )
         ));
 
@@ -1276,6 +1276,7 @@ pub(super) fn generate_rule(
 
         pub struct #unready_rule_name_token<'a>{
             interfaces: Vec<String>,
+            // Should copy interface information laters
             static_interfaces: HashMap<String, QnicInterface<'a>>,
             arguments: HashMap<String, Argument>,
             condition_clauses: Vec<ConditionClauses<'a>>,
@@ -1285,14 +1286,16 @@ pub(super) fn generate_rule(
         impl <'a>#unready_rule_name_token<'a>{
             // pub fn new(args_from_prev_rule: Option<HashMap<String, Argument>>, config: Option<&CONFIG>) -> Self{
             // pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
-            pub fn new() -> Self{
+            pub async fn new() -> #unready_rule_name_token<'static>{
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
 
                 let mut static_interfaces = HashMap::new();
+                let interface_list = INTERFACES.get().expect("Unable to find interface table");
                 for i_name in vec![#(#interface_idents), *].iter(){
-                    let interface_def = QnicInterface::generate_mock_interface(i_name, 10);
+                    let interface_def = interface_list.lock().await.get(i_name).expect("Unable to get interface").clone();
+                    // let interface_def = QnicInterface::generate_mock_interface(i_name, 10);
                     static_interfaces.insert(i_name.to_string(), interface_def);
                 }
                 // 2. return structure
