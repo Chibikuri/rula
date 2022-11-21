@@ -4,7 +4,9 @@ use std::net::IpAddr;
 
 use super::action::*;
 use super::condition::*;
+use crate::qnic;
 use crate::qnic::QnicInterface;
+use crate::qnic::QnicType;
 
 fn generate_id() -> u128 {
     if cfg!(test) {
@@ -17,8 +19,8 @@ fn generate_id() -> u128 {
 }
 
 // note: host addresses can only be filled in after
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct RuleSet<T> {
+#[derive(Serialize, Debug, PartialEq, Clone)]
+pub struct RuleSet<'a, T> {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
     /// Unique identifier for thie RuleSet. (This could be kept in private)
@@ -26,9 +28,9 @@ pub struct RuleSet<T> {
     /// Owner address can only be solved after the all network interface options are collected
     pub owner_addr: Option<AddressKind>,
     /// Default rule to be applied
-    pub default_rule: Option<Rule<T>>,
+    pub default_rule: Option<Rule<'a, T>>,
     /// List of rules stored in this RuleSet
-    pub rules: Vec<Rule<T>>,
+    pub rules: Vec<Rule<'a, T>>,
     /// To give index to the rules sequentially
     rule_index: u32,
 }
@@ -38,14 +40,14 @@ pub struct RuleSet<T> {
 // This might be deprecated in the future
 // Note: This can be a generic type, but in the generator, the RuleSet is called
 // as a global singleton. For that purpose, this enum is defined.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Debug, PartialEq, Clone)]
 pub enum AddressKind {
     // For connection to the simulator
     IntegerKind(i32),
     IpKind(IpAddr),
 }
 
-impl<T> RuleSet<T> {
+impl<'a, T> RuleSet<'a, T> {
     pub fn new(name: &str) -> Self {
         RuleSet {
             name: name.to_string(),
@@ -65,19 +67,41 @@ impl<T> RuleSet<T> {
         self.owner_addr = owner_addr;
     }
 
-    pub fn add_default_rule(&mut self, rule: Option<Rule<T>>) {
+    pub fn add_default_rule(&mut self, rule: Option<Rule<'a, T>>) {
         self.default_rule = rule;
     }
 
-    pub fn add_rule(&mut self, mut rule: Rule<T>) {
+    pub fn add_rule(&mut self, mut rule: Rule<'a, T>) {
         rule.update_id(self.rule_index);
         self.rules.push(rule);
         self.rule_index += 1;
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Rule<T> {
+#[derive(Serialize, Debug, PartialEq, Clone)]
+pub struct InterfaceInfo {
+    // This could be ip addr in the future
+    partner_addr: Option<u32>,
+    qnic_id: Option<u64>,
+    qnic_type: Option<QnicType>,
+}
+
+impl InterfaceInfo {
+    pub fn new(
+        partner_addr: Option<u32>,
+        qnic_id: Option<u64>,
+        qnic_type: Option<QnicType>,
+    ) -> Self {
+        InterfaceInfo {
+            partner_addr: partner_addr,
+            qnic_id: qnic_id,
+            qnic_type: qnic_type,
+        }
+    }
+}
+
+#[derive(Serialize, Debug, PartialEq, Clone)]
+pub struct Rule<'a, T> {
     /// Name of this rule
     pub name: String,
     /// Identifier of this Rule
@@ -86,20 +110,20 @@ pub struct Rule<T> {
     pub shared_tag: u32,
     /// Interface information (will be deprecated)
     // #[deprecated(since = "0.2.0", note = "old version ruleset")]
-    // pub qnic_interfaces: HashMap<String, QnicInterface>,
+    pub qnic_interfaces: HashMap<String, InterfaceInfo>,
     /// A list of conditions to be met
-    pub condition: Condition,
+    pub condition: Condition<'a>,
     /// A list of actions to be acted
     pub action: Action<T>,
     /// If this is the final rule or not
     pub is_finalized: bool,
 }
 
-impl<T> Rule<T> {
+impl<'a, T> Rule<'a, T> {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
-            // qnic_interfaces: HashMap::new(),
+            qnic_interfaces: HashMap::new(),
             id: 0,
             shared_tag: 0,
             condition: Condition::new(None),
@@ -107,13 +131,13 @@ impl<T> Rule<T> {
             is_finalized: false,
         }
     }
-    pub fn set_condition(&mut self, condition: Condition) {
+    pub fn set_condition(&mut self, condition: Condition<'a>) {
         self.condition = condition;
     }
     pub fn set_action(&mut self, action: Action<T>) {
         self.action = action;
     }
-    pub fn add_interface(&mut self, interface_name: &str, interface: QnicInterface) {
+    pub fn add_interface(&mut self, interface_name: &str, interface: InterfaceInfo) {
         self.qnic_interfaces
             .insert(interface_name.to_string(), interface);
     }

@@ -77,7 +77,7 @@ pub fn generate(
     for rname in rules.lock().unwrap().iter() {
         let rname_unready = format_ident!("unready_{}", rname);
         unready_rule_names.push(quote!(
-            #rname_unready(#rname_unready)
+            #rname_unready(#rname_unready<'a>)
         ));
 
         let rname_ready = format_ident!("{}", rname);
@@ -127,8 +127,9 @@ pub fn generate(
 
     let ruleset_gen = if with_ruleset {
         quote!(
-            let ruleset = ruleset.gen_ruleset();
-            println!("{:#?}", ruleset);
+            let mut static_ruleset = RuleSet::<ActionClauses>::new("");
+            ruleset.gen_ruleset(&mut static_ruleset);
+            println!("{:#?}", &static_ruleset);
         )
     } else {
         quote!()
@@ -151,15 +152,17 @@ pub fn generate(
     let rula_token_stream = quote!(
         use rula_lib as rula_std;
         use std::fs;
+        use crate::rula_std::ruleset::ruleset::*;
+        use rula_std::ruleset::action::v2::ActionClauses;
         #[allow(unused)]
         mod rula{
             #default_imports
             pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
             pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-            pub enum UnreadyRules{
+            pub enum UnreadyRules<'a>{
                 #(#unready_rule_names),*
             }
-            impl UnreadyRules{
+            impl <'a>UnreadyRules<'a>{
                 pub fn check_arg_resolved(&self) -> Option<ReadyRules>{
                     match &self{
                         #(#unready_rule_checker)*
@@ -178,7 +181,7 @@ pub fn generate(
                         _ => {panic!("No rule name found");}
                     }
                 }
-                pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
+                pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>){
                     match self{
                         #(#ruleset_gen_enum)*
                         _ => {panic!("No rule name found")}
@@ -203,7 +206,7 @@ pub fn generate(
                 #(#rule_names);*;
                 ruleset.resolve_config(Box::new(&config), Some(i as usize));
                 #ruleset_gen
-                rulesets.push(ruleset);
+                rulesets.push(static_ruleset);
             }
         }
 
@@ -527,23 +530,21 @@ pub(super) fn generate_let(
     if in_watch {
         if in_static {
             let static_identifier = format_ident!("{}", &*let_stmt.ident.name);
+            let clause_identifier = format_ident!("condition_clause_{}", &*let_stmt.ident.name);
             action_var_collection.push(quote!(#static_identifier));
             Ok(quote!(
-                let mut interface = STATIC_INTERFACES
-                    .get()
-                    .expect("Unable to get interface")
-                    .lock().unwrap();
-                    let mut #static_identifier = #expr;
-                    for condition in &#static_identifier.generated_conditions{
-                        self.condition_clauses.push(condition.clone());
+                    let (#static_identifier, #clause_identifier) = #expr;
+                    match #clause_identifier{
+                        Some(clause) => {
+                            self.condition_clauses.push(clause);
+                        },
+                        None => {
+
+                        },
                     }
             ))
         } else {
             Ok(quote!(
-                let mut interface = INTERFACES
-                .get()
-                .expect("unable to get interface")
-                .lock().await;
                 let mut #identifier = #expr.await;
             ))
         }
@@ -606,13 +607,14 @@ pub(super) fn generate_interface(
             INTERFACES.get_or_init(initialize_interface);
             let interface_list = INTERFACES.get().expect("Failed to get interface");
             for interface_name in vec![#(#interface_names),*] {
+                let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
                 interface_list
                     .lock()
                     .await
-                    .insert(interface_name.to_string(), QnicInterface::place_holder());
+                    .insert(interface_name.to_string(), mock_qnic);
             }
         }
-        #[doc = "Non async interface generation for static ruleset generation"]
+
         pub fn initialize_static_interface() {
             assert!(STATIC_INTERFACES.get().is_none());
             let initialize_interface = || StdMutex::new(HashMap::new());
@@ -1105,16 +1107,16 @@ pub(super) fn generate_ruleset_expr(
     Ok(quote!(
         // pub struct RuleSetExec <F: std::marker::Copy>
         // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
-        pub struct RuleSetExec
+        pub struct RuleSetExec<'a>
         {
             name: String,
-            unready_rules: HashMap<String, UnreadyRules>,
+            unready_rules: HashMap<String, UnreadyRules<'a>>,
             rules: HashMap<String, ReadyRules>,
             rule_arguments: Vec<HashMap<String, Argument>>
         }
         // impl <F: std::marker::Copy>RuleSetExec <F>
         // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
-        impl RuleSetExec
+        impl <'a>RuleSetExec<'a>
         {
             pub fn init() -> Self{
                 RuleSetExec{
@@ -1126,7 +1128,7 @@ pub(super) fn generate_ruleset_expr(
                 }
             }
             // pub fn add_rule<F: std::marker::Copy>(&mut self, name: String, rule: F)
-            pub fn add_unready_rule(&mut self, name: String, rule: UnreadyRules)
+            pub fn add_unready_rule(&mut self, name: String, rule: UnreadyRules<'a>)
             {
                 self.unready_rules.insert(name, rule);
             }
@@ -1146,15 +1148,14 @@ pub(super) fn generate_ruleset_expr(
 
             #config
 
-            pub fn gen_ruleset(&mut self) -> RuleSet<ActionClausesV2>{
-                let mut ruleset = RuleSet::<ActionClausesV2>::new(&self.name);
+            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>){
+                ruleset.update_name(&self.name);
                 for rname in vec![#(#rule_names),*]{
                     self.unready_rules
                     .get_mut(rname)
                     .expect("unable to find rule")
-                    .gen_ruleset(&mut ruleset);
+                    .gen_ruleset(ruleset);
                 }
-                ruleset
             }
 
             pub async fn execute(&self){}
@@ -1273,23 +1274,31 @@ pub(super) fn generate_rule(
             arguments: HashMap<String, Argument>,
         }
 
-        pub struct #unready_rule_name_token{
+        pub struct #unready_rule_name_token<'a>{
             interfaces: Vec<String>,
+            static_interfaces: HashMap<String, QnicInterface<'a>>,
             arguments: HashMap<String, Argument>,
-            condition_clauses: Vec<ConditionClauses>,
+            condition_clauses: Vec<ConditionClauses<'a>>,
             action_clauses: Vec<ActionClausesV2>,
         }
 
-        impl #unready_rule_name_token{
+        impl <'a>#unready_rule_name_token<'a>{
             // pub fn new(args_from_prev_rule: Option<HashMap<String, Argument>>, config: Option<&CONFIG>) -> Self{
             // pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
             pub fn new() -> Self{
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
+
+                let mut static_interfaces = HashMap::new();
+                for i_name in vec![#(#interface_idents), *].iter(){
+                    let interface_def = QnicInterface::generate_mock_interface(i_name, 10);
+                    static_interfaces.insert(i_name.to_string(), interface_def);
+                }
                 // 2. return structure
                 #unready_rule_name_token{
                     interfaces: vec![#(#interface_idents), *],
+                    static_interfaces: static_interfaces,
                     arguments: empty_argument,
                     condition_clauses: vec![],
                     action_clauses: vec![],
@@ -1328,11 +1337,19 @@ pub(super) fn generate_rule(
             }
             #[doc = "No execution, but gen ruleset"]
             fn static_ruleset_gen(&mut self){
+                let mut interface_map = HashMap::<String, InterfaceInfo>::new();
+                for i_name in &self.interfaces {
+                    interface_map.insert(i_name.to_string(), __get_interface_info(i_name.to_string()));
+                }
+                // let mut interface = STATIC_INTERFACES
+                // .get()
+                // .expect("unable to get interface table")
+                // .lock().unwrap();
                 #static_cond
                 #static_act
             }
 
-            fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
+            fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>){
                 self.static_ruleset_gen();
                 let mut rule = Rule::<ActionClausesV2>::new(#rule_name_string);
                 let mut condition = Condition::new(None);
@@ -1386,6 +1403,7 @@ pub(super) fn generate_rule_content(
     // Here we should consider to use TaskMonitor in tokio to track the status of watched values
     Ok(quote!(
         async fn condition(&self) -> bool{
+            let mut interface = INTERFACES.get().expect("Unable to get interface table").lock().await;
             #generated_cond
         }
 
@@ -1773,8 +1791,9 @@ pub(super) fn generate_ident(
                     .expect("unable to get interface")
                 )
             } else {
+                // In static
                 quote!(
-                    interface.get(#ident_str).expect("Unable to get interface").clone()
+                    self.static_interfaces.get(#ident_str).expect("Unable to get Interface")
                 )
             }
         }
@@ -1826,7 +1845,7 @@ pub(super) fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
         TypeDef::UnsignedInteger32 => Ok(quote!(u32)),
         TypeDef::UnsignedInteger64 => Ok(quote!(u64)),
         TypeDef::Str => Ok(quote!(String)),
-        TypeDef::Qubit => Ok(quote!(&QubitInterface)),
+        TypeDef::Qubit => Ok(quote!(QubitInterface)),
         TypeDef::Vector(inner) => {
             let inner_type = generate_type_hint(inner).unwrap();
             Ok(quote!(Vec<#inner_type>))
