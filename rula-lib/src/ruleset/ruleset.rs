@@ -32,7 +32,7 @@ pub struct RuleSet<'a, T> {
     /// List of rules stored in this RuleSet
     pub rules: Vec<Rule<'a, T>>,
     /// To give index to the rules sequentially
-    rule_index: u32,
+    num_rules: u32,
 }
 
 // For generating RuleSet for simulator or real world devices,
@@ -55,7 +55,7 @@ impl<'a, T> RuleSet<'a, T> {
             owner_addr: None,
             default_rule: None,
             rules: vec![],
-            rule_index: 0,
+            num_rules: 0,
         }
     }
 
@@ -72,9 +72,9 @@ impl<'a, T> RuleSet<'a, T> {
     }
 
     pub fn add_rule(&mut self, mut rule: Rule<'a, T>) {
-        rule.update_id(self.rule_index);
+        rule.update_id(self.num_rules);
         self.rules.push(rule);
-        self.rule_index += 1;
+        self.num_rules += 1;
     }
 }
 

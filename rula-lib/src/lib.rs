@@ -262,7 +262,7 @@ pub mod qnic {
             *self
                 .qubit_interfaces
                 .borrow()
-                .get("")
+                .get("qubit_0")
                 .expect("Unable to find a qubit")
                 .to_owned()
         }

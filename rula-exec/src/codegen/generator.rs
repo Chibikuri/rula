@@ -1363,7 +1363,7 @@ pub(super) fn generate_rule(
                 }
                 rule.set_condition(condition);
                 rule.set_action(action);
-                ruleset.add_rule(rule);
+                ruleset.add_rule(rule.clone());
             }
 
         }
