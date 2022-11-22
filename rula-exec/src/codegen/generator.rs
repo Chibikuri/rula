@@ -890,7 +890,7 @@ pub(super) fn generate_fn_call(
     };
     if in_static {
         Ok(quote!(
-            #fn_name(Rc::clone(&condition_clauses), Rc::clone(&action_clauses), #(#generated_arguments.clone()),*)
+            #fn_name(Rc::clone(&rules), #(#generated_arguments.clone()),*)
         ))
     } else {
         if do_await {
@@ -1339,37 +1339,40 @@ pub(super) fn generate_rule(
                 arg_vec
             }
             #[doc = "No execution, but gen ruleset"]
-            fn static_ruleset_gen(&mut self){
-                let mut interface_map = HashMap::<String, InterfaceInfo>::new();
-                for i_name in &self.interfaces {
-                    interface_map.insert(i_name.to_string(), __get_interface_info(i_name));
-                }
-                let condition_clauses = Rc::new(RefCell::new(vec![]));
-                let action_clauses = Rc::new(RefCell::new(vec![]));
+            fn static_ruleset_gen(&mut self) -> Stage<ActionClausesV2>{
+                let mut stage = Stage::<ActionClausesV2>::new();
+                #[doc = "Initialy, this starts just a single rule, but if there is match or if expression, this should be expanded."]
+                let mut rules = Rc::new(RefCell::new(vec![RefCell::new(Rule::<ActionClausesV2>::new(#rule_name_string))]));
+
+                // let condition_clauses = Rc::new(RefCell::new(vec![]));
+                // let action_clauses = Rc::new(RefCell::new(vec![]));
                 #static_cond
                 #static_act
-                for cond in &*condition_clauses.borrow(){
-                    self.condition_clauses.push(cond.clone());
+                // for cond in &*condition_clauses.borrow(){
+                //     self.condition_clauses.push(cond.clone());
+                // }
+                // for act in &*action_clauses.borrow(){
+                //     self.action_clauses.push(act.clone());
+                // }
+                for rule in &*rules.borrow(){
+                    stage.add_rule(rule.borrow().clone());
                 }
-                for act in &*action_clauses.borrow(){
-                    self.action_clauses.push(act.clone());
-                }
+                stage
             }
 
             fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
-                self.static_ruleset_gen();
-                let mut rule = Rule::<ActionClausesV2>::new(#rule_name_string);
-                let mut condition = Condition::new(None);
-                let mut action = Action::new(None);
-                for cond in &self.condition_clauses{
-                    condition.add_condition_clause(cond.clone());
-                }
-                for act in &self.action_clauses{
-                    action.add_action_clause(act.clone());
-                }
-                rule.set_condition(condition);
-                rule.set_action(action);
-                ruleset.add_rule(rule);
+                let stage = self.static_ruleset_gen();
+                ruleset.add_stage(stage);
+                // let mut condition = Condition::new(None);
+                // let mut action = Action::new(None);
+                // for cond in &self.condition_clauses{
+                //     condition.add_condition_clause(cond.clone());
+                // }
+                // for act in &self.action_clauses{
+                //     action.add_action_clause(act.clone());
+                // }
+                // rule.set_condition(condition);
+                // rule.set_action(action);
             }
 
         }
@@ -1641,15 +1644,8 @@ pub(super) fn generate_static_act(
             }
         }
     }
-    let mut final_action_collection = vec![];
-    for coll in action_collected {
-        final_action_collection.push(quote!(for action in &#coll.generated_actions {
-            self.action_clauses.push(action.clone())
-        }))
-    }
     Ok(quote!(
         #(#static_action_calls);*
-        #(#final_action_collection)*
     ))
 }
 

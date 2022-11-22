@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 
 use super::action::*;
+use super::condition::v1::ConditionClauses;
 use super::condition::*;
 use crate::qnic;
 use crate::qnic::QnicInterface;
@@ -30,9 +31,32 @@ pub struct RuleSet<T> {
     /// Default rule to be applied
     pub default_rule: Option<Rule<T>>,
     /// List of rules stored in this RuleSet
-    pub rules: Vec<Rule<T>>,
+    pub stages: Vec<Stage<T>>,
     /// To give index to the rules sequentially
     num_rules: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Stage<T> {
+    pub rules: Vec<Rule<T>>,
+    stage_id: u32,
+}
+
+impl<T> Stage<T> {
+    pub fn new() -> Self {
+        Stage {
+            rules: vec![],
+            stage_id: 0,
+        }
+    }
+
+    pub fn update_id(&mut self, id: u32) {
+        self.stage_id = id;
+    }
+
+    pub fn add_rule(&mut self, rule: Rule<T>) {
+        self.rules.push(rule);
+    }
 }
 
 // For generating RuleSet for simulator or real world devices,
@@ -54,7 +78,7 @@ impl<T> RuleSet<T> {
             id: generate_id(),
             owner_addr: None,
             default_rule: None,
-            rules: vec![],
+            stages: vec![],
             num_rules: 0,
         }
     }
@@ -71,9 +95,9 @@ impl<T> RuleSet<T> {
         self.default_rule = rule;
     }
 
-    pub fn add_rule(&mut self, mut rule: Rule<T>) {
-        rule.update_id(self.num_rules);
-        self.rules.push(rule);
+    pub fn add_stage(&mut self, mut stage: Stage<T>) {
+        stage.update_id(self.num_rules);
+        self.stages.push(stage);
         self.num_rules += 1;
     }
 }
@@ -137,6 +161,14 @@ impl<T> Rule<T> {
     pub fn set_action(&mut self, action: Action<T>) {
         self.action = action;
     }
+
+    pub fn add_condition_clause(&mut self, condition_clause: ConditionClauses) {
+        self.condition.add_condition_clause(condition_clause);
+    }
+
+    pub fn add_action_clause(&mut self, action_clause: T) {
+        self.action.add_action_clause(action_clause);
+    }
     pub fn add_interface(&mut self, interface_name: &str, interface: InterfaceInfo) {
         self.qnic_interfaces
             .insert(interface_name.to_string(), interface);
@@ -163,20 +195,21 @@ pub mod tests {
         let ruleset = RuleSet::<Action<ActionClauses>>::new("test");
         assert_eq!(ruleset.name, String::from("test"));
         assert_eq!(ruleset.id.to_string(), "1234567890");
-        assert_eq!(ruleset.rules.len(), 0);
+        assert_eq!(ruleset.stages.len(), 0);
     }
 
     #[test]
     fn test_ruleset_add_rule() {
         let mut ruleset = RuleSet::<ActionClauses>::new("test");
         let rule = Rule::new("rule1");
-        ruleset.add_rule(rule);
-        assert_eq!(ruleset.rules.len(), 1);
-        assert_eq!(ruleset.rules[0].name, "rule1");
         let rule2 = Rule::new("rule2");
-        ruleset.add_rule(rule2);
-        assert_eq!(ruleset.rules.len(), 2);
-        assert_eq!(ruleset.rules[1].name, "rule2");
+        let mut stage = Stage::new();
+        stage.add_rule(rule);
+        stage.add_rule(rule2);
+        ruleset.add_stage(stage);
+        assert_eq!(ruleset.stages[0].rules.len(), 2);
+        assert_eq!(ruleset.stages[0].rules[0].name, "rule1");
+        assert_eq!(ruleset.stages[0].rules[1].name, "rule2");
     }
 
     #[test]

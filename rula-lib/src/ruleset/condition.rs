@@ -45,7 +45,7 @@ pub mod v1 {
         Cmp(Cmp),
     }
 
-    impl ConditionClauses{
+    impl ConditionClauses {
         pub fn add_interface(&mut self, interface_info: InterfaceInfo) {
             match self {
                 ConditionClauses::EnoughResource(enough_res) => {
@@ -92,7 +92,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct MeasureCount {
         name: String,
         pub count: u32,
@@ -109,7 +109,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Fidelity {
         name: String,
         pub required_fidelity: f64,
@@ -126,7 +126,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Wait {
         name: String,
         pub qnic_interface: Option<InterfaceInfo>,
@@ -141,7 +141,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Cmp {
         // target:
     }

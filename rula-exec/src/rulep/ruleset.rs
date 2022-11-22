@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 
+use super::action::v2::ActionClauses;
+use super::condition::v1::ConditionClauses;
 use super::condition::*;
 use crate::rulep::action::Action;
 use crate::wrapper::qnic_wrapper::*;
@@ -115,6 +117,14 @@ impl<T> Rule<T> {
     }
     pub fn set_action(&mut self, action: Action<T>) {
         self.action = action;
+    }
+
+    pub fn add_condition_clause(&mut self, condition_clause: ConditionClauses) {
+        self.condition.add_condition_clause(condition_clause);
+    }
+
+    pub fn add_action_clause(&mut self, action_clause: T) {
+        self.action.add_action_clause(action_clause);
     }
     pub fn add_interface(&mut self, interface_name: &str, interface: QnicInterfaceWrapper) {
         self.qnic_interfaces
