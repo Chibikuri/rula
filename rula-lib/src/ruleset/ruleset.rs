@@ -20,7 +20,7 @@ fn generate_id() -> u128 {
 
 // note: host addresses can only be filled in after
 #[derive(Serialize, Debug, PartialEq, Clone)]
-pub struct RuleSet<'a, T> {
+pub struct RuleSet<T> {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
     /// Unique identifier for thie RuleSet. (This could be kept in private)
@@ -28,9 +28,9 @@ pub struct RuleSet<'a, T> {
     /// Owner address can only be solved after the all network interface options are collected
     pub owner_addr: Option<AddressKind>,
     /// Default rule to be applied
-    pub default_rule: Option<Rule<'a, T>>,
+    pub default_rule: Option<Rule<T>>,
     /// List of rules stored in this RuleSet
-    pub rules: Vec<Rule<'a, T>>,
+    pub rules: Vec<Rule<T>>,
     /// To give index to the rules sequentially
     num_rules: u32,
 }
@@ -47,7 +47,7 @@ pub enum AddressKind {
     IpKind(IpAddr),
 }
 
-impl<'a, T> RuleSet<'a, T> {
+impl<T> RuleSet<T> {
     pub fn new(name: &str) -> Self {
         RuleSet {
             name: name.to_string(),
@@ -67,11 +67,11 @@ impl<'a, T> RuleSet<'a, T> {
         self.owner_addr = owner_addr;
     }
 
-    pub fn add_default_rule(&mut self, rule: Option<Rule<'a, T>>) {
+    pub fn add_default_rule(&mut self, rule: Option<Rule<T>>) {
         self.default_rule = rule;
     }
 
-    pub fn add_rule(&mut self, mut rule: Rule<'a, T>) {
+    pub fn add_rule(&mut self, mut rule: Rule<T>) {
         rule.update_id(self.num_rules);
         self.rules.push(rule);
         self.num_rules += 1;
@@ -101,7 +101,7 @@ impl InterfaceInfo {
 }
 
 #[derive(Serialize, Debug, PartialEq, Clone)]
-pub struct Rule<'a, T> {
+pub struct Rule<T> {
     /// Name of this rule
     pub name: String,
     /// Identifier of this Rule
@@ -112,14 +112,14 @@ pub struct Rule<'a, T> {
     // #[deprecated(since = "0.2.0", note = "old version ruleset")]
     pub qnic_interfaces: HashMap<String, InterfaceInfo>,
     /// A list of conditions to be met
-    pub condition: Condition<'a>,
+    pub condition: Condition,
     /// A list of actions to be acted
     pub action: Action<T>,
     /// If this is the final rule or not
     pub is_finalized: bool,
 }
 
-impl<'a, T> Rule<'a, T> {
+impl<T> Rule<T> {
     pub fn new(name: &str) -> Self {
         Rule {
             name: String::from(name),
@@ -131,7 +131,7 @@ impl<'a, T> Rule<'a, T> {
             is_finalized: false,
         }
     }
-    pub fn set_condition(&mut self, condition: Condition<'a>) {
+    pub fn set_condition(&mut self, condition: Condition) {
         self.condition = condition;
     }
     pub fn set_action(&mut self, action: Action<T>) {

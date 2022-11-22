@@ -33,8 +33,8 @@ mod rula {
     pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
     pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> =
         OnceCell::new();
-    pub enum UnreadyRules<'a> {}
-    impl<'a> UnreadyRules<'a> {
+    pub enum UnreadyRules {}
+    impl UnreadyRules {
         pub fn check_arg_resolved(&self) -> Option<ReadyRules> {
             match &self {
                 _ => {
@@ -56,7 +56,7 @@ mod rula {
                 }
             }
         }
-        pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>) {
+        pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>) {
             match self {
                 _ => {
                     panic!("No rule name found")

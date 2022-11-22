@@ -77,7 +77,7 @@ pub fn generate(
     for rname in rules.lock().unwrap().iter() {
         let rname_unready = format_ident!("unready_{}", rname);
         unready_rule_names.push(quote!(
-            #rname_unready(#rname_unready<'a>)
+            #rname_unready(#rname_unready)
         ));
 
         let rname_ready = format_ident!("{}", rname);
@@ -159,10 +159,10 @@ pub fn generate(
             #default_imports
             pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
             pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-            pub enum UnreadyRules<'a>{
+            pub enum UnreadyRules{
                 #(#unready_rule_names),*
             }
-            impl <'a>UnreadyRules<'a>{
+            impl UnreadyRules{
                 pub fn check_arg_resolved(&self) -> Option<ReadyRules>{
                     match &self{
                         #(#unready_rule_checker)*
@@ -181,7 +181,7 @@ pub fn generate(
                         _ => {panic!("No rule name found");}
                     }
                 }
-                pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>){
+                pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
                     match self{
                         #(#ruleset_gen_enum)*
                         _ => {panic!("No rule name found")}
@@ -533,15 +533,15 @@ pub(super) fn generate_let(
             let clause_identifier = format_ident!("condition_clause_{}", &*let_stmt.ident.name);
             action_var_collection.push(quote!(#static_identifier));
             Ok(quote!(
-                    let (#static_identifier, #clause_identifier) = #expr;
-                    match #clause_identifier{
-                        Some(clause) => {
-                            self.condition_clauses.push(clause);
-                        },
-                        None => {
+                    let #static_identifier = #expr;
+                    // match #clause_identifier{
+                    //     Some(clause) => {
+                    //         self.condition_clauses.push(clause);
+                    //     },
+                    //     None => {
 
-                        },
-                    }
+                    //     },
+                    // }
             ))
         } else {
             Ok(quote!(
@@ -890,7 +890,7 @@ pub(super) fn generate_fn_call(
     };
     if in_static {
         Ok(quote!(
-            #fn_name(#(#generated_arguments.clone()),*)
+            #fn_name(Rc::clone(&condition_clauses), Rc::clone(&action_clauses), #(#generated_arguments.clone()),*)
         ))
     } else {
         if do_await {
@@ -1107,16 +1107,16 @@ pub(super) fn generate_ruleset_expr(
     Ok(quote!(
         // pub struct RuleSetExec <F: std::marker::Copy>
         // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
-        pub struct RuleSetExec<'a>
+        pub struct RuleSetExec
         {
             name: String,
-            unready_rules: HashMap<String, UnreadyRules<'a>>,
+            unready_rules: HashMap<String, UnreadyRules>,
             rules: HashMap<String, ReadyRules>,
             rule_arguments: Vec<HashMap<String, Argument>>
         }
         // impl <F: std::marker::Copy>RuleSetExec <F>
         // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
-        impl <'a>RuleSetExec<'a>
+        impl RuleSetExec
         {
             pub fn init() -> Self{
                 RuleSetExec{
@@ -1128,7 +1128,7 @@ pub(super) fn generate_ruleset_expr(
                 }
             }
             // pub fn add_rule<F: std::marker::Copy>(&mut self, name: String, rule: F)
-            pub fn add_unready_rule(&mut self, name: String, rule: UnreadyRules<'a>)
+            pub fn add_unready_rule(&mut self, name: String, rule: UnreadyRules)
             {
                 self.unready_rules.insert(name, rule);
             }
@@ -1148,7 +1148,7 @@ pub(super) fn generate_ruleset_expr(
 
             #config
 
-            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>){
+            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
                 ruleset.update_name(&self.name);
                 for rname in vec![#(#rule_names),*]{
                     self.unready_rules
@@ -1274,19 +1274,19 @@ pub(super) fn generate_rule(
             arguments: HashMap<String, Argument>,
         }
 
-        pub struct #unready_rule_name_token<'a>{
+        pub struct #unready_rule_name_token{
             interfaces: Vec<String>,
             // Should copy interface information laters
-            static_interfaces: HashMap<String, QnicInterface<'a>>,
+            static_interfaces: HashMap<String, QnicInterface>,
             arguments: HashMap<String, Argument>,
-            condition_clauses: Vec<ConditionClauses<'a>>,
+            condition_clauses: Vec<ConditionClauses>,
             action_clauses: Vec<ActionClausesV2>,
         }
 
-        impl <'a>#unready_rule_name_token<'a>{
+        impl #unready_rule_name_token{
             // pub fn new(args_from_prev_rule: Option<HashMap<String, Argument>>, config: Option<&CONFIG>) -> Self{
             // pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
-            pub async fn new() -> #unready_rule_name_token<'static>{
+            pub async fn new() -> #unready_rule_name_token{
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
@@ -1342,28 +1342,28 @@ pub(super) fn generate_rule(
             fn static_ruleset_gen(&mut self){
                 let mut interface_map = HashMap::<String, InterfaceInfo>::new();
                 for i_name in &self.interfaces {
-                    interface_map.insert(i_name.to_string(), __get_interface_info(i_name.to_string()));
+                    interface_map.insert(i_name.to_string(), __get_interface_info(i_name));
                 }
-                // let mut interface = STATIC_INTERFACES
-                // .get()
-                // .expect("unable to get interface table")
-                // .lock().unwrap();
+                let condition_clauses = Rc::new(RefCell::new(vec![]));
+                let action_clauses = Rc::new(RefCell::new(vec![]));
                 #static_cond
                 #static_act
             }
 
-            fn gen_ruleset(&mut self, ruleset: &mut RuleSet<'a, ActionClausesV2>){
+            fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
                 self.static_ruleset_gen();
                 let mut rule = Rule::<ActionClausesV2>::new(#rule_name_string);
                 let mut condition = Condition::new(None);
                 let mut action = Action::new(None);
-                for (cond, act) in &mut self.condition_clauses.iter().zip(&self.action_clauses){
+                for cond in &self.condition_clauses{
                     condition.add_condition_clause(cond.clone());
+                }
+                for act in &self.action_clauses{
                     action.add_action_clause(act.clone());
                 }
                 rule.set_condition(condition);
                 rule.set_action(action);
-                ruleset.add_rule(rule.clone());
+                ruleset.add_rule(rule);
             }
 
         }

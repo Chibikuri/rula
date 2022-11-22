@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Debug, PartialEq, Clone)]
-pub struct Condition<'a> {
+pub struct Condition {
     pub name: Option<String>,
-    pub clauses: Vec<v1::ConditionClauses<'a>>,
+    pub clauses: Vec<v1::ConditionClauses>,
 }
 
-impl<'a> Condition<'a> {
+impl Condition {
     pub fn new(condition_name: Option<String>) -> Self {
         Condition {
             name: condition_name,
@@ -14,7 +14,7 @@ impl<'a> Condition<'a> {
         }
     }
 
-    pub fn add_condition_clause(&mut self, condition_clause: v1::ConditionClauses<'a>) {
+    pub fn add_condition_clause(&mut self, condition_clause: v1::ConditionClauses) {
         self.clauses.push(condition_clause);
     }
     pub fn update_condition_name(&mut self, new_name: &str) {
@@ -30,9 +30,9 @@ pub mod v1 {
     use super::*;
     // Awaitable conditions that can be met in the future
     #[derive(Serialize, Debug, PartialEq, Clone)]
-    pub enum ConditionClauses<'a> {
+    pub enum ConditionClauses {
         /// The number of available resources in the QNIC
-        EnoughResource(EnoughResource<'a>),
+        EnoughResource(EnoughResource),
         /// Define the number of total measurements for tomography
         MeasureCount(MeasureCount),
         /// Fidelity of the resource
@@ -45,8 +45,8 @@ pub mod v1 {
         Cmp(Cmp),
     }
 
-    impl<'a> ConditionClauses<'a> {
-        pub fn add_interface(&mut self, interface_info: &'a InterfaceInfo) {
+    impl ConditionClauses{
+        pub fn add_interface(&mut self, interface_info: InterfaceInfo) {
             match self {
                 ConditionClauses::EnoughResource(enough_res) => {
                     enough_res.add_interface_info(Some(interface_info));
@@ -63,20 +63,20 @@ pub mod v1 {
     }
 
     #[derive(Serialize, Debug, PartialEq, Clone)]
-    pub struct EnoughResource<'a> {
+    pub struct EnoughResource {
         name: String,
         pub num_required_resource: u32,
         pub partner_addr: IpAddr,
         pub required_fidelity: Option<f64>,
-        pub qnic_interface: Option<&'a InterfaceInfo>,
+        pub qnic_interface: Option<InterfaceInfo>,
     }
 
-    impl<'a> EnoughResource<'a> {
+    impl EnoughResource {
         pub fn new(
             num_resource: u32,
             partner_addr: IpAddr,
             required_fidelity: Option<f64>,
-            qnic_interface: Option<&'a InterfaceInfo>,
+            qnic_interface: Option<InterfaceInfo>,
         ) -> Self {
             EnoughResource {
                 name: String::from("enough_resource"),
@@ -87,7 +87,7 @@ pub mod v1 {
             }
         }
 
-        pub fn add_interface_info(&mut self, interface_info: Option<&'a InterfaceInfo>) {
+        pub fn add_interface_info(&mut self, interface_info: Option<InterfaceInfo>) {
             self.qnic_interface = interface_info;
         }
     }

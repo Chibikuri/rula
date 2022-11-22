@@ -1,33 +1,37 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use ruleset::condition::v1::ConditionClauses;
+use ruleset::action::v2::ActionClauses;
+
+type ConditionClauseVec = Rc<RefCell<Vec<ConditionClauses>>>;
+type ActionClauseVec = Rc<RefCell<Vec<ActionClauses>>>;
+
 pub mod prelude {
+    use super::*;
     use super::qnic::QnicInterface;
     use std::collections::HashMap;
     use std::net::IpAddr;
     use std::net::Ipv4Addr;
     use tokio::sync::Mutex;
 
+    use crate::ruleset::action::v2::ActionClauses;
     use crate::ruleset::condition::v1::ConditionClauses;
     use crate::ruleset::ruleset::InterfaceInfo;
 
     use super::message::Message;
     use super::qubit::QubitInterface;
     pub fn free(qubit: &QubitInterface) {}
-    pub fn __static__free(qubit: QubitInterface) {}
+    pub fn __static__free(_: ConditionClauseVec, _: ActionClauseVec, qubit: QubitInterface) {}
     pub fn send(message: &Message) {}
-    pub fn __static__send(message: Message) {}
-    pub fn __get_interface_info(name: String) -> InterfaceInfo {
+    pub fn __static__send(_: ConditionClauseVec, action_clauses: ActionClauseVec, message: Message) {}
+    pub fn __get_interface_info(name: &String) -> InterfaceInfo {
         InterfaceInfo::new(None, None, None)
     }
 
-    pub fn __static__request_resource<'a>(
-        interface_info: &InterfaceInfo,
-        num_resource: u64,
-        partner_addr: IpAddr,
-    ) -> ConditionClauses<'a> {
-        ConditionClauses::Wait
-    }
 }
 
 pub mod message {
+    use super::*;
     use crate::{
         result::{MeasResult, QResult},
         ruleset::{
@@ -38,7 +42,7 @@ pub mod message {
     use serde::Serialize;
     use std::net::IpAddr;
 
-    pub fn Message<'a>(kind: &str, src_addr: &IpAddr, dst_addr: &IpAddr) -> Message<'a> {
+    pub fn Message<'a>(kind: &str, src_addr: &IpAddr, dst_addr: &IpAddr) -> Message {
         Message::new(
             kind,
             src_addr,
@@ -53,7 +57,7 @@ pub mod message {
         )
     }
 
-    pub fn __static__Message(kind: &str, src_qnic_addr: IpAddr, dst_qnic_addr: IpAddr) -> Message {
+    pub fn __static__Message(_: ConditionClauseVec, _: ActionClauseVec, kind: &str, src_qnic_addr: IpAddr, dst_qnic_addr: IpAddr) -> Message {
         Message::new(
             kind,
             &src_qnic_addr,
@@ -68,17 +72,17 @@ pub mod message {
         )
     }
     #[derive(Serialize, Clone, Debug, PartialEq)]
-    pub struct Message<'a> {
+    pub struct Message {
         pub kind: String,
         pub src: IpAddr,
         pub dst: IpAddr,
         pub body: QResult,
 
-        pub generated_conditions: Vec<ConditionClauses<'a>>,
+        pub generated_conditions: Vec<ConditionClauses>,
         pub generated_actions: Vec<ActionClauses>,
     }
-    impl<'a> Message<'a> {
-        pub fn new(kind: &str, src: &IpAddr, dst: &IpAddr, result: QResult) -> Message<'a> {
+    impl Message {
+        pub fn new(kind: &str, src: &IpAddr, dst: &IpAddr, result: QResult) -> Message {
             Message {
                 kind: String::from(kind),
                 src: src.clone(),
@@ -90,26 +94,30 @@ pub mod message {
             }
         }
         pub fn append_body(&mut self, result: &QResult) {}
-        pub fn __static__append_body(&mut self, result: QResult) {}
+        pub fn __static__append_body(&mut self, _: ConditionClauseVec, _: ActionClauseVec, result: QResult) {}
     }
 }
 
 pub mod operation {
-    use crate::qubit::QubitInterface;
+    use super::*;
+    use crate::{qubit::QubitInterface, ruleset::{condition::v1::ConditionClauses, action::v2::ActionClauses}};
 
     pub fn bsm(q1: &QubitInterface, q2: &QubitInterface) -> String {
         String::from("result")
     }
-    pub fn __static__bsm(_q1: QubitInterface, q2: QubitInterface) -> String {
+    pub fn __static__bsm(_: ConditionClauseVec, action_clauses: ActionClauseVec, q1: QubitInterface, q2: QubitInterface) -> String {
         String::from("static __result")
     }
 }
 
 pub mod qnic {
+    use super::*;
+    use crate::prelude::__get_interface_info;
     use crate::qubit;
     use crate::result::{MeasResult, QResult};
+    use crate::ruleset::action::v2::ActionClauses;
     use crate::ruleset::condition::Condition;
-    use crate::ruleset::condition::v1::ConditionClauses;
+    use crate::ruleset::condition::v1::{ConditionClauses, EnoughResource};
 
     use super::message::Message;
     use super::qubit::QubitInterface;
@@ -130,17 +138,17 @@ pub mod qnic {
     }
 
     #[derive(Serialize, Clone, Debug, PartialEq)]
-    pub struct QnicInterface<'a> {
+    pub struct QnicInterface {
         name: String,
         pub address: IpAddr,
-        qubit_interfaces: RefCell<HashMap<String, Box<QubitInterface<'a>>>>,
+        qubit_interfaces: RefCell<HashMap<String, Box<QubitInterface>>>,
         // HashMap for tracking qubit usage
         qubit_busy: RefCell<HashMap<String, bool>>,
-        messages: HashMap<String, Message<'a>>,
+        messages: HashMap<String, Message>,
         // This will be deprecated
         pub routing_table: MockQnicRoutingTable,
     }
-    impl<'a> QnicInterface<'a> {
+    impl QnicInterface {
         pub fn generate_mock_interface(interface_name: &str, num_qubits: u32) -> Self {
             let mut mock_table = MockQnicRoutingTable::new();
             mock_table.generate_mock_table();
@@ -156,7 +164,7 @@ pub mod qnic {
 
         fn generate_mock_qubit_interface(
             num_qubits: u32,
-        ) -> HashMap<String, Box<QubitInterface<'a>>> {
+        ) -> HashMap<String, Box<QubitInterface>> {
             let mut qubit_table = HashMap::new();
             for i in 0..num_qubits {
                 let mock_qubit_interface: QubitInterface = QubitInterface::gen_mock();
@@ -184,12 +192,11 @@ pub mod qnic {
             }
         }
 
-        pub async fn request_resource(&self, number: &u32, dest_addr: &IpAddr) -> QubitInterface<'a> {
+        pub async fn request_resource(&self, number: &u32, partner_addr: &IpAddr) -> QubitInterface {
             let mut available_qubit = String::new();
             for (name, busy) in self.qubit_busy.borrow().iter() {
                 if !busy {
                     available_qubit = name.to_string();
-
                     break;
                 }
             }
@@ -207,10 +214,14 @@ pub mod qnic {
 
         pub fn __static__request_resource(
             &self,
+            condition_clauses: ConditionClauseVec,
+            _ : ActionClauseVec,
             number: u32,
-            dest_addr: IpAddr,
-        ) -> (QubitInterface, Option<ConditionClauses<'a>>) {
-            (QubitInterface::new(), Some(ConditionClauses::Wait))
+            partner_addr: IpAddr,
+            // add fidelity parameter
+        ) -> QubitInterface {
+            condition_clauses.borrow_mut().push(ConditionClauses::EnoughResource(EnoughResource::new(number, partner_addr, Some(0.0), Some(__get_interface_info(&self.name)))));
+            QubitInterface::new()
         }
 
         pub async fn get_message(&self, src: &IpAddr) -> Message {
@@ -229,9 +240,9 @@ pub mod qnic {
             )
         }
 
-        pub fn __static__get_message(&self, src: IpAddr) -> (Message, Option<ConditionClauses<'a>>) {
+        pub fn __static__get_message(&self, condition_clauses: ConditionClauseVec, _: ActionClauseVec, src: IpAddr) -> Message {
             let mut dest = QnicInterface::place_holder();
-            (Message::new(
+            Message::new(
                 "",
                 &src,
                 &dest.address,
@@ -242,8 +253,7 @@ pub mod qnic {
                     },
                     generated_actions: vec![],
                 },
-            ),
-        Some(ConditionClauses::Wait))
+            )
         }
         pub fn get_qubit_by_partner(&self, src: &IpAddr, qindex: &u32) -> QubitInterface {
             *self
@@ -256,6 +266,8 @@ pub mod qnic {
 
         pub fn __static__get_qubit_by_partner(
             &self,
+            _: ConditionClauseVec, 
+            _: ActionClauseVec,
             src: IpAddr,
             qindex: u32,
         ) -> QubitInterface {
@@ -271,7 +283,7 @@ pub mod qnic {
             self.routing_table.get_interface_by_distance(*distance)
         }
 
-        pub fn __static__get_partner_by_hop(&self, distance: u64) -> IpAddr {
+        pub fn __static__get_partner_by_hop(&self, _: ConditionClauseVec, _: ActionClauseVec, distance: u64) -> IpAddr {
             self.routing_table
                 .get_interface_by_distance(distance)
                 .clone()
@@ -279,6 +291,7 @@ pub mod qnic {
     }
 }
 pub mod qubit {
+    use super::*;
     use serde::Serialize;
 
     use crate::ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses};
@@ -286,12 +299,12 @@ pub mod qubit {
     use std::cell::{Cell, RefCell};
 
     #[derive(Serialize, Clone, Debug, PartialEq)]
-    pub struct QubitInterface<'a> {
+    pub struct QubitInterface {
         pub busy: Cell<bool>,
-        pub generated_conditions: Vec<ConditionClauses<'a>>,
+        pub generated_conditions: Vec<ConditionClauses>,
         pub generated_actions: Vec<ActionClauses>,
     }
-    impl<'a> QubitInterface<'a> {
+    impl QubitInterface {
         pub fn new() -> Self {
             QubitInterface {
                 busy: Cell::new(false),
@@ -302,13 +315,13 @@ pub mod qubit {
         pub async fn ready(&self) -> bool {
             true
         }
-        pub fn __static__ready(&self) -> bool {
+        pub fn __static__ready(&self, _: ConditionClauseVec, _: ActionClauseVec) -> bool {
             true
         }
         pub async fn x(&self) {}
-        pub fn __static__x(&self) {}
+        pub fn __static__x(&self, _: ConditionClauseVec, _: ActionClauseVec) {}
         pub async fn z(&self) {}
-        pub fn __static__z(&self) {}
+        pub fn __static__z(&self, _: ConditionClauseVec, _: ActionClauseVec) {}
         pub fn is_busy(&self) -> bool {
             self.busy.get()
         }
@@ -326,7 +339,8 @@ pub mod qubit {
 }
 
 pub mod result {
-    use crate::ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses};
+    use super::*;
+    use crate::ruleset::{action::{v2::ActionClauses, Action}, condition::v1::ConditionClauses};
 
     use super::qubit::QubitInterface;
     use serde::Serialize;
@@ -340,7 +354,7 @@ pub mod result {
         }
     }
 
-    pub fn __static__Result(ubit: QubitInterface) -> QResult {
+    pub fn __static__Result(_: ConditionClauseVec, action_clauses: ActionClauseVec, qubit: QubitInterface) -> QResult {
         QResult {
             result: MeasResult {
                 qubit_address: 0,
@@ -367,17 +381,17 @@ pub mod result {
         pub fn add_tag(&mut self, tag: &str) -> &mut Self {
             self
         }
-        pub fn __static__add_tag(&mut self, tag: &str) -> &mut Self {
+        pub fn __static__add_tag(&mut self, _: ConditionClauseVec, _: ActionClauseVec, tag: &str) -> &mut Self {
             self
         }
         pub fn add_result(&mut self, result: &String) {}
-        pub fn __static__add_result(&mut self, result: String) {}
+        pub fn __static__add_result(&mut self, _: ConditionClauseVec, _: ActionClauseVec, result: String) {}
     }
     impl MeasResult {
         pub fn get_output(&self) -> &str {
             &self.output
         }
-        pub fn __static__get_output(&self) -> &str {
+        pub fn __static__get_output(&self, _: ConditionClauseVec, _: ActionClauseVec) -> &str {
             &self.output
         }
     }
