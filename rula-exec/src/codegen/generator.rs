@@ -1348,6 +1348,12 @@ pub(super) fn generate_rule(
                 let action_clauses = Rc::new(RefCell::new(vec![]));
                 #static_cond
                 #static_act
+                for cond in &*condition_clauses.borrow(){
+                    self.condition_clauses.push(cond.clone());
+                }
+                for act in &*action_clauses.borrow(){
+                    self.action_clauses.push(act.clone());
+                }
             }
 
             fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
