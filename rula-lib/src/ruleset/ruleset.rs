@@ -19,7 +19,7 @@ fn generate_id() -> u128 {
 }
 
 // note: host addresses can only be filled in after
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RuleSet<T> {
     /// name of this ruleset (Different from identifier, just for easiness)
     pub name: String,
@@ -40,7 +40,7 @@ pub struct RuleSet<T> {
 // This might be deprecated in the future
 // Note: This can be a generic type, but in the generator, the RuleSet is called
 // as a global singleton. For that purpose, this enum is defined.
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum AddressKind {
     // For connection to the simulator
     IntegerKind(i32),
@@ -78,7 +78,7 @@ impl<T> RuleSet<T> {
     }
 }
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InterfaceInfo {
     // This could be ip addr in the future
     partner_addr: Option<u32>,
@@ -100,7 +100,7 @@ impl InterfaceInfo {
     }
 }
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Rule<T> {
     /// Name of this rule
     pub name: String,

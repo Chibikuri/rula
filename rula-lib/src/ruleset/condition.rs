@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Condition {
     pub name: Option<String>,
     pub clauses: Vec<v1::ConditionClauses>,
@@ -29,7 +29,7 @@ pub mod v1 {
 
     use super::*;
     // Awaitable conditions that can be met in the future
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum ConditionClauses {
         /// The number of available resources in the QNIC
         EnoughResource(EnoughResource),
@@ -62,7 +62,7 @@ pub mod v1 {
         // }
     }
 
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct EnoughResource {
         name: String,
         pub num_required_resource: u32,
@@ -92,7 +92,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
     pub struct MeasureCount {
         name: String,
         pub count: u32,
@@ -109,7 +109,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
     pub struct Fidelity {
         name: String,
         pub required_fidelity: f64,
@@ -126,7 +126,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
     pub struct Wait {
         name: String,
         pub qnic_interface: Option<InterfaceInfo>,
@@ -141,7 +141,7 @@ pub mod v1 {
         }
     }
 
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize,Debug, PartialEq, Clone)]
     pub struct Cmp {
         // target:
     }

@@ -6,43 +6,46 @@ use ruleset::action::v2::ActionClauses;
 type ConditionClauseVec = Rc<RefCell<Vec<ConditionClauses>>>;
 type ActionClauseVec = Rc<RefCell<Vec<ActionClauses>>>;
 
+#[allow(non_snake_case)]
 pub mod prelude {
     use super::*;
-    use super::qnic::QnicInterface;
-    use std::collections::HashMap;
-    use std::net::IpAddr;
-    use std::net::Ipv4Addr;
-    use tokio::sync::Mutex;
-
-    use crate::ruleset::action::v2::ActionClauses;
-    use crate::ruleset::condition::v1::ConditionClauses;
-    use crate::ruleset::ruleset::InterfaceInfo;
-
     use super::message::Message;
     use super::qubit::QubitInterface;
+    use crate::ruleset::ruleset::InterfaceInfo;
+    use crate::ruleset::action::v2::Send;
+
+
     pub fn free(qubit: &QubitInterface) {}
     pub fn __static__free(_: ConditionClauseVec, _: ActionClauseVec, qubit: QubitInterface) {}
     pub fn send(message: &Message) {}
-    pub fn __static__send(_: ConditionClauseVec, action_clauses: ActionClauseVec, message: Message) {}
+    pub fn __static__send(_: ConditionClauseVec, action_clauses: ActionClauseVec, message: Message) {
+        action_clauses.borrow_mut().push(ActionClauses::Send(
+            Send::new(
+                message.src,
+                message.dst,
+            )
+        ))
+    }
     pub fn __get_interface_info(name: &String) -> InterfaceInfo {
         InterfaceInfo::new(None, None, None)
     }
 
 }
 
+#[allow(non_snake_case)]
 pub mod message {
     use super::*;
     use crate::{
         result::{MeasResult, QResult},
         ruleset::{
             action::v2::ActionClauses,
-            condition::{v1::ConditionClauses, Condition},
+            condition::v1::ConditionClauses,
         },
     };
     use serde::Serialize;
     use std::net::IpAddr;
 
-    pub fn Message<'a>(kind: &str, src_addr: &IpAddr, dst_addr: &IpAddr) -> Message {
+    pub fn Message(kind: &str, src_addr: &IpAddr, dst_addr: &IpAddr) -> Message {
         Message::new(
             kind,
             src_addr,
@@ -98,6 +101,7 @@ pub mod message {
     }
 }
 
+#[allow(non_snake_case)]
 pub mod operation {
     use super::*;
     use crate::{qubit::QubitInterface, ruleset::{condition::v1::ConditionClauses, action::v2::ActionClauses}};
@@ -110,26 +114,22 @@ pub mod operation {
     }
 }
 
+#[allow(non_snake_case)]
 pub mod qnic {
     use super::*;
     use crate::prelude::__get_interface_info;
-    use crate::qubit;
     use crate::result::{MeasResult, QResult};
-    use crate::ruleset::action::v2::ActionClauses;
-    use crate::ruleset::condition::Condition;
     use crate::ruleset::condition::v1::{ConditionClauses, EnoughResource};
 
     use super::message::Message;
     use super::qubit::QubitInterface;
     use mock_components::software::mock_routing_daemon::MockQnicRoutingTable;
-    use serde::Serialize;
-    use std::borrow::Borrow;
+    use serde::{Serialize, Deserialize};
     use std::cell::RefCell;
     use std::collections::HashMap;
-    use std::hash::Hash;
     use std::net::{IpAddr, Ipv4Addr};
 
-    #[derive(Serialize, Debug, PartialEq, Clone)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub enum QnicType {
         QnicE,
         QnicP,
@@ -338,6 +338,7 @@ pub mod qubit {
     }
 }
 
+#[allow(non_snake_case)]
 pub mod result {
     use super::*;
     use crate::ruleset::{action::{v2::ActionClauses, Action}, condition::v1::ConditionClauses};
@@ -396,14 +397,19 @@ pub mod result {
         }
     }
 }
+
+#[allow(non_snake_case)]
 pub mod time {
     pub fn time() {}
 }
 
+
+#[allow(non_snake_case)]
 pub mod sync {
     pub async fn awaitable_comp<T>(lhs: T, comp_op: String, rhs: T) {}
 }
 
+#[allow(non_snake_case)]
 pub mod rule {
     use async_trait::async_trait;
 

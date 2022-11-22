@@ -1,8 +1,8 @@
 use super::ruleset::InterfaceInfo;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::net::IpAddr;
 
-#[derive(Serialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Action<T> {
     pub name: Option<String>,
     pub clauses: Vec<T>,
