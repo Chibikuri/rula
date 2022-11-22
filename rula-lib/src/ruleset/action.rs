@@ -39,7 +39,7 @@ pub mod v2 {
         /// Send classical message from one place to another
         Send(Send),
         /// Free consumed resource for later use
-        Free(),
+        Free,
         /// Update the status of qubit
         Update(Update),
     }

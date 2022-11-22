@@ -16,7 +16,12 @@ pub mod prelude {
 
 
     pub fn free(qubit: &QubitInterface) {}
-    pub fn __static__free(_: ConditionClauseVec, _: ActionClauseVec, qubit: QubitInterface) {}
+    pub fn __static__free(_: ConditionClauseVec, action_clauses: ActionClauseVec, _: QubitInterface) {
+        action_clauses.borrow_mut().push(
+            // Might need to add address?
+            ActionClauses::Free
+        )
+    }
     pub fn send(message: &Message) {}
     pub fn __static__send(_: ConditionClauseVec, action_clauses: ActionClauseVec, message: Message) {
         action_clauses.borrow_mut().push(ActionClauses::Send(
