@@ -17,7 +17,7 @@ pub mod prelude {
     use crate::ruleset::condition::v1::*;
     use crate::ruleset::ruleset::InterfaceInfo;
 
-    pub fn free(qubit: &QubitInterface) {}
+    pub async fn free(qubit: &QubitInterface) {}
     pub fn __static__free(rules: RuleVec, _: QubitInterface) {
         for rule in &*rules.borrow_mut() {
             rule.borrow_mut().add_action_clause(ActionClauses::Free);
@@ -280,7 +280,7 @@ pub mod qnic {
                 },
             )
         }
-        pub fn get_qubit_by_partner(&self, src: &IpAddr, qindex: &u32) -> QubitInterface {
+        pub async fn get_qubit_by_partner(&self, src: &IpAddr, qindex: &u32) -> QubitInterface {
             *self
                 .qubit_interfaces
                 .borrow()
@@ -302,9 +302,11 @@ pub mod qnic {
                 .expect("Unable to find a qubit")
                 .to_owned()
         }
-        pub fn get_partner_by_hop(&self, distance: &u64) -> &IpAddr {
+        pub async fn get_partner_by_hop(&self, distance: &u64) -> IpAddr {
             // access to the routing table
-            self.routing_table.get_interface_by_distance(*distance)
+            self.routing_table
+                .get_interface_by_distance(*distance)
+                .clone()
         }
 
         pub fn __static__get_partner_by_hop(&self, _: RuleVec, distance: u64) -> IpAddr {

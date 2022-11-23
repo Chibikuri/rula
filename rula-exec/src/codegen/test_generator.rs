@@ -18,8 +18,7 @@ mod test_let_stmt_gen {
         );
         let mut tracker = IdentTracker::new();
         tracker.register("x", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        let generated_let =
-            generate_let(&mut test_ast, None, false, &mut tracker, false, &mut vec![]).unwrap();
+        let generated_let = generate_let(&mut test_ast, None, &mut tracker, false, false).unwrap();
         assert_eq!("let mut x : u32 = test_gen () ;", generated_let.to_string());
     }
 
@@ -37,8 +36,7 @@ mod test_let_stmt_gen {
         );
         let mut tracker = IdentTracker::new();
         tracker.register("x", Identifier::new(IdentType::Other, TypeHint::Unknown));
-        let generated_let =
-            generate_let(&mut test_ast, None, false, &mut tracker, true, &mut vec![]).unwrap();
+        let generated_let = generate_let(&mut test_ast, None, &mut tracker, false, true).unwrap();
         assert_eq!(
             "let mut x = __static__test_gen () . clone () ;",
             generated_let.to_string()
