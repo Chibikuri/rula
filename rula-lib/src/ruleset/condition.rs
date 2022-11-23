@@ -54,12 +54,6 @@ pub mod v1 {
                 _ => todo!(),
             }
         }
-
-        // pub fn add_argument<T>(&mut self, arg: T){
-        //     match self{
-        //         ConditionClauses::EnoughResource()
-        //     }
-        // }
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -142,9 +136,43 @@ pub mod v1 {
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Cmp {
-        // target:
+    pub struct Cmp{
+        pub cmp_val: CmpKind,
+        pub operator: CmpOp,
+        pub target_val: CmpTarget,
     }
+
+    impl Cmp{
+        pub fn new(cmp_val: CmpKind, op: CmpOp, val: CmpTarget) -> Self{
+            Cmp { cmp_val: cmp_val, operator: op, target_val: val }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum CmpKind{
+        MeasResult,
+        Fidelity,
+        MeasCount,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum CmpOp{
+        Lt, // <
+        Leq, // <=
+        Gt, // >
+        Geq, // >=
+        Eq, // ==
+        Neq, // !=
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum CmpTarget{
+        MeasResult(String),
+        Fidelity(f64),
+        MeasCount(u128),
+    }
+
+
 
     #[cfg(test)]
     mod tests {

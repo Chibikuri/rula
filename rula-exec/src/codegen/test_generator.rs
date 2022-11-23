@@ -424,7 +424,7 @@ fn test_simple_fn_call() {
         Identifier::new(IdentType::Other, TypeHint::Unknown),
     );
     let test_stream =
-        generate_fn_call(&mut simple_fn_call, None, &mut tracker, false, false).unwrap();
+        generate_fn_call(&mut simple_fn_call, None, &mut tracker, false, false, false).unwrap();
     assert_eq!("range ()", test_stream.to_string());
 }
 

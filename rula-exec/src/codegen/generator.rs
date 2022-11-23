@@ -302,7 +302,7 @@ pub(super) fn generate_stmt(
         StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
         StmtKind::Config(config) => Ok(generate_config(config, ident_tracker).unwrap()),
         StmtKind::Expr(expr) => {
-            Ok(generate_expr(expr, rule_name, ident_tracker, in_static).unwrap())
+            Ok(generate_expr(expr, rule_name, ident_tracker, in_static, false).unwrap())
         }
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
@@ -494,8 +494,14 @@ pub(super) fn generate_let(
                                 .unwrap();
                     }
                 }
-                expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker, in_static)
-                    .unwrap();
+                expr = generate_expr(
+                    &mut *let_stmt.expr,
+                    rule_name,
+                    ident_tracker,
+                    in_static,
+                    false,
+                )
+                .unwrap();
             }
             None => {
                 todo!("No rule found")
@@ -519,7 +525,14 @@ pub(super) fn generate_let(
                     generate_ident(&*let_stmt.ident, ident_tracker, false, in_static).unwrap();
             }
         }
-        expr = generate_expr(&mut *let_stmt.expr, rule_name, ident_tracker, in_static).unwrap();
+        expr = generate_expr(
+            &mut *let_stmt.expr,
+            rule_name,
+            ident_tracker,
+            in_static,
+            false,
+        )
+        .unwrap();
     }
 
     let mut interface_name_list = vec![];
@@ -636,6 +649,7 @@ pub(super) fn generate_expr(
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
+    in_closure: bool,
 ) -> IResult<TokenStream> {
     match &mut *expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(import_expr, ident_tracker).unwrap()),
@@ -643,9 +657,15 @@ pub(super) fn generate_expr(
         ExprKind::For(for_expr) => Ok(generate_for(for_expr, ident_tracker).unwrap()),
         ExprKind::While(while_expr) => Ok(generate_while(while_expr, ident_tracker).unwrap()),
         ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(fn_def_expr, ident_tracker).unwrap()),
-        ExprKind::FnCall(fn_call_expr) => {
-            Ok(generate_fn_call(fn_call_expr, rule_name, ident_tracker, false, in_static).unwrap())
-        }
+        ExprKind::FnCall(fn_call_expr) => Ok(generate_fn_call(
+            fn_call_expr,
+            rule_name,
+            ident_tracker,
+            false,
+            in_static,
+            in_closure,
+        )
+        .unwrap()),
         ExprKind::Struct(struct_expr) => Ok(generate_struct(struct_expr, ident_tracker).unwrap()),
         ExprKind::Return(return_expr) => Ok(generate_return(return_expr, ident_tracker).unwrap()),
         ExprKind::Match(match_expr) => {
@@ -664,12 +684,14 @@ pub(super) fn generate_expr(
         ExprKind::ActExpr(act_expr) => {
             Ok(generate_act(act_expr, rule_name, ident_tracker).unwrap())
         }
-        ExprKind::VariableCallExpr(variable_call_expr) => {
-            Ok(
-                generate_variable_call(variable_call_expr, rule_name, ident_tracker, in_static)
-                    .unwrap(),
-            )
-        }
+        ExprKind::VariableCallExpr(variable_call_expr) => Ok(generate_variable_call(
+            variable_call_expr,
+            rule_name,
+            ident_tracker,
+            in_static,
+            in_closure,
+        )
+        .unwrap()),
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr, ident_tracker).unwrap()),
         ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr, ident_tracker, in_static).unwrap()),
         ExprKind::Term(term_expr) => Ok(generate_term(*term_expr).unwrap()),
@@ -726,7 +748,8 @@ pub(super) fn generate_if(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     // block could have invalid expression here.
-    let block_quote = generate_expr(&mut *if_expr.block, None, ident_tracker, false).unwrap();
+    let block_quote =
+        generate_expr(&mut *if_expr.block, None, ident_tracker, false, false).unwrap();
     let stmt_quote = generate_stmt(&mut *if_expr.stmt, None, ident_tracker, false).unwrap();
     if if_expr.elif.len() > 0 {
         // no elif statement
@@ -801,7 +824,8 @@ pub(super) fn generate_for(
     for ident in for_expr.pattern.iter() {
         ident_list.push(generate_ident(ident, ident_tracker, false, false).unwrap());
     }
-    let generator = generate_expr(&mut for_expr.generator, None, ident_tracker, false).unwrap();
+    let generator =
+        generate_expr(&mut for_expr.generator, None, ident_tracker, false, false).unwrap();
     let stmt = generate_stmt(&mut for_expr.stmt, None, ident_tracker, false).unwrap();
     if ident_list.len() == 1 {
         let var = &ident_list[0];
@@ -827,7 +851,7 @@ pub(super) fn generate_while(
     while_expr: &mut While,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let block = generate_expr(&mut while_expr.block, None, ident_tracker, false).unwrap();
+    let block = generate_expr(&mut while_expr.block, None, ident_tracker, false, false).unwrap();
     let stmt = generate_stmt(&mut while_expr.stmt, None, ident_tracker, false).unwrap();
     Ok(quote!(
         while #block{
@@ -867,6 +891,7 @@ pub(super) fn generate_fn_call(
     ident_tracker: &mut IdentTracker,
     do_await: bool,
     in_static: bool,
+    in_closure: bool,
 ) -> IResult<TokenStream> {
     // Before generating functions, check function table to check whether it's properly defined or not
     let mut fn_name = format_ident!("__temp");
@@ -879,7 +904,8 @@ pub(super) fn generate_fn_call(
     let generated_arguments = {
         let mut args = vec![];
         for arg in &mut fn_call_expr.arguments {
-            let generated_arg = generate_expr(arg, rule_name, ident_tracker, in_static).unwrap();
+            let generated_arg =
+                generate_expr(arg, rule_name, ident_tracker, in_static, false).unwrap();
             if in_static {
                 args.push(generated_arg);
             } else {
@@ -889,9 +915,15 @@ pub(super) fn generate_fn_call(
         args
     };
     if in_static {
-        Ok(quote!(
-            #fn_name(Rc::clone(&rules), #(#generated_arguments.clone()),*)
-        ))
+        if in_closure {
+            Ok(quote!(
+                #fn_name(Rc::clone(&__temp_rules), #(#generated_arguments.clone()),*)
+            ))
+        } else {
+            Ok(quote!(
+                #fn_name(Rc::clone(&rules), #(#generated_arguments.clone()),*)
+            ))
+        }
     } else {
         if do_await {
             Ok(quote!(
@@ -926,60 +958,185 @@ pub(super) fn generate_return(
     return_expr: &mut Return,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let expr = generate_expr(&mut return_expr.target, None, ident_tracker, false).unwrap();
+    let expr = generate_expr(&mut return_expr.target, None, ident_tracker, false, false).unwrap();
     Ok(quote!(
         return #expr;
     ))
 }
 
+// Generate Match expression to achieve match action
+// In the case of static generation, this expand Rules to the stages
 pub(super) fn generate_match(
     match_expr: &mut Match,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
 ) -> IResult<TokenStream> {
     let generated_expr =
-        generate_expr(&mut match_expr.expr, None, ident_tracker, in_static).unwrap();
+        generate_expr(&mut match_expr.expr, None, ident_tracker, in_static, false).unwrap();
     let mut match_arms = vec![];
 
+    let mut match_conditions = vec![];
+    let mut match_actions = vec![];
     for arm in &mut match_expr.match_arms {
-        match_arms.push(generate_match_arm(arm, ident_tracker, in_static).unwrap());
+        if !in_static {
+            match_arms.push(generate_match_arm(arm, ident_tracker).unwrap());
+        } else {
+            let (static_match_condition, static_match_action) =
+                generate_static_match_arms(arm, ident_tracker).unwrap();
+            match_conditions.push(static_match_condition);
+            match_actions.push(static_match_action);
+        }
     }
 
     let finally = match &mut *match_expr.finally {
-        Some(fin) => generate_match_action(fin, ident_tracker, in_static).unwrap(),
+        Some(fin) => {
+            if in_static {
+                generate_match_action(fin, ident_tracker, in_static, true).unwrap()
+            } else {
+                generate_match_action(fin, ident_tracker, in_static, true).unwrap()
+            }
+        }
         None => quote!(),
     };
-
-    match &*match_expr.temp_val {
-        Some(value) => {
-            let temp_val = generate_ident(value, ident_tracker, false, false).unwrap();
-            Ok(quote!(
-                let #temp_val = #generated_expr;
-                match #temp_val{
+    if !in_static {
+        match &*match_expr.temp_val {
+            Some(value) => {
+                let temp_val = generate_ident(value, ident_tracker, false, false).unwrap();
+                Ok(quote!(
+                    let #temp_val = #generated_expr;
+                    match #temp_val{
+                        #(#match_arms),*
+                        _ => {#finally}
+                    }
+                ))
+            }
+            None => Ok(quote!(
+                match #generated_expr{
                     #(#match_arms),*
                     _ => {#finally}
                 }
-            ))
+            )),
         }
-        None => Ok(quote!(
-            match #generated_expr{
-                #(#match_arms),*
-                _ => {#finally}
+    } else {
+        // Right now this only supports CmpOp::Eq
+        match &*match_expr.finally {
+            Some(_) => {
+                Ok(quote!(
+                    let (__temp_val, __cmp_kind, __cmp_target) = #generated_expr;
+                    let __cmp_conditions = vec![
+                        #(#match_conditions),*
+                    ];
+                    let __cmp_actions:Vec<Box<dyn Fn(Rule<ActionClausesV2>) -> (RuleVec)>> = vec![
+                        #(#match_actions),*
+                    ];
+
+                    let updated_num_rules = rules.borrow().len() * __cmp_actions.len();
+
+                    let mut finally_rules = &*rules.clone();
+                    let mut new_rule_vec = vec![];
+                    for rule in &*rules.borrow_mut(){
+                        for ((__cmp_val, __cmp_op, __val), __action_func) in &mut __cmp_conditions.iter().zip(&__cmp_actions){
+                            let mut cloned_rule = rule.borrow().clone();
+                            cloned_rule.add_condition_clause(ConditionClauses::Cmp(Cmp::new(__cmp_val.clone(), __cmp_op.clone(), __val.clone())));
+                            let generated_rules = __action_func(cloned_rule);
+                            for gen_rule in &*generated_rules.borrow(){
+                                new_rule_vec.push(gen_rule.clone());
+                            }
+                        }
+                    }
+                    // Define new rules to flush the current rules
+                    let mut rules = Rc::new(RefCell::new(vec![]));
+                    for new_rule in new_rule_vec{
+                        rules.borrow_mut().push(new_rule);
+                    }
+                    let num_rules = rules.borrow().len();
+                    if  num_rules != updated_num_rules {
+                        panic!("The final rule size is wrong Suppose: {} != Actual{}", updated_num_rules, num_rules);
+                    }
+                    // Add finally
+                    let mut fin_rule_stack = vec![];
+                    for fin_rule in &*finally_rules.borrow_mut(){
+                        let generated_vec = (|__new_rule|{
+                            let __temp_rules = Rc::new(RefCell::new(vec![RefCell::new(__new_rule)]));
+                            #finally;
+                            __temp_rules
+                        })(fin_rule.borrow().clone());
+                        for gen_rule in &*generated_vec.borrow(){
+                            fin_rule_stack.push(gen_rule.clone());
+                        }
+                    }
+                    for finally_rule in &fin_rule_stack{
+                        rules.borrow_mut().push(finally_rule.clone());
+                    }
+                ))
             }
-        )),
+            None => Ok(quote!(
+                let (__temp_val, __cmp_kind, __cmp_target) = #generated_expr;
+                let __cmp_conditions = vec![
+                    #(#match_conditions),*
+                ];
+                let __cmp_actions:Vec<Box<dyn Fn(Rule<ActionClausesV2>) -> (RuleVec)>> = vec![
+                    #(#match_actions),*
+                ];
+
+                let updated_num_rules = rules.borrow().len() * __cmp_actions.len();
+                let mut new_rule_vec = vec![];
+                for rule in &*rules.borrow_mut(){
+                    for ((__cmp_val, __cmp_op, __val), __action_func) in &mut __cmp_conditions.iter().zip(&__cmp_actions){
+                        let mut cloned_rule = rule.borrow().clone();
+                        cloned_rule.add_condition_clause(ConditionClauses::Cmp(Cmp::new(__cmp_val.clone(), __cmp_op.clone(), __val.clone())));
+                        let generated_rules = __action_func(cloned_rule);
+                        for gen_rule in &*generated_rules.borrow(){
+                            new_rule_vec.push(gen_rule.clone());
+                        }
+                    }
+                }
+                // Define new rules to flush the current rules
+                let mut rules = Rc::new(RefCell::new(vec![]));
+                for new_rule in new_rule_vec{
+                    rules.borrow_mut().push(new_rule);
+                }
+                let num_rules = rules.borrow().len();
+                if  num_rules != updated_num_rules {
+                    panic!("The final rule size is wrong Suppose: {} != Actual{}", updated_num_rules, num_rules);
+                }
+                // Add finally
+            )),
+        }
     }
 }
 
 pub(super) fn generate_match_arm(
     match_arm: &mut MatchArm,
     ident_tracker: &mut IdentTracker,
-    in_static: bool,
 ) -> IResult<TokenStream> {
     let generated_match_condition =
         generate_match_condition(&mut *match_arm.condition, ident_tracker).unwrap();
     let generated_match_action =
-        generate_match_action(&mut *match_arm.action, ident_tracker, in_static).unwrap();
+        generate_match_action(&mut *match_arm.action, ident_tracker, false, false).unwrap();
     Ok(quote!(#generated_match_condition => {#generated_match_action}))
+}
+
+pub(super) fn generate_static_match_arms(
+    match_arm: &mut MatchArm,
+    ident_tracker: &mut IdentTracker,
+) -> IResult<(TokenStream, TokenStream)> {
+    let generated_match_condition =
+        generate_match_condition(&mut *match_arm.condition, ident_tracker).unwrap();
+    let generated_match_action =
+        generate_match_action(&mut *match_arm.action, ident_tracker, true, true).unwrap();
+    Ok((
+        quote!(
+            (__cmp_kind.clone(), CmpOp::Eq, __cmp_target(#generated_match_condition))
+        ),
+        quote!(
+            Box::new(|__new_rule|{
+                let __temp_rules = Rc::new(RefCell::new(vec![RefCell::new(__new_rule)]));
+                #generated_match_action;
+                __temp_rules
+            })
+        ),
+    ))
 }
 
 pub(super) fn generate_match_condition(
@@ -999,10 +1156,12 @@ pub(super) fn generate_match_action(
     match_action: &mut MatchAction,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
+    in_closure: bool,
 ) -> IResult<TokenStream> {
     let mut actionables = vec![];
     for actionable in &mut *match_action.actionable {
-        actionables.push(generate_expr(actionable, None, ident_tracker, in_static).unwrap());
+        actionables
+            .push(generate_expr(actionable, None, ident_tracker, in_static, in_closure).unwrap());
     }
     Ok(quote!(
         #(#actionables);*
@@ -1014,8 +1173,8 @@ pub(super) fn generate_comp(
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
-    let lhs = generate_expr(&mut comp_expr.lhs, rule_name, ident_tracker, false).unwrap();
-    let rhs = generate_expr(&mut comp_expr.rhs, rule_name, ident_tracker, false).unwrap();
+    let lhs = generate_expr(&mut comp_expr.lhs, rule_name, ident_tracker, false, false).unwrap();
+    let rhs = generate_expr(&mut comp_expr.rhs, rule_name, ident_tracker, false, false).unwrap();
     let op = match *comp_expr.comp_op {
         CompOpKind::Lt => quote!(<),
         CompOpKind::Gt => quote!(>),
@@ -1542,16 +1701,22 @@ pub(super) fn generate_awaitable(
             Awaitable::FnCall(fn_call) => {
                 // This should be flex
                 let generated_fn_call =
-                    generate_fn_call(fn_call, rule_name, ident_tracker, true, in_static).unwrap();
+                    generate_fn_call(fn_call, rule_name, ident_tracker, true, in_static, false)
+                        .unwrap();
                 quote!(
                     #generated_fn_call
                 )
             }
             Awaitable::VariableCallExpr(val_call) => {
                 // Check if the value is properly watched or not
-                let generated_val =
-                    generate_variable_call(val_call, Some(&r_name), ident_tracker, in_static)
-                        .unwrap();
+                let generated_val = generate_variable_call(
+                    val_call,
+                    Some(&r_name),
+                    ident_tracker,
+                    in_static,
+                    false,
+                )
+                .unwrap();
                 if in_static {
                     quote!(#generated_val)
                 } else {
@@ -1678,6 +1843,7 @@ pub(super) fn generate_variable_call(
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
+    in_closure: bool,
 ) -> IResult<TokenStream> {
     let mut variable_calls = vec![];
 
@@ -1710,6 +1876,7 @@ pub(super) fn generate_variable_call(
                             ident_tracker,
                             true,
                             in_static,
+                            in_closure,
                         )
                         .unwrap(),
                     );
@@ -1721,6 +1888,7 @@ pub(super) fn generate_variable_call(
                             ident_tracker,
                             false,
                             in_static,
+                            in_closure,
                         )
                         .unwrap(),
                     );

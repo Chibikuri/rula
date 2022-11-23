@@ -4,16 +4,17 @@ use ruleset::ruleset::Rule;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-type RuleVec = Rc<RefCell<Vec<RefCell<Rule<ActionClauses>>>>>;
-// type ConditionClauseVec = Rc<RefCell<Vec<ConditionClauses>>>;
-// type ActionClauseVec = Rc<RefCell<Vec<ActionClauses>>>;
+pub type RuleVec = Rc<RefCell<Vec<RefCell<Rule<ActionClauses>>>>>;
 
 #[allow(non_snake_case)]
 pub mod prelude {
+    use core::panic;
+
     use super::message::Message;
     use super::qubit::QubitInterface;
     use super::*;
     use crate::ruleset::action::v2::Send;
+    use crate::ruleset::condition::v1::*;
     use crate::ruleset::ruleset::InterfaceInfo;
 
     pub fn free(qubit: &QubitInterface) {}
@@ -32,6 +33,7 @@ pub mod prelude {
     pub fn __get_interface_info(name: &String) -> InterfaceInfo {
         InterfaceInfo::new(None, None, None)
     }
+
 }
 
 #[allow(non_snake_case)]
@@ -84,9 +86,6 @@ pub mod message {
         pub src: IpAddr,
         pub dst: IpAddr,
         pub body: QResult,
-
-        pub generated_conditions: Vec<ConditionClauses>,
-        pub generated_actions: Vec<ActionClauses>,
     }
     impl Message {
         pub fn new(kind: &str, src: &IpAddr, dst: &IpAddr, result: QResult) -> Message {
@@ -95,9 +94,6 @@ pub mod message {
                 src: src.clone(),
                 dst: dst.clone(),
                 body: result,
-
-                generated_conditions: vec![],
-                generated_actions: vec![],
             }
         }
         pub fn append_body(&mut self, result: &QResult) {}
@@ -375,7 +371,7 @@ pub mod qubit {
 #[allow(non_snake_case)]
 pub mod result {
     use super::*;
-    use crate::ruleset::action::v2::ActionClauses;
+    use crate::ruleset::{action::v2::ActionClauses, condition::v1::{CmpKind, CmpTarget}};
 
     use super::qubit::QubitInterface;
     use serde::Serialize;
@@ -427,7 +423,23 @@ pub mod result {
             &self.output
         }
         pub fn __static__get_output(&self, _: RuleVec) -> &str {
+            // Nothing happen in the static ruleset generation
+            "__static__result"
+        }
+
+        pub fn get_result(&self) -> &str {
             &self.output
+        }
+
+        pub fn __static__get_result(&self, _: RuleVec) -> (&str, CmpKind, impl Fn(&str) -> CmpTarget){
+            ("__static__result", self.__cmp_kind(), self.__cmp_target())   
+        }
+        pub fn __cmp_kind(&self) -> CmpKind{
+            CmpKind::MeasResult
+        }
+
+        pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget{
+            |value| {CmpTarget::MeasResult(String::from(value))}
         }
     }
 }

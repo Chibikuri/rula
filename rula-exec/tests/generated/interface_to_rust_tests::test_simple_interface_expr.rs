@@ -19,10 +19,11 @@ mod rula {
     use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
     use rula_std::ruleset::action::Action;
     use rula_std::ruleset::condition::v1::ConditionClauses;
+    use rula_std::ruleset::condition::v1::*;
     use rula_std::ruleset::condition::*;
     use rula_std::ruleset::ruleset::*;
+    use rula_std::RuleVec;
     use serde::{Deserialize, Serialize};
-    use std::borrow::BorrowMut;
     use std::cell::{Cell, RefCell};
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
