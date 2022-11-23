@@ -48,7 +48,8 @@ rule pauli_correction<qn0>(distance: u64){
         message.kind == "swapping",
     } => act{
         let target_qubit: Qubit = qn0.get_qubit_by_partner(message.src, message.body.result.qubit_address);
-        match result: message.body.result.get_output(){
+        // Want to remove this Result future
+        match result: message.body.result.get_result(){
             "00" => {},
             "01" => {target_qubit.z()},
             "10" => {target_qubit.x()},

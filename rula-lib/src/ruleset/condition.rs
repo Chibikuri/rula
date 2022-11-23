@@ -136,43 +136,45 @@ pub mod v1 {
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub struct Cmp{
+    pub struct Cmp {
         pub cmp_val: CmpKind,
         pub operator: CmpOp,
         pub target_val: CmpTarget,
     }
 
-    impl Cmp{
-        pub fn new(cmp_val: CmpKind, op: CmpOp, val: CmpTarget) -> Self{
-            Cmp { cmp_val: cmp_val, operator: op, target_val: val }
+    impl Cmp {
+        pub fn new(cmp_val: CmpKind, op: CmpOp, val: CmpTarget) -> Self {
+            Cmp {
+                cmp_val: cmp_val,
+                operator: op,
+                target_val: val,
+            }
         }
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub enum CmpKind{
+    pub enum CmpKind {
         MeasResult,
         Fidelity,
         MeasCount,
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub enum CmpOp{
-        Lt, // <
+    pub enum CmpOp {
+        Lt,  // <
         Leq, // <=
-        Gt, // >
+        Gt,  // >
         Geq, // >=
-        Eq, // ==
+        Eq,  // ==
         Neq, // !=
     }
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-    pub enum CmpTarget{
+    pub enum CmpTarget {
         MeasResult(String),
         Fidelity(f64),
         MeasCount(u128),
     }
-
-
 
     #[cfg(test)]
     mod tests {

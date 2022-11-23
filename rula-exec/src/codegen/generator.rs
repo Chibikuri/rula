@@ -29,13 +29,36 @@ use std::net::SocketAddr;
 // Right now, compilation is all single thread. In the future, this could be multi thread.
 // Mutex would be a good choice for that.
 static RULES: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
-
 static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
+
+// Initialize singleton values
+// RULESET_FACTORY: collect information needed to create a RuleSet
+// RULESET: ruleset instance (will be deprecated in generator)
+pub(super) fn initialize_singleton() {
+    // Set the initial RuleSet so that other RuleSet call can only get without init
+    // For testing purpose, dividing initialize phase into two
+    initialize_ruleset_factory();
+    initialize_rule_tables();
+}
+
+pub(super) fn initialize_ruleset_factory() {
+    assert!(RULESET_FACTORY.get().is_none());
+    let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
+    let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
+}
+
+pub(super) fn initialize_rule_tables() {
+    assert!(RULES.get().is_none());
+    let initialize_rule = || Mutex::new(vec![]);
+    let _ = RULES.get_or_init(initialize_rule);
+}
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
+/// Arguments:
+///     ast_tree
 pub fn generate(
-    ast_tree: &mut Vec<AstNode>,
+    ast_tree: &mut AstNode,
     with_ruleset: bool,
     config_path: Option<PathBuf>,
 ) -> IResult<TokenStream> {
@@ -47,13 +70,13 @@ pub fn generate(
 
     let rules = RULES.get().expect("Unable to get rule table");
 
-    // RuLa starts here
-    if ast_tree.len() > 1 {
-        todo!("This should get a root AST node. Fix it");
-    }
+    // // RuLa starts here
+    // if ast_tree.len() > 1 {
+    //     todo!("This should get a root AST node. Fix it");
+    // }
 
     // Generated rula program
-    let rula_program = match &mut ast_tree[0] {
+    let rula_program = match ast_tree {
         AstNode::RuLa(rula) => generate_rula(rula, &mut ident_tracker).unwrap(),
         AstNode::PlaceHolder => {
             return Err(RuLaCompileError::RuLaInitializationError(
@@ -218,21 +241,6 @@ pub fn generate(
         }
     );
     Ok(rula_token_stream)
-}
-
-// Initialize singleton values
-// RULESET_FACTORY: collect information needed to create a RuleSet
-// RULESET: ruleset instance (will be deprecated in generator)
-pub(super) fn initialize_singleton() {
-    // Set the initial RuleSet so that other RuleSet call can only get without init
-    assert!(RULESET_FACTORY.get().is_none());
-    assert!(RULES.get().is_none());
-
-    let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
-    let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
-
-    let initialize_rule = || Mutex::new(vec![]);
-    let _ = RULES.get_or_init(initialize_rule);
 }
 
 // Generate entire rula program

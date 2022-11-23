@@ -17,8 +17,8 @@ use crate::parser::build_ast_from_rula;
 // Interface function to parse rula code
 // Using IResult to propagate Syntax Error
 // pest error can be caught inside the function because it's critical
-pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
-    let mut ast = vec![];
+pub fn parse(source: &str) -> IResult<AstNode> {
+    let mut ast = AstNode::PlaceHolder;
     let pairs;
     match RuLaParser::parse(Rule::rula, source) {
         Ok(parsed) => pairs = parsed,
@@ -31,9 +31,8 @@ pub fn parse(source: &str) -> IResult<Vec<AstNode>> {
     for pair in pairs {
         match pair.as_rule() {
             Rule::rula => {
-                ast.push(AstNode::RuLa(
-                    build_ast_from_rula(pair.into_inner().next().unwrap()).unwrap(),
-                ));
+                ast =
+                    AstNode::RuLa(build_ast_from_rula(pair.into_inner().next().unwrap()).unwrap());
             }
             _ => {
                 return Err(RuLaError::RuLaSyntaxError);

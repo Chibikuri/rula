@@ -33,7 +33,6 @@ pub mod prelude {
     pub fn __get_interface_info(name: &String) -> InterfaceInfo {
         InterfaceInfo::new(None, None, None)
     }
-
 }
 
 #[allow(non_snake_case)]
@@ -371,7 +370,10 @@ pub mod qubit {
 #[allow(non_snake_case)]
 pub mod result {
     use super::*;
-    use crate::ruleset::{action::v2::ActionClauses, condition::v1::{CmpKind, CmpTarget}};
+    use crate::ruleset::{
+        action::v2::ActionClauses,
+        condition::v1::{CmpKind, CmpTarget},
+    };
 
     use super::qubit::QubitInterface;
     use serde::Serialize;
@@ -431,15 +433,18 @@ pub mod result {
             &self.output
         }
 
-        pub fn __static__get_result(&self, _: RuleVec) -> (&str, CmpKind, impl Fn(&str) -> CmpTarget){
-            ("__static__result", self.__cmp_kind(), self.__cmp_target())   
+        pub fn __static__get_result(
+            &self,
+            _: RuleVec,
+        ) -> (&str, CmpKind, impl Fn(&str) -> CmpTarget) {
+            ("__static__result", self.__cmp_kind(), self.__cmp_target())
         }
-        pub fn __cmp_kind(&self) -> CmpKind{
+        pub fn __cmp_kind(&self) -> CmpKind {
             CmpKind::MeasResult
         }
 
-        pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget{
-            |value| {CmpTarget::MeasResult(String::from(value))}
+        pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget {
+            |value| CmpTarget::MeasResult(String::from(value))
         }
     }
 }
