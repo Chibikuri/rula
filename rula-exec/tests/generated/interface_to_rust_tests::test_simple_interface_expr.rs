@@ -3,11 +3,11 @@ use crate::rula_std::ruleset::ruleset::*;
 use rula_lib as rula_std;
 use rula_std::ruleset::action::v2::ActionClauses;
 use std::fs;
-#[allow(unused)]
+#[allow(non_snake_case)]
+#[allow(non_camel_case_types)]
+#[allow(unused_doc_comments)]
 mod rula {
     use super::*;
-    use async_trait::async_trait;
-    use log::warn;
     use once_cell::sync::OnceCell;
     use rula_std::message::*;
     use rula_std::operation::*;
@@ -17,14 +17,12 @@ mod rula {
     use rula_std::result::*;
     use rula_std::rule::*;
     use rula_std::ruleset::action::v2::ActionClauses as ActionClausesV2;
-    use rula_std::ruleset::action::Action;
     use rula_std::ruleset::condition::v1::ConditionClauses;
     use rula_std::ruleset::condition::v1::*;
-    use rula_std::ruleset::condition::*;
     use rula_std::ruleset::ruleset::*;
     use rula_std::RuleVec;
     use serde::{Deserialize, Serialize};
-    use std::cell::{Cell, RefCell};
+    use std::cell::RefCell;
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
     use std::rc::Rc;
