@@ -6,9 +6,13 @@ pub enum RuLaCompileError {
     RuLaInitializationError(InitializationError),
     NoRuleFoundError,
     RuleDuplicationError,
+    InterfaceNameDuplicationError,
     FailedToSetValueError,
     // Todo: provide interface name to it
     NoInterfaceFoundError,
+    NoTypeFoundError,
+    NoConfigFound,
+    VariableError,
     UnknownError,
 }
 

@@ -1,6 +1,7 @@
 use super::error::HardwareError;
 use super::result::{MeasBasis, MeasResult, Outcome};
 use super::IResult;
+use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use tokio::time::{sleep, Duration};
 
@@ -14,7 +15,7 @@ pub enum QubitInstruction {
     Test,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MockQubit {
     pub address: u64,
     pub(crate) busy: bool,

@@ -5,11 +5,14 @@ rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 program = { ( stmt )* }
 
 // Statement includes {let, braced statement, expression}
-stmt = { interface_def| let_stmt | brace_stmt | expr }
+stmt = { interface_def | config_def | let_stmt | brace_stmt | expr }
 
 // Interface_def 
 interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 
+// config def
+config_def = {"#config: " ~ "(" ~ int ~ ")" ~"{" ~ config_item? ~ ("," ~ config_item)* ~ ","? ~ "}" ~ ("=>" ~ ident)? ~ ";"}
+config_item = { ident ~ ":" ~ typedef_lit}
 // Variable assignment
 let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ expr )? ~ ";" }
 
@@ -75,24 +78,26 @@ tuple = {"(" ~ literal_list? ~ ")"}
 // Match expression to do pattern matching
 match_expr = {^"match" ~ (ident ~ ":")? ~ expr ~ "{" ~ (match_arm ~  ",")* ~ (^"finally" ~ "=>" ~ match_action)? ~ "}"}
 match_arm = { match_condition ~ "=>" ~ match_action }
-match_condition = {"(" ~ expr ~ ")"}
+match_condition = {satisfiable}
+satisfiable = { literal_expr }
 match_action = {"{" ~ expr? ~ ("," ~ expr)* ~ "}"}
 
 // RuleSet expression that holds multiple rules
 ruleset_expr = {^"ruleset" ~ "(" ~ ruleset_config?~ ")" ~ ident ~ "{" ~ rules? ~ "}" }
 // This should be flex
-ruleset_config = {"CONFIG"}
+ruleset_config = {ident}
+
 rules = _{("default:" ~ fn_call_expr)? ~ (rule_idents)*}
 rule_idents = { fn_call_expr | let_stmt }
 
 // Rule expression to define RuLa rule
 rule_expr = { ^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ argument_def ~ "{" ~ rule_contents ~ "}" }
 // Should have better way to do preprocessing
-rule_contents = { monitor_expr? ~ cond_expr ~ "=>" ~ act_expr ~ (stmt)* }
+rule_contents = { cond_expr ~ "=>" ~ act_expr ~ (stmt)* }
 
-monitor_expr = { ^"watch:" ~ (let_stmt)* }
 // Condition expression for qubit to wait until all meet
-cond_expr = { ^"cond" ~ ident? ~ "{" ~ awaitable? ~ ("," ~ awaitable)* ~ ","? ~ "}" }
+cond_expr = { ^"cond" ~ ident? ~ "{" ~ monitor_expr? ~ awaitable? ~ ("," ~ awaitable)* ~ ","? ~ "}" }
+monitor_expr = { ^"watch" ~ "{" ~ (let_stmt)*  ~ "}"}
 awaitable = { comp_expr | fn_call_expr | variable_call_expr }
 
 // Action expression for qubit to act on operations
@@ -165,7 +170,8 @@ string = _{ "\"" ~ ( raw_string )* ~ "\"" }
 raw_string = { (!( "\\" | "\"" ) ~ ANY )+ }
 
 // Type definition literal
-typedef_lit = { ( integer_type
+typedef_lit = { ( vector_type
+                  | integer_type
                   | unsigned_integer_type
                   | float_type
                   | complex_type
@@ -173,6 +179,7 @@ typedef_lit = { ( integer_type
                   | string_type
                   | qubit_type
 ) }
+vector_type = {"vec" ~ "[" ~ typedef_lit ~ "]"}
 integer_type = { ( "i32" | "i64" ) }
 unsigned_integer_type = { ( "u32" | "u64" ) }
 float_type = { ( "f32" | "f64" ) }

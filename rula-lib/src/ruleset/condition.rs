@@ -1,4 +1,3 @@
-use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -24,6 +23,10 @@ impl Condition {
 }
 
 pub mod v1 {
+    use std::net::IpAddr;
+
+    use crate::ruleset::ruleset::InterfaceInfo;
+
     use super::*;
     // Awaitable conditions that can be met in the future
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -42,26 +45,44 @@ pub mod v1 {
         Cmp(Cmp),
     }
 
+    impl ConditionClauses {
+        pub fn add_interface(&mut self, interface_info: InterfaceInfo) {
+            match self {
+                ConditionClauses::EnoughResource(enough_res) => {
+                    enough_res.add_interface_info(Some(interface_info));
+                }
+                _ => todo!(),
+            }
+        }
+    }
+
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct EnoughResource {
         name: String,
         pub num_required_resource: u32,
+        pub partner_addr: IpAddr,
         pub required_fidelity: Option<f64>,
-        pub qnic_interface: Option<QnicInterfaceWrapper>,
+        pub qnic_interface: Option<InterfaceInfo>,
     }
 
     impl EnoughResource {
         pub fn new(
             num_resource: u32,
+            partner_addr: IpAddr,
             required_fidelity: Option<f64>,
-            qnic_interface: Option<QnicInterfaceWrapper>,
+            qnic_interface: Option<InterfaceInfo>,
         ) -> Self {
             EnoughResource {
                 name: String::from("enough_resource"),
                 num_required_resource: num_resource,
+                partner_addr: partner_addr,
                 required_fidelity: required_fidelity,
                 qnic_interface: qnic_interface,
             }
+        }
+
+        pub fn add_interface_info(&mut self, interface_info: Option<InterfaceInfo>) {
+            self.qnic_interface = interface_info;
         }
     }
 
@@ -69,11 +90,11 @@ pub mod v1 {
     pub struct MeasureCount {
         name: String,
         pub count: u32,
-        pub qnic_interface: Option<QnicInterfaceWrapper>,
+        pub qnic_interface: Option<InterfaceInfo>,
     }
 
     impl MeasureCount {
-        pub fn new(count: u32, qnic_interface: Option<QnicInterfaceWrapper>) -> Self {
+        pub fn new(count: u32, qnic_interface: Option<InterfaceInfo>) -> Self {
             MeasureCount {
                 name: String::from("measure_count"),
                 count: count,
@@ -86,11 +107,11 @@ pub mod v1 {
     pub struct Fidelity {
         name: String,
         pub required_fidelity: f64,
-        pub qnic_interface: Option<QnicInterfaceWrapper>,
+        pub qnic_interface: Option<InterfaceInfo>,
     }
 
     impl Fidelity {
-        pub fn new(fidelity: f64, qnic_interface: Option<QnicInterfaceWrapper>) -> Self {
+        pub fn new(fidelity: f64, qnic_interface: Option<InterfaceInfo>) -> Self {
             Fidelity {
                 name: String::from("fidelity"),
                 required_fidelity: fidelity,
@@ -102,11 +123,11 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Wait {
         name: String,
-        pub qnic_interface: Option<QnicInterfaceWrapper>,
+        pub qnic_interface: Option<InterfaceInfo>,
     }
 
     impl Wait {
-        pub fn new(qnic_interface: Option<QnicInterfaceWrapper>) -> Self {
+        pub fn new(qnic_interface: Option<InterfaceInfo>) -> Self {
             Wait {
                 name: String::from("wait"),
                 qnic_interface: qnic_interface,
@@ -116,17 +137,55 @@ pub mod v1 {
 
     #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
     pub struct Cmp {
-        // target:
+        pub cmp_val: CmpKind,
+        pub operator: CmpOp,
+        pub target_val: CmpTarget,
+    }
+
+    impl Cmp {
+        pub fn new(cmp_val: CmpKind, op: CmpOp, val: CmpTarget) -> Self {
+            Cmp {
+                cmp_val: cmp_val,
+                operator: op,
+                target_val: val,
+            }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum CmpKind {
+        MeasResult,
+        Fidelity,
+        MeasCount,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum CmpOp {
+        Lt,  // <
+        Leq, // <=
+        Gt,  // >
+        Geq, // >=
+        Eq,  // ==
+        Neq, // !=
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+    pub enum CmpTarget {
+        MeasResult(String),
+        Fidelity(f64),
+        MeasCount(u128),
     }
 
     #[cfg(test)]
     mod tests {
+        use std::net::Ipv4Addr;
+
         use super::*;
 
         #[test]
         fn test_condition_clause() {
             let mut condition = Condition::new(None);
-            let interface = QnicInterfaceWrapper::place_holder();
+            let interface = InterfaceInfo::new(None, None, None);
             // from(fidelity: f64, qnic_interface: Interface)
             let fidelity_clause = v1::ConditionClauses::Fidelity(v1::Fidelity::new(0.95, None));
             condition.add_condition_clause(fidelity_clause);
@@ -140,7 +199,8 @@ pub mod v1 {
 
         #[test]
         fn test_enough_resource_clause() {
-            let enough_resource = EnoughResource::new(2, Some(0.8), None);
+            let enough_resource =
+                EnoughResource::new(2, IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), Some(0.8), None);
             assert_eq!(enough_resource.num_required_resource, 2);
             assert_eq!(enough_resource.required_fidelity, Some(0.8));
             assert_eq!(enough_resource.qnic_interface, None);

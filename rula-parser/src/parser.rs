@@ -64,15 +64,13 @@ fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
             Rule::ident_list => {
                 // interface list
                 for interface_name in block.into_inner() {
-                    let mut interface_ident = build_ast_from_ident(interface_name).unwrap();
-                    interface_ident.update_ident_type(IdentType::QnicInterface);
+                    let interface_ident = build_ast_from_ident(interface_name).unwrap();
                     interface.add_interface(interface_ident);
                 }
             }
             Rule::ident => {
                 // group name
-                let mut interface_group = build_ast_from_ident(block).unwrap();
-                interface_group.update_ident_type(IdentType::QnicInterface);
+                let interface_group = build_ast_from_ident(block).unwrap();
                 interface.add_name(Some(interface_group));
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -85,6 +83,9 @@ fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
 // Parse statement <--> {Let statement | expression}
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
+        Rule::config_def => Ok(Stmt::new(StmtKind::Config(
+            build_ast_from_config_def(pair).unwrap(),
+        ))),
         Rule::interface_def => Ok(Stmt::new(StmtKind::Interface(
             build_ast_from_interface(pair).unwrap(),
         ))),
@@ -98,6 +99,42 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     }
 }
 
+fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
+    let mut config_def = Config::place_holder();
+    for config_block in pair.into_inner() {
+        match config_block.as_rule() {
+            Rule::int => {
+                config_def.update_num_node(config_block.as_str());
+            }
+            Rule::config_item => {
+                config_def.add_value(build_ast_from_config_item(config_block).unwrap());
+            }
+            Rule::ident => {
+                config_def.update_config_name(build_ast_from_ident(config_block).unwrap());
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(config_def)
+}
+
+fn build_ast_from_config_item(pair: Pair<Rule>) -> IResult<ConfigItem> {
+    let mut config_item = ConfigItem::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                config_item.update_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::typedef_lit => {
+                config_item.add_type_def(
+                    build_ast_from_typedef_lit(block.into_inner().next().unwrap()).unwrap(),
+                );
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(config_item)
+}
 // Parse Let statement (semi endpoint)
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<Let> {
     let mut let_stmt = Let::place_holder();
@@ -450,12 +487,25 @@ fn build_ast_from_match_arm(pair: Pair<Rule>) -> IResult<MatchArm> {
 fn build_ast_from_match_condition(pair: Pair<Rule>) -> IResult<MatchCondition> {
     let mut match_condition = MatchCondition::place_holder();
     match pair.as_rule() {
-        Rule::expr => match_condition
-            .add_satisfiable(build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap()),
+        Rule::satisfiable => match_condition.update_satisfiable(
+            build_ast_from_satisfiable(pair.into_inner().next().unwrap()).unwrap(),
+        ),
         _ => return Err(RuLaError::RuLaSyntaxError),
     }
     Ok(match_condition)
 }
+
+fn build_ast_from_satisfiable(pair: Pair<Rule>) -> IResult<Satisfiable> {
+    match pair.as_rule() {
+        // Rule::comp_expr => Ok(Satisfiable::Comp(build_ast_from_comp_expr(pair).unwrap())),
+        // Rule::ident => Ok(Satisfiable::Ident(build_ast_from_ident(pair).unwrap())),
+        Rule::literal_expr => Ok(Satisfiable::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
 fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
     let mut match_action = MatchAction::place_holder();
     for block in pair.into_inner() {
@@ -503,7 +553,11 @@ fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
     let mut ruleset_expr = RuleSetExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ruleset_config => {}
+            Rule::ruleset_config => {
+                ruleset_expr.add_config_name(Some(
+                    build_ast_from_ident(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
             Rule::ident => {
                 ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
             }
@@ -541,15 +595,20 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
             }
             Rule::ident_list => {
                 for interface in block.into_inner() {
-                    let mut interface_ident = build_ast_from_ident(interface).unwrap();
-                    interface_ident.update_ident_type(IdentType::QnicInterface);
+                    let interface_ident = build_ast_from_ident(interface).unwrap();
                     // Interface names
                     rule_expr.add_interface(interface_ident).unwrap();
                 }
             }
             Rule::argument_def => {
                 for arg in block.into_inner() {
-                    rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                    match arg.as_rule() {
+                        Rule::ident_typed => {
+                            rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                        }
+                        Rule::ident => rule_expr.add_arg(build_ast_from_ident(arg).unwrap()),
+                        _ => return Err(RuLaError::RuLaSyntaxError),
+                    }
                 }
             }
             Rule::rule_contents => {
@@ -565,9 +624,6 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
     let mut rule_content_expr = RuleContentExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::monitor_expr => {
-                rule_content_expr.add_monitor_expr(build_ast_from_monitor_expr(block).unwrap())
-            }
             Rule::cond_expr => {
                 rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
             }
@@ -585,8 +641,7 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
 fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
     let mut monitor_expr = WatchExpr::place_holder();
     for let_stmt in pair.into_inner() {
-        let mut watched = build_ast_from_let_stmt(let_stmt).unwrap();
-        watched.ident.update_ident_type(IdentType::WatchedVal);
+        let watched = build_ast_from_let_stmt(let_stmt).unwrap();
         monitor_expr.add_watch_value(watched);
     }
     Ok(Some(monitor_expr))
@@ -597,6 +652,9 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
+            Rule::monitor_expr => {
+                cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
+            }
             Rule::awaitable => cond_expr.add_awaitable(
                 build_ast_from_awaitable_expr(block.into_inner().next().unwrap()).unwrap(),
             ),
@@ -744,6 +802,17 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             "Qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
-        _ => todo!("Should be unknown type error here"),
+        Rule::vector_type => Ok(TypeDef::Vector(Box::new(
+            build_ast_from_typedef_lit(
+                pair.into_inner()
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .next()
+                    .unwrap(),
+            )
+            .unwrap(),
+        ))),
+        _ => todo!("Should be unknown type {:#?} error here", pair),
     }
 }

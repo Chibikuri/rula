@@ -6,29 +6,17 @@ pub mod codegen {
     #[cfg(not(tarpaulin_include))]
     mod error;
 
+    pub mod default_token;
     pub mod generator;
-    pub mod rule_meta;
-    pub mod ruleset_generator;
+    pub mod identifier;
+
+    #[cfg(test)]
+    pub mod test_generator;
 
     use error::RuLaCompileError;
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 }
 
-pub mod rulep {
-    pub mod action;
-    pub mod condition;
-    pub mod ruleset;
-
-    #[cfg(not(tarpaulin_include))]
-    mod error;
-    use error::RuleSetGenerationError;
-    pub type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
-}
-
-pub mod wrapper {
-    pub mod qnic_wrapper;
-    pub mod qubit_wrapper;
-}
 
 pub mod utils {}
 

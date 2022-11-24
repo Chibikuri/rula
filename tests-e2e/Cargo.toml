@@ -1,15 +1,23 @@
 [package]
-name = "rula-lib"
+name = "tests-rulesetgen"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rula = {path = "../rula"}
+rula_parser = { path = "../rula-parser" }
+rula-exec = {path="../rula-exec"}
+mock_components = {path = "../mock-components"}
+rula-lib = {path="../rula-lib"}
+
+once_cell = "1.15.0"
+proc-macro2 = "1.0"
 async-trait = "0.1.58"
 futures = "0.3.25"
-serde = {version = "1.0", features=["derive"]}
+toml = "0.5.9"
+serde = "1.0"
 serde_json = "^1.0.41"
-mock_components = { path = "../mock-components"}
-
+log = "0.4.17"
 tokio = {version = "1.20.1", features = ["rt", "rt-multi-thread", "net", "time", "io-std", "io-util"]}

@@ -1,24 +1,25 @@
 use super::error::HardwareError;
-use super::qubit::{GateType, MockQubit, QubitInstruction, Returnable};
+use super::mock_qubit::{GateType, MockQubit, QubitInstruction, Returnable};
 use super::result::{MeasBasis, MeasResult, Outcome};
 use super::IResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MockQnic {
     /// `qubits` can only be accessed by proper function calls
-    qubits: HashMap<u64, MockQubit>,
-    register: HashMap<u64, MeasResult>,
+    pub qubits: HashMap<u64, MockQubit>,
+    pub register: HashMap<u64, MeasResult>,
     /// Index for qubit
-    index: u64,
+    pub index: u64,
     /// Basic qnic information.
     qnic_type: Option<QnicType>,
     qnic_id: Option<u32>,
-    qnic_address: Option<IpAddr>,
+    pub qnic_address: Option<IpAddr>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QnicInstruction {
     GetQnicInfo,
     /// Free specified qubit
@@ -216,6 +217,7 @@ impl MockQnic {
 
     async fn send(&mut self, send: &Send) -> IResult<()> {
         // How to do this?
+        // Just mock now and set the timeout rate
         Ok(())
     }
 
@@ -301,14 +303,14 @@ impl MockQnic {
 }
 
 // Do we need this?
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QnicReturnable {
     MeasResult(MeasResult),
     QnicInfo(QnicInfo),
     None,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QnicType {
     QnicE,
     QnicP,
@@ -316,7 +318,7 @@ pub enum QnicType {
     QnicN, // place holder
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QnicInfo {
     pub qnic_type: Option<QnicType>,
     pub qnic_id: Option<u32>,
@@ -340,19 +342,19 @@ impl QnicInfo {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QubitAddress {
     pub address: u64,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ApplyGate {
     pub control: Option<u64>,
     pub target: u64,
     pub gate: QuantumGate,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QuantumGate {
     X,
     Y,
@@ -364,25 +366,25 @@ pub enum QuantumGate {
     Cz,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MeasureQubit {
     pub qubit_address: u64,
     pub register_address: u64,
     pub basis: MeasBasis,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Send {
     pub register_address: u64,
     pub destination: IpAddr,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Load {
     pub register_address: u64,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CheckEntangledWith {
     pub qubit_address: u64,
 }

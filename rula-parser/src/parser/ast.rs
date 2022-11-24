@@ -135,7 +135,71 @@ pub enum StmtKind {
     Let(Let),
     Expr(Expr),
     Interface(Interface),
+    Config(Config),
     PlaceHolder, // For initialization use
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Config {
+    pub name: Box<Ident>,
+    pub num_node: Box<String>,
+    pub values: Vec<ConfigItem>,
+}
+
+impl Config {
+    pub fn new(name: Ident, num_node: String, values: Vec<ConfigItem>) -> Self {
+        Config {
+            name: Box::new(name),
+            num_node: Box::new(num_node),
+            values: values,
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        Config {
+            name: Box::new(Ident::place_holder()),
+            num_node: Box::new(String::from("0")),
+            values: vec![],
+        }
+    }
+
+    pub fn update_num_node(&mut self, num_conf: &str) {
+        self.num_node = Box::new(String::from(num_conf));
+    }
+
+    pub fn update_config_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+    pub fn add_value(&mut self, config_item: ConfigItem) {
+        self.values.push(config_item);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigItem {
+    pub value: Box<Ident>,
+    pub type_def: Box<TypeDef>,
+}
+
+impl ConfigItem {
+    pub fn new(value: Ident, type_def: TypeDef) -> Self {
+        ConfigItem {
+            value: Box::new(value),
+            type_def: Box::new(type_def),
+        }
+    }
+    pub fn place_holder() -> Self {
+        ConfigItem {
+            value: Box::new(Ident::place_holder()),
+            type_def: Box::new(TypeDef::PlaceHolder),
+        }
+    }
+    pub fn update_name(&mut self, name: Ident) {
+        self.value = Box::new(name);
+    }
+    pub fn add_type_def(&mut self, type_def: TypeDef) {
+        self.type_def = Box::new(type_def);
+    }
 }
 
 /**
@@ -153,14 +217,14 @@ pub struct Let {
 
 impl Let {
     // Constructor with kind check
-    pub fn new(identifier: Ident, expr: Expr) -> Let {
+    pub fn new(identifier: Ident, expr: Expr) -> Self {
         Let {
             ident: Box::new(identifier),
             expr: Box::new(expr),
         }
     }
 
-    pub fn place_holder() -> Let {
+    pub fn place_holder() -> Self {
         Let {
             ident: Box::new(Ident::place_holder()),
             expr: Box::new(Expr::place_holder()),
@@ -614,43 +678,49 @@ impl MatchArm {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchCondition {
-    pub satisfiable: Box<Expr>,
+    pub satisfiable: Box<Satisfiable>,
 }
 
 impl MatchCondition {
-    pub fn new(satisfiable: Expr) -> Self {
+    pub fn new(satisfiable: Satisfiable) -> Self {
         MatchCondition {
             satisfiable: Box::new(satisfiable),
         }
     }
     pub fn place_holder() -> Self {
         MatchCondition {
-            satisfiable: Box::new(Expr::place_holder()),
+            satisfiable: Box::new(Satisfiable::PlaceHolder),
         }
     }
-    pub fn add_satisfiable(&mut self, satisfiable: Expr) {
+    pub fn update_satisfiable(&mut self, satisfiable: Satisfiable) {
         self.satisfiable = Box::new(satisfiable);
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Satisfiable {
+    // Comp(Comp),
+    // Ident(Ident),
+    Lit(Lit),
+    PlaceHolder,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchAction {
-    pub actionable: Box<Expr>,
+    pub actionable: Vec<Expr>,
 }
 
 impl MatchAction {
-    pub fn new(actionable: Expr) -> Self {
+    pub fn new(actionable: Vec<Expr>) -> Self {
         MatchAction {
-            actionable: Box::new(actionable),
+            actionable: actionable,
         }
     }
     pub fn place_holder() -> Self {
-        MatchAction {
-            actionable: Box::new(Expr::place_holder()),
-        }
+        MatchAction { actionable: vec![] }
     }
     pub fn add_actionable(&mut self, actionable: Expr) {
-        self.actionable = Box::new(actionable);
+        self.actionable.push(actionable);
     }
 }
 
@@ -719,6 +789,9 @@ impl RuleSetExpr {
     }
     pub fn add_name(&mut self, name: Ident) {
         self.name = Box::new(name);
+    }
+    pub fn add_config_name(&mut self, name: Option<Ident>) {
+        self.config = Box::new(name);
     }
     pub fn add_default(&mut self, default: Option<FnCall>) {
         self.default = Box::new(default);
@@ -789,21 +862,14 @@ impl RuleExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleContentExpr {
-    pub watch_expr: Box<Option<WatchExpr>>,
     pub condition_expr: Box<CondExpr>,
     pub action_expr: Box<ActExpr>,
     pub post_processing: Vec<Stmt>,
 }
 
 impl RuleContentExpr {
-    pub fn new(
-        watch_expr: Option<WatchExpr>,
-        condition_expr: CondExpr,
-        action_expr: ActExpr,
-        post_processing: Vec<Stmt>,
-    ) -> Self {
+    pub fn new(condition_expr: CondExpr, action_expr: ActExpr, post_processing: Vec<Stmt>) -> Self {
         RuleContentExpr {
-            watch_expr: Box::new(watch_expr),
             condition_expr: Box::new(condition_expr),
             action_expr: Box::new(action_expr),
             post_processing: post_processing,
@@ -811,15 +877,14 @@ impl RuleContentExpr {
     }
     pub fn place_holder() -> Self {
         RuleContentExpr {
-            watch_expr: Box::new(None),
             condition_expr: Box::new(CondExpr::place_holder()),
             action_expr: Box::new(ActExpr::place_holder()),
             post_processing: vec![],
         }
     }
-    pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
-        self.watch_expr = Box::new(monitor_expr);
-    }
+    // pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
+    //     self.watch_expr = Box::new(monitor_expr);
+    // }
     pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
         self.condition_expr = Box::new(condition_expr);
     }
@@ -854,24 +919,34 @@ impl WatchExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondExpr {
     pub name: Box<Option<Ident>>,
+    pub watch_expr: Box<Option<WatchExpr>>,
     pub clauses: Vec<Awaitable>,
 }
 
 impl CondExpr {
-    pub fn new(name: Option<Ident>, awaitables: Vec<Awaitable>) -> Self {
+    pub fn new(
+        name: Option<Ident>,
+        watched_values: Option<WatchExpr>,
+        awaitables: Vec<Awaitable>,
+    ) -> Self {
         CondExpr {
             name: Box::new(name),
+            watch_expr: Box::new(watched_values),
             clauses: awaitables,
         }
     }
     pub fn place_holder() -> Self {
         CondExpr {
             name: Box::new(None),
+            watch_expr: Box::new(None),
             clauses: vec![],
         }
     }
     pub fn add_name(&mut self, name: Option<Ident>) {
         self.name = Box::new(name);
+    }
+    pub fn add_watch_expr(&mut self, watch_expr: Option<WatchExpr>) {
+        self.watch_expr = Box::new(watch_expr);
     }
     pub fn add_awaitable(&mut self, awaitable: Awaitable) {
         self.clauses.push(awaitable);
@@ -887,8 +962,8 @@ pub enum Awaitable {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActExpr {
-    name: Box<Option<Ident>>,
-    operatable: Vec<Stmt>,
+    pub name: Box<Option<Ident>>,
+    pub operatable: Vec<Stmt>,
 }
 
 impl ActExpr {
@@ -1082,7 +1157,10 @@ pub struct Ident {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IdentType {
     QnicInterface,
-    WatchedVal,
+    QubitInterface,
+    ConfigName,
+    WatchedValue,
+    RuleArgument,
     Other,
 }
 
@@ -1109,8 +1187,8 @@ impl Ident {
     pub fn add_type_hint(&mut self, type_hint: Option<TypeDef>) {
         self.type_hint = Box::new(type_hint);
     }
-    pub fn update_ident_type(&mut self, new_ident_type: IdentType) {
-        self.ident_type = Box::new(new_ident_type);
+    pub fn update_ident_type(&mut self, ident_type: IdentType) {
+        self.ident_type = Box::new(ident_type);
     }
     pub fn check(&self) {
         if *self.name == String::from("") {
@@ -1132,6 +1210,7 @@ pub enum TypeDef {
     Boolean,
     Str,
     Qubit,
+    Vector(Box<TypeDef>),
     PlaceHolder,
 }
 

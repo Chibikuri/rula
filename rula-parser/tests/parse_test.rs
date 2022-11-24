@@ -13,17 +13,15 @@ mod interface_tests {
     fn test_interface_def() {
         let interface_def = "#interface: {qn0, qn1};";
         let interface_def_ast = rula_parser::parse(interface_def).unwrap();
-        let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-            vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
-                Interface::new(
-                    vec![
-                        Ident::new("qn0", None, IdentType::QnicInterface),
-                        Ident::new("qn1", None, IdentType::QnicInterface),
-                    ],
-                    None,
-                ),
-            )))],
-        ))))];
+        let target_ast_nodes = AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
+            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
+                vec![
+                    Ident::new("qn0", None, IdentType::Other),
+                    Ident::new("qn1", None, IdentType::Other),
+                ],
+                None,
+            )))),
+        ]))));
         assert_eq!(interface_def_ast, target_ast_nodes);
     }
 
@@ -31,17 +29,15 @@ mod interface_tests {
     fn test_interface_def_with_group_name() {
         let interface_def = "#interface: {qn0, qn1} => qnall;";
         let interface_def_ast = rula_parser::parse(interface_def).unwrap();
-        let target_ast_nodes = vec![AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(
-            vec![ProgramKind::Stmt(Stmt::new(StmtKind::Interface(
-                Interface::new(
-                    vec![
-                        Ident::new("qn0", None, IdentType::QnicInterface),
-                        Ident::new("qn1", None, IdentType::QnicInterface),
-                    ],
-                    Some(Ident::new("qnall", None, IdentType::QnicInterface)),
-                ),
-            )))],
-        ))))];
+        let target_ast_nodes = AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
+            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
+                vec![
+                    Ident::new("qn0", None, IdentType::Other),
+                    Ident::new("qn1", None, IdentType::Other),
+                ],
+                Some(Ident::new("qnall", None, IdentType::Other)),
+            )))),
+        ]))));
         assert_eq!(interface_def_ast, target_ast_nodes)
     }
 }
@@ -54,7 +50,7 @@ mod import_tests {
         let import_expr = "import hello;";
         let ast_nodes = rula_parser::parse(import_expr).unwrap();
         let expected_paths = vec![["hello"].iter().collect()];
-        let expected_ast_nodes = vec![
+        let expected_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -67,10 +63,8 @@ mod import_tests {
                         )
                     )
                 )
-            )
-            ];
-        assert_eq!(ast_nodes.len(), 1);
-        assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
+            );
+        assert_eq!(ast_nodes, expected_ast_nodes);
     }
 
     #[test]
@@ -79,7 +73,7 @@ mod import_tests {
         let import_expr = "import hello::world;";
         let ast_nodes = rula_parser::parse(import_expr).unwrap();
         let expected_paths = vec![["hello", "world"].iter().collect()];
-        let expected_ast_nodes = vec![
+        let expected_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -92,9 +86,8 @@ mod import_tests {
                         )
                     )
                 )
-            )
-            ];
-        assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
+            );
+        assert_eq!(ast_nodes, expected_ast_nodes);
     }
 
     #[test]
@@ -107,7 +100,7 @@ mod import_tests {
         let expected_path_hello_there = ["hello", "there"].iter().collect();
 
         let expected_paths = vec![expected_path_hello_world, expected_path_hello_there];
-        let expected_ast_nodes = vec![
+        let expected_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -122,9 +115,8 @@ mod import_tests {
                         )
                     )
                 )
-            )
-            ];
-        assert_eq!(ast_nodes[0], expected_ast_nodes[0]);
+            );
+        assert_eq!(ast_nodes, expected_ast_nodes);
     }
 
     #[test]
@@ -154,15 +146,13 @@ mod comment_tests {
     fn test_implicit_parse_comment() {
         let comment = "// this is a comment \n";
         let empty_ast_nodes = rula_parser::parse(comment).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             AstNode::RuLa(
                 RuLa::new(
                     RuLaKind::Ignore
                 )
-            )
-            ];
-        assert_eq!(empty_ast_nodes.len(), 1);
-        assert_eq!(empty_ast_nodes[0], target_ast_nodes[0]);
+            );
+        assert_eq!(empty_ast_nodes, target_ast_nodes);
     }
 
     #[test]
@@ -170,15 +160,13 @@ mod comment_tests {
     fn test_parse_long_comment() {
         let comment = "/* this is a comment */";
         let empty_ast_nodes = rula_parser::parse(comment).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             AstNode::RuLa(
                 RuLa::new(
                     RuLaKind::Ignore
                 )
-            )
-        ];
-        assert_eq!(empty_ast_nodes.len(), 1);
-        assert_eq!(empty_ast_nodes[0], target_ast_nodes[0]);
+            );
+        assert_eq!(empty_ast_nodes, target_ast_nodes);
     }
 
     #[test]
@@ -186,15 +174,13 @@ mod comment_tests {
     fn test_parse_long_comment_with_new_line() {
         let comment = "/* this is a comment\n hello world\n */";
         let empty_ast_nodes = rula_parser::parse(comment).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             AstNode::RuLa(
                 RuLa::new(
                     RuLaKind::Ignore
                 )
-            )
-        ];
-        assert_eq!(empty_ast_nodes.len(), 1);
-        assert_eq!(empty_ast_nodes[0], target_ast_nodes[0]);
+            );
+        assert_eq!(empty_ast_nodes, target_ast_nodes);
     }
 }
 
@@ -206,7 +192,7 @@ mod let_tests {
     fn test_simple_let_stmt() {
         let let_stmt = r#"let hello: str = "world";"#;
         let let_ast_nodes = rula_parser::parse(let_stmt).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Let(
@@ -230,8 +216,7 @@ mod let_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(let_ast_nodes, target_ast_nodes);
     }
 
@@ -240,7 +225,7 @@ mod let_tests {
     fn test_simple_let_stmt_int() {
         let let_stmt = r#"let hello:i32 = 123;"#;
         let let_ast_nodes = rula_parser::parse(let_stmt).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Let(
@@ -248,7 +233,7 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 Some(TypeDef::Integer32),
-                                IdentType::Other,
+                                IdentType::Other, 
                             ),
                             Expr::new(
                                 ExprKind::Term(
@@ -258,8 +243,7 @@ mod let_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(let_ast_nodes, target_ast_nodes);
     }
 
@@ -268,7 +252,7 @@ mod let_tests {
     fn test_let_with_if_expr(){
         let let_stmt = "let hello = if(block){expression};";
         let let_if_ast_nodes = rula_parser::parse(let_stmt).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Let(
@@ -276,7 +260,7 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 None,
-                                IdentType::Other
+                                IdentType::Other, 
                             ),
                             Expr::new(
                                 ExprKind::If(
@@ -289,7 +273,7 @@ mod let_tests {
                                                         Ident::new(
                                                             "block",
                                                             None,
-                                                            IdentType::Other
+                                                            IdentType::Other,
                                                         ) 
                                                     )
                                                 )
@@ -305,7 +289,7 @@ mod let_tests {
                                                                 Ident::new(
                                                                     "expression",
                                                                     None,
-                                                                    IdentType::Other
+                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         )
@@ -324,8 +308,7 @@ mod let_tests {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(target_ast_nodes, let_if_ast_nodes)
     }
 }
@@ -338,7 +321,7 @@ mod if_tests {
     fn test_single_if_expr() {
         let if_expr = "if(block){expression}";
         let if_ast_nodes = rula_parser::parse(if_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -353,7 +336,7 @@ mod if_tests {
                                                     Ident::new(
                                                         "block",
                                                         None,
-                                                        IdentType::Other
+                                                        IdentType::Other, 
                                                     ) 
                                                 )
                                             )
@@ -369,7 +352,7 @@ mod if_tests {
                                                             Ident::new(
                                                                 "expression",
                                                                 None,
-                                                                IdentType::Other
+                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -386,8 +369,7 @@ mod if_tests {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(target_ast_nodes, if_ast_nodes);
     }
 
@@ -396,7 +378,7 @@ mod if_tests {
     fn test_if_else_expr() {
         let if_else = "if(block){expression}else{expression2}";
         let if_else_ast_nodes = rula_parser::parse(if_else).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             AstNode::RuLa(
                 RuLa::new(
                     RuLaKind::Program(
@@ -416,7 +398,7 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "block",
                                                                         None,
-                                                                        IdentType::Other
+                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -432,7 +414,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "expression",
                                                                                 None,
-                                                                                IdentType::Other
+                                                                                IdentType::Other,
                                                                             ) 
                                                                         )
                                                                     )
@@ -453,7 +435,7 @@ mod if_tests {
                                                                                 Ident::new(
                                                                                     "expression2",
                                                                                     None,
-                                                                                    IdentType::Other
+                                                                                    IdentType::Other, 
                                                                                 ) 
                                                                             )
                                                                         )
@@ -473,8 +455,7 @@ mod if_tests {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(target_ast_nodes, if_else_ast_nodes);
     }
 
@@ -483,7 +464,7 @@ mod if_tests {
     fn test_if_elif_expr() {
         let if_elif_expr = "if(block){expression} else if (block2){expression2}";
         let if_elif_ast_nodes = rula_parser::parse(if_elif_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             AstNode::RuLa(
                 RuLa::new(
                     RuLaKind::Program(
@@ -503,7 +484,7 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "block",
                                                                         None,
-                                                                        IdentType::Other
+                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -519,7 +500,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "expression",
                                                                                 None,
-                                                                                IdentType::Other
+                                                                                IdentType::Other, 
                                                                             ) 
                                                                         )
                                                                     )
@@ -538,7 +519,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "block2",
                                                                                 None,
-                                                                                IdentType::Other
+                                                                                IdentType::Other,
                                                                             ) 
                                                                         )
                                                                     )
@@ -554,7 +535,7 @@ mod if_tests {
                                                                                     Ident::new(
                                                                                         "expression2",
                                                                                         None,
-                                                                                        IdentType::Other
+                                                                                        IdentType::Other, 
                                                                                     ) 
                                                                                 )
                                                                             )
@@ -579,8 +560,7 @@ mod if_tests {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(target_ast_nodes, if_elif_ast_nodes);
     }
 
@@ -589,7 +569,7 @@ mod if_tests {
     fn test_if_elif_else_expr() {
         let if_elif_expr = "if(block){expression} else if (block2){expression2} else {expression3}";
         let if_elif_ast_nodes = rula_parser::parse(if_elif_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -604,7 +584,7 @@ mod if_tests {
                                                     Ident::new(
                                                         "block",
                                                         None,
-                                                        IdentType::Other
+                                                        IdentType::Other, 
                                                     ) 
                                                 )
                                             )
@@ -620,7 +600,7 @@ mod if_tests {
                                                             Ident::new(
                                                                 "expression",
                                                                 None,
-                                                                IdentType::Other
+                                                                IdentType::Other,
                                                             ) 
                                                         )
                                                     )
@@ -639,7 +619,7 @@ mod if_tests {
                                                             Ident::new(
                                                                 "block2",
                                                                 None,
-                                                                IdentType::Other
+                                                                IdentType::Other,
                                                             ) 
                                                         )
                                                     )
@@ -655,7 +635,7 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "expression2",
                                                                         None,
-                                                                        IdentType::Other
+                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -678,7 +658,7 @@ mod if_tests {
                                                                 Ident::new(
                                                                     "expression3",
                                                                     None,
-                                                                    IdentType::Other
+                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         )
@@ -692,8 +672,7 @@ mod if_tests {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(target_ast_nodes, if_elif_ast_nodes);
     }
     // Add error test here
@@ -707,7 +686,7 @@ mod fn_def_test {
     fn test_simple_fn_def() {
         let fn_def_expr = "fn(block:i32){expression}";
         let fn_def_asts = rula_parser::parse(fn_def_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -718,7 +697,7 @@ mod fn_def_test {
                                         Ident::new(
                                             "block",
                                             Some(TypeDef::Integer32),
-                                            IdentType::Other,
+                                            IdentType::Other, 
                                         )
                                         ],
                                         Stmt::new(
@@ -743,8 +722,7 @@ mod fn_def_test {
                             )
                         )
                     )
-                )
-                ];
+                );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -753,7 +731,7 @@ mod fn_def_test {
     fn test_mlti_args_fn_def() {
         let fn_def_expr = "fn(block:i32, hello:str){expression}";
         let fn_def_asts = rula_parser::parse(fn_def_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -769,7 +747,7 @@ mod fn_def_test {
                                         Ident::new(
                                             "hello",
                                             Some(TypeDef::Str),
-                                            IdentType::Other,
+                                            IdentType::Other, 
                                         ),
                                         ],
                                         Stmt::new(
@@ -781,7 +759,7 @@ mod fn_def_test {
                                                                 Ident::new(
                                                                     "expression",
                                                                     None,
-                                                                    IdentType::Other,
+                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         ),
@@ -794,8 +772,7 @@ mod fn_def_test {
                             )
                         )
                     )
-            )
-                ];
+                );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
@@ -808,7 +785,7 @@ mod term_tests {
     fn test_simple_term_expr() {
         let term_expr = "1+3";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -819,8 +796,7 @@ mod term_tests {
                             )
                         )
                     )
-                )
-                ];
+                );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -829,7 +805,7 @@ mod term_tests {
     fn test_simple_term_expr_with_order() {
         let term_expr = "4*(3+4)";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -840,8 +816,7 @@ mod term_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -850,7 +825,7 @@ mod term_tests {
     fn test_simple_term_expr_with_order2() {
         let term_expr = "(1-4)*(3+4)/3";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -861,8 +836,7 @@ mod term_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -871,7 +845,7 @@ mod term_tests {
     fn test_edge_case_term_expr() {
         let term_expr = "((12))";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -882,8 +856,7 @@ mod term_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -893,7 +866,7 @@ mod term_tests {
         // divition is tricky a little
         let term_expr = "(1/(3-1))";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -904,8 +877,7 @@ mod term_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -915,7 +887,7 @@ mod term_tests {
         // divition is tricky a little
         let term_expr = "(1+(2*(3/(4-(5*(6/(7+8)))))))";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -926,8 +898,7 @@ mod term_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -937,7 +908,7 @@ mod term_tests {
         // divition is tricky a little
         let term_expr = "(((((1+2)-3)*4)+5)-6)";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -948,8 +919,7 @@ mod term_tests {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
@@ -963,7 +933,7 @@ mod for_expr_test {
         // divition is tricky a little
         let term_expr = "for (i) in range(){hello}";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -983,7 +953,7 @@ mod for_expr_test {
                                                 Ident::new(
                                                     "range",
                                                     None,
-                                                    IdentType::Other,
+                                                    IdentType::Other, 
                                                 ),
                                                 vec![]
                                             )
@@ -1011,8 +981,7 @@ mod for_expr_test {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -1022,7 +991,7 @@ mod for_expr_test {
         // divition is tricky a little
         let term_expr = "for (a, b, c) in generator{hello}";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1081,8 +1050,7 @@ mod for_expr_test {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -1092,7 +1060,7 @@ mod for_expr_test {
         // divition is tricky a little
         let term_expr = "for (i) in [1, 2, 3, 4, 5]{hello}";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1103,7 +1071,7 @@ mod for_expr_test {
                                         Ident::new(
                                             "i",
                                             None,
-                                            IdentType::Other,
+                                            IdentType::Other, 
                                         ),
                                     ],
                                     Expr::new(
@@ -1148,7 +1116,7 @@ mod for_expr_test {
                                                             Ident::new(
                                                                 "hello",
                                                                 None,
-                                                                IdentType::Other,
+                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -1161,8 +1129,7 @@ mod for_expr_test {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
@@ -1176,7 +1143,7 @@ mod test_while_expr {
 
         let while_expr = "while(count > 0){expression}";
         let fn_def_asts = rula_parser::parse(while_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1193,7 +1160,7 @@ mod test_while_expr {
                                                             Ident::new(
                                                                 "count",
                                                                 None,
-                                                                IdentType::Other,
+                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -1217,7 +1184,7 @@ mod test_while_expr {
                                                         Ident::new(
                                                             "expression",
                                                             None,
-                                                            IdentType::Other,
+                                                            IdentType::Other, 
                                                         )
                                                     )
                                                 )
@@ -1230,8 +1197,7 @@ mod test_while_expr {
                     )
                 )
             )
-        )
-        ];
+        );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -1241,7 +1207,7 @@ mod test_while_expr {
 
         let while_expr = "while(count){expression}";
         let fn_def_asts = rula_parser::parse(while_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1283,8 +1249,7 @@ mod test_while_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -1294,7 +1259,7 @@ mod test_while_expr {
 
         let while_expr = "while(true){expression}";
         let fn_def_asts = rula_parser::parse(while_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1332,8 +1297,7 @@ mod test_while_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
@@ -1347,7 +1311,7 @@ mod test_struct_expr {
 
         let struct_expr = "struct Test{}";
         let fn_def_asts = rula_parser::parse(struct_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1357,7 +1321,7 @@ mod test_struct_expr {
                                     Ident::new(
                                         "Test",
                                         None,
-                                        IdentType::Other,
+                                        IdentType::Other, 
                                     ),
                                     vec![]
                                 )
@@ -1365,8 +1329,7 @@ mod test_struct_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -1376,7 +1339,7 @@ mod test_struct_expr {
 
         let struct_expr = "struct Test{flag: bool}";
         let fn_def_asts = rula_parser::parse(struct_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1400,8 +1363,7 @@ mod test_struct_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
@@ -1415,7 +1377,7 @@ mod test_return_expr {
 
         let struct_expr = "return hello";
         let fn_def_asts = rula_parser::parse(struct_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1429,7 +1391,7 @@ mod test_return_expr {
                                                     Ident::new(
                                                         "hello",
                                                         None,
-                                                        IdentType::Other,
+                                                        IdentType::Other, 
                                                     )
                                                 )
                                             )
@@ -1440,8 +1402,7 @@ mod test_return_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 }
@@ -1455,7 +1416,7 @@ mod test_ruleset_expr {
         let ruleset_expr = "ruleset() entanglement_swapping{rules()}";
         let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
 
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1465,7 +1426,7 @@ mod test_ruleset_expr {
                                     Ident::new(
                                         "entanglement_swapping",
                                         None,
-                                        IdentType::Other,
+                                        IdentType::Other, 
                                     ),
                                     None,
                                     None, 
@@ -1474,7 +1435,7 @@ mod test_ruleset_expr {
                                             Ident::new(
                                                 "rules",
                                                 None,
-                                                IdentType::Other,
+                                                IdentType::Other, 
                                             ),
                                             vec![],
                                         )
@@ -1484,8 +1445,7 @@ mod test_ruleset_expr {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(ruleset_expr_asts, target_ast_nodes);
     }
 
@@ -1495,7 +1455,7 @@ mod test_ruleset_expr {
         let ruleset_expr = "ruleset() entanglement_swapping{default: default() rules()}";
         let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
 
-        let target_ast_nodes = vec![
+        let target_ast_nodes =
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1513,7 +1473,7 @@ mod test_ruleset_expr {
                                             Ident::new(
                                                 "default",
                                                 None,
-                                                IdentType::Other,
+                                                IdentType::Other, 
                                             ),
                                             vec![]
                                         )
@@ -1534,8 +1494,7 @@ mod test_ruleset_expr {
                         )
                     )
                 )
-            )
-        ];
+            );
         assert_eq!(ruleset_expr_asts, target_ast_nodes);
     }
 }
@@ -1548,7 +1507,7 @@ mod test_rule_expr {
 
         let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){cond{} => act{}}";
         let rule_expr_asts = rula_parser::parse(rule_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1564,7 +1523,7 @@ mod test_rule_expr {
                                     Ident::new(
                                         "qn0",
                                         None,
-                                        IdentType::QnicInterface,
+                                        IdentType::Other,
                                     ),
                                 ].into_iter().collect(),
                                 vec![
@@ -1576,12 +1535,12 @@ mod test_rule_expr {
                                     Ident::new(
                                         "q3",
                                         Some(TypeDef::Qubit),
-                                        IdentType::Other
+                                        IdentType::Other,
                                     )
                                 ],
                                 RuleContentExpr::new(
-                                    None,
                                     CondExpr::new(
+                                        None,
                                         None,
                                         vec![]
                                     ),
@@ -1596,8 +1555,7 @@ mod test_rule_expr {
                     )
                 )
             )
-        )
-        ];
+        );
         assert_eq!(target_ast_nodes, rule_expr_asts);
     }
 }
@@ -1610,7 +1568,7 @@ mod test_condition_expr {
     fn test_simple_cond_expr() {
         let cond_expr = "cond condition1 { awaitable()}";
         let fn_def_asts = rula_parser::parse(cond_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1621,9 +1579,10 @@ mod test_condition_expr {
                                         Ident::new(
                                             "condition1",
                                             None,
-                                            IdentType::Other
+                                            IdentType::Other,
                                         )
                                     ),
+                                    None,
                                     vec![
                                         Awaitable::FnCall(
                                             FnCall::new(
@@ -1641,8 +1600,7 @@ mod test_condition_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts); 
     }
 }
@@ -1655,7 +1613,7 @@ mod test_action_expr {
     fn test_simple_act_expr() {
         let act_expr = "act act1 {operatable}";
         let fn_def_asts = rula_parser::parse(act_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1679,7 +1637,7 @@ mod test_action_expr {
                                                                 Ident::new(
                                                                     "operatable",
                                                                     None,
-                                                                    IdentType::Other
+                                                                    IdentType::Other,
                                                                 )
                                                             )
                                                         )
@@ -1693,8 +1651,7 @@ mod test_action_expr {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts); 
     }
 }
@@ -1708,7 +1665,7 @@ mod test_literals {
         // divition is tricky a little
         let lit_expr = "true";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1721,8 +1678,7 @@ mod test_literals {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
@@ -1732,7 +1688,7 @@ mod test_literals {
         // divition is tricky a little
         let lit_expr = "false";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = vec![
+        let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
@@ -1745,21 +1701,20 @@ mod test_literals {
                         )
                     )
                 )
-            )
-            ];
+            );
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 
     // helper function
-    fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> Vec<AstNode> {
-        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Let(Let::new(
+    fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> AstNode {
+        let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Let(Let::new(
             Ident::new(name, type_def, IdentType::Other),
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                 "val",
                 None,
                 IdentType::Other,
             ))))),
-        ))))];
+        ))));
         target_ast_nodes
     }
 
@@ -1818,10 +1773,10 @@ mod test_literals {
     }
 
     // helper function
-    fn generate_lit_ast(literals: Lit) -> Vec<AstNode> {
-        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
-            ExprKind::Lit(literals),
-        ))))];
+    fn generate_lit_ast(literals: Lit) -> AstNode {
+        let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            literals,
+        )))));
         target_ast_nodes
     }
 
@@ -1860,12 +1815,12 @@ mod test_variable_call {
     fn test_simple_variable_call() {
         let var_call = "test.hello";
         let var_call_ast = rula_parser::parse(var_call).unwrap();
-        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+        let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
                 Callable::Ident(Ident::new("test", None, IdentType::Other)),
                 Callable::Ident(Ident::new("hello", None, IdentType::Other)),
             ])),
-        ))))];
+        ))));
         assert_eq!(target_ast_nodes, var_call_ast);
     }
 
@@ -1873,7 +1828,7 @@ mod test_variable_call {
     fn test_simple_variable_fnc_call() {
         let var_call = "test.hello()";
         let var_call_ast = rula_parser::parse(var_call).unwrap();
-        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+        let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
                 Callable::Ident(Ident::new("test", None, IdentType::Other)),
                 Callable::FnCall(FnCall::new(
@@ -1881,7 +1836,7 @@ mod test_variable_call {
                     vec![],
                 )),
             ])),
-        ))))];
+        ))));
         assert_eq!(target_ast_nodes, var_call_ast);
     }
 
@@ -1889,7 +1844,7 @@ mod test_variable_call {
     fn test_simple_variable_fnc_call_first() {
         let var_call = "test().hello";
         let var_call_ast = rula_parser::parse(var_call).unwrap();
-        let target_ast_nodes = vec![build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+        let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
                 Callable::FnCall(FnCall::new(
                     Ident::new("test", None, IdentType::Other),
@@ -1897,7 +1852,7 @@ mod test_variable_call {
                 )),
                 Callable::Ident(Ident::new("hello", None, IdentType::Other)),
             ])),
-        ))))];
+        ))));
         assert_eq!(target_ast_nodes, var_call_ast);
     }
 }
