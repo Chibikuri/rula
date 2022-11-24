@@ -2,15 +2,9 @@
 use super::default_token::*;
 use super::error::*;
 use super::identifier::*;
-use super::rule_meta::*;
-use super::ruleset_generator::RuleSetFactory;
+// use super::ruleset_generator::RuleSetFactory;
 use super::IResult;
 
-use crate::rulep::action::v2::ActionClauses;
-use crate::rulep::action::Action;
-use crate::rulep::condition::Condition;
-use crate::rulep::ruleset::Rule;
-use crate::wrapper::qnic_wrapper::QnicInterfaceWrapper;
 use rula_parser::parser::ast::*;
 
 use once_cell::sync::OnceCell;
