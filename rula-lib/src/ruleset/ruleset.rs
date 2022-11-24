@@ -5,8 +5,6 @@ use std::net::IpAddr;
 use super::action::*;
 use super::condition::v1::ConditionClauses;
 use super::condition::*;
-use crate::qnic;
-use crate::qnic::QnicInterface;
 use crate::qnic::QnicType;
 
 fn generate_id() -> u128 {

@@ -1,7 +1,7 @@
-use serde::Serialize;
 use super::ruleset::action::v2::ActionClauses;
 use super::ruleset::condition::v1::{CmpKind, CmpTarget};
 use super::RuleVec;
+use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct QResult {
@@ -39,10 +39,7 @@ impl MeasResult {
         &self.output
     }
 
-    pub fn __static__get_result(
-        &self,
-        _: RuleVec,
-    ) -> (&str, CmpKind, impl Fn(&str) -> CmpTarget) {
+    pub fn __static__get_result(&self, _: RuleVec) -> (&str, CmpKind, impl Fn(&str) -> CmpTarget) {
         ("__static__result", self.__cmp_kind(), self.__cmp_target())
     }
     pub fn __cmp_kind(&self) -> CmpKind {
@@ -51,5 +48,26 @@ impl MeasResult {
 
     pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget {
         |value| CmpTarget::MeasResult(String::from(value))
+    }
+}
+
+use super::qubit::QubitInterface;
+pub fn Result(qubit: &QubitInterface) -> QResult {
+    QResult {
+        result: MeasResult {
+            qubit_address: 0,
+            output: "00".to_string(),
+        },
+        generated_actions: vec![],
+    }
+}
+
+pub fn __static__Result(_: RuleVec, qubit: QubitInterface) -> QResult {
+    QResult {
+        result: MeasResult {
+            qubit_address: 0,
+            output: "00".to_string(),
+        },
+        generated_actions: vec![],
     }
 }
