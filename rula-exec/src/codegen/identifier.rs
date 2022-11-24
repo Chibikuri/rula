@@ -11,6 +11,7 @@ pub struct IdentTracker {
     pub identifiers: HashMap<String, Identifier>,
     // Should have better way to track this
     pub interface_names: HashSet<String>,
+    pub rule_names: HashSet<String>,
     pub config_name: Option<String>,
     pub num_node: Option<String>,
 }
@@ -20,6 +21,7 @@ impl IdentTracker {
         IdentTracker {
             identifiers: HashMap::new(),
             interface_names: HashSet::new(),
+            rule_names: HashSet::new(),
             config_name: None,
             num_node: None,
         }
@@ -37,7 +39,25 @@ impl IdentTracker {
     }
 
     pub fn add_interface_name(&mut self, interface_name: &str) {
+        if self.exist_interface(interface_name) {
+            panic!("Interface name cannot be duplicated :{}", interface_name);
+        }
         self.interface_names.insert(String::from(interface_name));
+    }
+
+    pub fn exist_interface(&self, interface_name: &str) -> bool {
+        self.interface_names.contains(interface_name)
+    }
+
+    pub fn add_rule_name(&mut self, rule_name: &str) {
+        if self.exist_rule_name(rule_name) {
+            panic!("Rule name cannot be duplicated");
+        }
+        self.rule_names.insert(rule_name.to_string());
+    }
+
+    pub fn exist_rule_name(&self, rule_name: &str) -> bool {
+        self.rule_names.contains(rule_name)
     }
 
     pub fn check_ident_type(&mut self, ident_name: &str) -> IdentType {

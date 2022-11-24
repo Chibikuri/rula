@@ -7,7 +7,6 @@ mod test_let_stmt_gen {
     use super::*;
     #[test]
     fn test_simple_let_stmt() {
-        initialize_ruleset_factory();
         // let x:u32 = test_gen();
         let mut test_ast = Let::new(
             Ident::new("x", Some(TypeDef::UnsignedInteger32), IdentType::Other),

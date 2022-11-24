@@ -91,15 +91,20 @@ mod rula {
         }
     }
 }
-pub async fn main() {
-    rula::initialize_interface().await;
+pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>) {
     rula::initialize_static_interface();
-    let mut rulesets = vec![];
     for i in 0..1 {
         let mut ruleset = rula::RuleSetExec::init();
         ruleset.resolve_config(Box::new(&config), Some(i as usize));
         rulesets.push(static_ruleset);
     }
+}
+pub async fn __execute_ruleset() {
+    rula::initialize_interface().await;
+}
+pub async fn main() {
+    let mut rulesets = vec![];
+    __gen_static_rulesets(&mut rulesets, config);
 }
 #[cfg(test)]
 mod tests {

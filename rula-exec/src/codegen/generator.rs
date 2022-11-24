@@ -29,7 +29,6 @@ use std::net::SocketAddr;
 // Right now, compilation is all single thread. In the future, this could be multi thread.
 // Mutex would be a good choice for that.
 static RULES: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
-static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 
 // Initialize singleton values
 // RULESET_FACTORY: collect information needed to create a RuleSet
@@ -37,17 +36,6 @@ static RULESET_FACTORY: OnceCell<Mutex<RuleSetFactory>> = OnceCell::new();
 pub(super) fn initialize_singleton() {
     // Set the initial RuleSet so that other RuleSet call can only get without init
     // For testing purpose, dividing initialize phase into two
-    initialize_ruleset_factory();
-    initialize_rule_tables();
-}
-
-pub(super) fn initialize_ruleset_factory() {
-    assert!(RULESET_FACTORY.get().is_none());
-    let initialize_ruleset_factory = || Mutex::new(RuleSetFactory::init());
-    let _ = RULESET_FACTORY.get_or_init(initialize_ruleset_factory);
-}
-
-pub(super) fn initialize_rule_tables() {
     assert!(RULES.get().is_none());
     let initialize_rule = || Mutex::new(vec![]);
     let _ = RULES.get_or_init(initialize_rule);
@@ -62,7 +50,7 @@ pub fn generate(
     with_ruleset: bool,
     config_path: Option<PathBuf>,
 ) -> IResult<TokenStream> {
-    // initialize all the global values (RULESET_FACTORY, RULE_TABLE)
+    // initialize all the global values RULE_TABLE
     initialize_singleton();
 
     // ident_tracker tracks all the identifier especially special values
@@ -86,7 +74,7 @@ pub fn generate(
     };
 
     // Generate config reader
-    let config_gen = match config_path {
+    let (config_gen, config_arg) = match config_path {
         Some(path) => {
             let config_name = match &ident_tracker.config_name {
                 Some(conf_name) => {
@@ -95,15 +83,16 @@ pub fn generate(
                 None => panic!("Failed to resolve config name"),
             };
             let path_lit = &path.into_os_string().into_string().unwrap();
-            quote!(
-                let content = fs::read_to_string(#path_lit).unwrap();
-                let mut config: rula::#config_name = toml::from_str(&content).unwrap();
-                config.__finalize();
+            (
+                quote!(
+                    let content = fs::read_to_string(#path_lit).unwrap();
+                    let mut config: rula::#config_name = toml::from_str(&content).unwrap();
+                    config.__finalize();
+                ),
+                quote!(config: rula::#config_name),
             )
         }
-        None => {
-            quote!()
-        }
+        None => (quote!(), quote!()),
     };
 
     // If we need static ruleset, add this part to generate staic ruleset
@@ -152,7 +141,7 @@ pub fn generate(
         unready_rule_adder.push(quote!(
             ruleset.add_unready_rule(
                 String::from(#rname),
-                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new().await)
+                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new())
             )
         ));
 
@@ -222,11 +211,9 @@ pub fn generate(
 
             #rula_program
         }
-        pub async fn main(){
-            rula::initialize_interface().await;
+
+        pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>, #config_arg){
             rula::initialize_static_interface();
-            let mut rulesets = vec![];
-            #config_gen
             for i in 0..#num_node{
                 let mut ruleset = rula::RuleSetExec::init();
                 #(#unready_rule_adder);*;
@@ -234,6 +221,16 @@ pub fn generate(
                 #ruleset_gen
                 rulesets.push(static_ruleset);
             }
+        }
+
+        pub async fn __execute_ruleset(){
+            rula::initialize_interface().await;
+        }
+        pub async fn main(){
+            let mut rulesets = vec![];
+            #config_gen
+            __gen_static_rulesets(&mut rulesets, config);
+
         }
 
         #[cfg(test)]
@@ -442,6 +439,7 @@ pub(super) fn generate_config_item(
 
     Ok(quote!(pub #value_name: #type_def))
 }
+
 /// Generate 'let' statement
 ///
 /// # Arguments:
@@ -458,11 +456,6 @@ pub(super) fn generate_let(
     in_watch: bool,
     in_static: bool,
 ) -> IResult<TokenStream> {
-    // RuleSet singleton to store ruleset information
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Failed to get Ruleset factory");
-
     // If this is watched value, register value to the identifier tracker
     let mut do_await = false;
     if in_watch {
@@ -476,7 +469,7 @@ pub(super) fn generate_let(
     }
 
     // Check type hint to identify
-    let (identifier, expr) = match &*let_stmt.ident.type_hint {
+    let identifier = match &*let_stmt.ident.type_hint {
         Some(hint) => {
             match *hint {
                 TypeDef::Qubit => ident_tracker.register(
@@ -485,33 +478,20 @@ pub(super) fn generate_let(
                 ),
                 _ => {}
             }
-            (
-                generate_ident(&*let_stmt.ident, ident_tracker, true, in_static).unwrap(),
-                generate_expr(
-                    &mut *let_stmt.expr,
-                    rule_name,
-                    ident_tracker,
-                    do_await,
-                    in_static,
-                    false,
-                )
-                .unwrap(),
-            )
+            generate_ident(&*let_stmt.ident, ident_tracker, true, in_static).unwrap()
         }
-        None => (
-            generate_ident(&*let_stmt.ident, ident_tracker, false, in_static).unwrap(),
-            generate_expr(
-                &mut *let_stmt.expr,
-                rule_name,
-                ident_tracker,
-                do_await,
-                in_static,
-                false,
-            )
-            .unwrap(),
-        ),
+        None => generate_ident(&*let_stmt.ident, ident_tracker, false, in_static).unwrap(),
     };
-              
+    let expr = generate_expr(
+        &mut *let_stmt.expr,
+        rule_name,
+        ident_tracker,
+        do_await,
+        in_static,
+        false,
+    )
+    .unwrap();
+
     Ok(quote!(
         let mut #identifier = #expr;
     ))
@@ -522,28 +502,21 @@ pub(super) fn generate_interface(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     let mut interface_names = vec![];
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Failed to get RuleSet factory");
 
     for i in &mut interface_expr.interface {
-        ruleset_factory
-            .lock()
-            .unwrap()
-            .add_global_interface(&i.name, QnicInterfaceWrapper::place_holder());
-        // TODO: clean up
+        if ident_tracker.exist_interface(&i.name) {
+            return Err(RuLaCompileError::InterfaceNameDuplicationError);
+        } else {
+            ident_tracker.add_interface_name(&i.name);
+        }
         ident_tracker.register(
             &i.name,
             Identifier::new(IdentType::QnicInterface, TypeHint::Unknown),
         );
-        i.update_ident_type(IdentType::QnicInterface);
         interface_names.push(SynLit::Str(LitStr::new(&i.name, Span::call_site())));
     }
     let interface_group_name = match &mut *interface_expr.group_name {
-        Some(group_name) => {
-            group_name.update_ident_type(IdentType::QnicInterface);
-            &*group_name.name
-        }
+        Some(group_name) => &*group_name.name,
         None => "",
     };
     interface_names.push(SynLit::Str(LitStr::new(
@@ -1321,64 +1294,33 @@ pub(super) fn generate_rule(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     // 1. Generate Rules and store them to the table
-
-    let ruleset_factory = RULESET_FACTORY
-        .get()
-        .expect("Failed to get ruleset facotyr");
-
     // Get the basis information of Rule
     let rule_name = &*rule_expr.name;
     let rule_name_string = String::from(&*rule_name.name);
 
-    if ruleset_factory.lock().unwrap().exist_rule(&*rule_name.name) {
+    if ident_tracker.exist_rule_name(&*rule_name.name) {
         return Err(RuLaCompileError::RuleDuplicationError);
+    } else {
+        ident_tracker.add_rule_name(&rule_name.name);
     }
-
-    // Prepare an empty Rule
-    let mut rule = Rule::<ActionClauses>::new(&rule_name.name);
 
     // When the ruleset is finalized, this interface name is replaced by actual interface name
     // Setup interface placeholder
     let mut interface_idents = vec![];
     for interface in &rule_expr.interface {
         // Interface wrapper
-        if !ruleset_factory
-            .lock()
-            .unwrap()
-            .exist_interface(&*interface.name)
-        {
+        if !ident_tracker.exist_interface(&*interface.name) {
             return Err(RuLaCompileError::NoInterfaceFoundError);
         }
-        let target_interface = ruleset_factory
-            .lock()
-            .unwrap()
-            .get_interface(&*interface.name);
         // Providing ref would be better
         // This can be just a reference to the interface
         let gen_str = SynLit::Str(LitStr::new(&*interface.name, Span::call_site()));
         interface_idents.push(quote!(#gen_str.to_string()));
-        rule.add_interface(&interface.name, target_interface);
     }
-
-    // Set empty condition and action to be updated in the different functions
-    // Clauses are added directly to this empty condition and action
-    let empty_condition = Condition::new(None);
-    let empty_action = Action::<ActionClauses>::new(None);
-    rule.set_condition(empty_condition);
-    rule.set_action(empty_action);
-
-    ruleset_factory
-        .lock()
-        .unwrap()
-        .add_rule(&rule_name_string, rule);
 
     let mut generated_args = vec![];
     let mut argument_adder = vec![];
     for arg in &mut rule_expr.args {
-        ruleset_factory
-            .lock()
-            .unwrap()
-            .add_rule_arg(&rule_name_string, &arg.name);
         ident_tracker.register(
             &*arg.name,
             Identifier::new(IdentType::RuleArgument, helper::type_filler(&arg)),
@@ -1437,15 +1379,15 @@ pub(super) fn generate_rule(
         impl #unready_rule_name_token{
             // pub fn new(args_from_prev_rule: Option<HashMap<String, Argument>>, config: Option<&CONFIG>) -> Self{
             // pub fn new(arguments: Option<HashMap<String, Argument>>) -> Self{
-            pub async fn new() -> #unready_rule_name_token{
+            pub fn new() -> #unready_rule_name_token{
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
 
                 let mut static_interfaces = HashMap::new();
-                let interface_list = INTERFACES.get().expect("Unable to find interface table");
+                let interface_list = STATIC_INTERFACES.get().expect("Unable to find interface table");
                 for i_name in vec![#(#interface_idents), *].iter(){
-                    let interface_def = interface_list.lock().await.get(i_name).expect("Unable to get interface").clone();
+                    let interface_def = interface_list.lock().unwrap().get(i_name).expect("Unable to get interface").clone();
                     // let interface_def = QnicInterface::generate_mock_interface(i_name, 10);
                     static_interfaces.insert(i_name.to_string(), interface_def);
                 }
@@ -1922,7 +1864,6 @@ pub(super) fn generate_ident(
     let identifier = format_ident!("{}", *ident.name);
     let ident_contents = match ident_tracker.check_ident_type(&*ident.name) {
         IdentType::QnicInterface => {
-            ident_tracker.add_interface_name(&*ident.name);
             let ident_str = SynLit::Str(LitStr::new(&*ident.name, Span::call_site()));
             if !in_static {
                 quote!(
