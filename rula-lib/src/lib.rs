@@ -1,20 +1,17 @@
+pub mod message_impl;
+pub mod result_impl;
 use ruleset::action::v2::ActionClauses;
-use ruleset::condition::v1::ConditionClauses;
 use ruleset::ruleset::Rule;
 use std::cell::RefCell;
 use std::rc::Rc;
-
 pub type RuleVec = Rc<RefCell<Vec<RefCell<Rule<ActionClauses>>>>>;
 
 #[allow(non_snake_case)]
 pub mod prelude {
-    use core::panic;
-
-    use super::message::Message;
+    use message_impl::Message;
     use super::qubit::QubitInterface;
     use super::*;
     use crate::ruleset::action::v2::Send;
-    use crate::ruleset::condition::v1::*;
     use crate::ruleset::ruleset::InterfaceInfo;
 
     pub async fn free(qubit: &QubitInterface) {}
@@ -38,12 +35,10 @@ pub mod prelude {
 #[allow(non_snake_case)]
 pub mod message {
     use super::*;
-    use crate::{
-        result::{MeasResult, QResult},
-        ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses},
-    };
-    use serde::Serialize;
+    use message_impl::Message;
+    use crate::ruleset::{action::v2::ActionClauses, condition::v1::ConditionClauses};
     use std::net::IpAddr;
+    use result_impl::{QResult, MeasResult};
 
     pub fn Message(kind: &str, src_addr: &IpAddr, dst_addr: &IpAddr) -> Message {
         Message::new(
@@ -79,25 +74,6 @@ pub mod message {
             },
         )
     }
-    #[derive(Serialize, Clone, Debug, PartialEq)]
-    pub struct Message {
-        pub kind: String,
-        pub src: IpAddr,
-        pub dst: IpAddr,
-        pub body: QResult,
-    }
-    impl Message {
-        pub fn new(kind: &str, src: &IpAddr, dst: &IpAddr, result: QResult) -> Message {
-            Message {
-                kind: String::from(kind),
-                src: src.clone(),
-                dst: dst.clone(),
-                body: result,
-            }
-        }
-        pub fn append_body(&mut self, result: &QResult) {}
-        pub fn __static__append_body(&mut self, _: RuleVec, result: QResult) {}
-    }
 }
 
 #[allow(non_snake_case)]
@@ -127,11 +103,11 @@ pub mod operation {
 #[allow(non_snake_case)]
 pub mod qnic {
     use super::*;
+    use message_impl::Message;
     use crate::prelude::__get_interface_info;
-    use crate::result::{MeasResult, QResult};
     use crate::ruleset::condition::v1::{ConditionClauses, EnoughResource};
 
-    use super::message::Message;
+    use result_impl::{QResult, MeasResult};
     use super::qubit::QubitInterface;
     use mock_components::software::mock_routing_daemon::MockQnicRoutingTable;
     use serde::{Deserialize, Serialize};
@@ -372,13 +348,9 @@ pub mod qubit {
 #[allow(non_snake_case)]
 pub mod result {
     use super::*;
-    use crate::ruleset::{
-        action::v2::ActionClauses,
-        condition::v1::{CmpKind, CmpTarget},
-    };
+    use result_impl::{QResult, MeasResult};
 
     use super::qubit::QubitInterface;
-    use serde::Serialize;
     pub fn Result(qubit: &QubitInterface) -> QResult {
         QResult {
             result: MeasResult {
@@ -396,57 +368,6 @@ pub mod result {
                 output: "00".to_string(),
             },
             generated_actions: vec![],
-        }
-    }
-
-    #[derive(Serialize, Clone, Debug, PartialEq)]
-    pub struct QResult {
-        pub result: MeasResult,
-
-        pub generated_actions: Vec<ActionClauses>,
-    }
-
-    #[derive(Serialize, Clone, Debug, PartialEq)]
-    pub struct MeasResult {
-        pub qubit_address: u32,
-        pub output: String,
-    }
-
-    impl QResult {
-        pub fn add_tag(&mut self, tag: &str) -> &mut Self {
-            self
-        }
-        pub fn __static__add_tag(&mut self, _: RuleVec, tag: &str) -> &mut Self {
-            self
-        }
-        pub fn add_result(&mut self, result: &String) {}
-        pub fn __static__add_result(&mut self, _: RuleVec, result: String) {}
-    }
-    impl MeasResult {
-        pub fn get_output(&self) -> &str {
-            &self.output
-        }
-        pub fn __static__get_output(&self, _: RuleVec) -> &str {
-            // Nothing happen in the static ruleset generation
-            "__static__result"
-        }
-
-        pub fn get_result(&self) -> &str {
-            &self.output
-        }
-
-        pub fn __static__get_result(
-            &self,
-            _: RuleVec,
-        ) -> (&str, CmpKind, impl Fn(&str) -> CmpTarget) {
-            ("__static__result", self.__cmp_kind(), self.__cmp_target())
-        }
-        pub fn __cmp_kind(&self) -> CmpKind {
-            CmpKind::MeasResult
-        }
-
-        pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget {
-            |value| CmpTarget::MeasResult(String::from(value))
         }
     }
 }
