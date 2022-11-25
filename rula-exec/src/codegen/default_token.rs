@@ -7,7 +7,6 @@ pub fn default_imports() -> TokenStream {
         use std::iter::FromIterator;
         use std::cell::RefCell;
         use std::rc::Rc;
-        use std::sync::Mutex as StdMutex;
         use serde::{Deserialize, Serialize};
         use tokio::time::{sleep, Duration};
         use rula_std::prelude::*;

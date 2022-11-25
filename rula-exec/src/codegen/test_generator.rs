@@ -7,9 +7,9 @@ mod test_let_stmt_gen {
     use super::*;
     #[test]
     fn test_simple_let_stmt() {
-        // let x:u32 = test_gen();
+        // let x:u_int = test_gen();
         let mut test_ast = Let::new(
-            Ident::new("x", Some(TypeDef::UnsignedInteger32), IdentType::Other),
+            Ident::new("x", Some(TypeDef::UnsignedInteger), IdentType::Other),
             Expr::new(ExprKind::FnCall(FnCall::new(
                 Ident::new("test_gen", None, IdentType::Other),
                 vec![],
@@ -18,16 +18,16 @@ mod test_let_stmt_gen {
         let mut tracker = IdentTracker::new();
         tracker.register("x", Identifier::new(IdentType::Other, TypeHint::Unknown));
         let generated_let = generate_let(&mut test_ast, None, &mut tracker, false, false).unwrap();
-        assert_eq!("let mut x : u32 = test_gen () ;", generated_let.to_string());
+        assert_eq!("let mut x : u64 = test_gen () ;", generated_let.to_string());
     }
 
     #[test]
     #[ignore = "error occur in singleton generation"]
     fn test_static_let_stmt() {
         // generate static function
-        // let x : u32 = test_gen(); --> let x : u32 = __static__test_gen();
+        // let x : u_int = test_gen(); --> let x : u32 = __static__test_gen();
         let mut test_ast = Let::new(
-            Ident::new("x", Some(TypeDef::UnsignedInteger32), IdentType::Other),
+            Ident::new("x", Some(TypeDef::UnsignedInteger), IdentType::Other),
             Expr::new(ExprKind::FnCall(FnCall::new(
                 Ident::new("test_gen", None, IdentType::Other),
                 vec![],
@@ -381,10 +381,10 @@ fn test_simple_while() {
 // FnDef test
 #[test]
 fn test_simple_fn_def() {
-    // fn(block:i32, hello:str){expression}
+    // fn(block:int, hello:str){expression}
     let mut simple_fn_def = FnDef::new(
         vec![
-            Ident::new("block", Some(TypeDef::Integer32), IdentType::Other),
+            Ident::new("block", Some(TypeDef::Integer), IdentType::Other),
             Ident::new("hello", Some(TypeDef::Str), IdentType::Other),
         ],
         Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
@@ -406,7 +406,7 @@ fn test_simple_fn_def() {
     );
     let test_stream = generate_fn_def(&mut simple_fn_def, &mut tracker).unwrap();
     assert_eq!(
-        "pub fn (block : i32 , hello : String) { expression }",
+        "pub fn (block : i64 , hello : String) { expression }",
         test_stream.to_string()
     );
 }

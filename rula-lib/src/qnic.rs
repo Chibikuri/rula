@@ -1,10 +1,10 @@
+use crate::ruleset::ruleset::{InterfaceInfo, PartnerAddr};
+
 use super::message::Message;
-use super::prelude::*;
 use super::qubit::QubitInterface;
 use super::result::{MeasResult, QResult};
 use super::ruleset::condition::v1::*;
 use super::RuleVec;
-use mock_components::hardware::mock_qnic::MockQnicInfo;
 use mock_components::software::mock_routing_daemon::MockQnicRoutingTable;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -88,6 +88,16 @@ impl QnicInterface {
         )
     }
 
+    pub fn get_interface_info(&self, partner_addr: PartnerAddr) -> InterfaceInfo {
+        let qnic_info = self.get_qnic_info();
+        InterfaceInfo::new(
+            Some(partner_addr),
+            Some(qnic_info.qnic_id),
+            Some(qnic_info.qnic_type),
+            Some(qnic_info.qnic_address),
+        )
+    }
+
     fn generate_mock_qubit_interface(num_qubits: u32) -> HashMap<String, Box<QubitInterface>> {
         let mut qubit_table = HashMap::new();
         for i in 0..num_qubits {
@@ -151,7 +161,7 @@ impl QnicInterface {
                     number,
                     partner_addr,
                     Some(0.0),
-                    Some(__get_interface_info(&self.name)),
+                    Some(self.get_interface_info(PartnerAddr::IpAddr(partner_addr))),
                 )));
         }
         QubitInterface::new()

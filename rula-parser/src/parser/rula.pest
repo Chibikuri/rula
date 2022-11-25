@@ -180,10 +180,10 @@ typedef_lit = { ( vector_type
                   | qubit_type
 ) }
 vector_type = {"vec" ~ "[" ~ typedef_lit ~ "]"}
-integer_type = { ( "i32" | "i64" ) }
-unsigned_integer_type = { ( "u32" | "u64" ) }
-float_type = { ( "f32" | "f64" ) }
-complex_type = { ( "c64" | "c128" ) }
+integer_type = { "int" }
+unsigned_integer_type = { "u_int" }
+float_type = { "float" }
+complex_type = { "complex" }
 boolean_type = { "bool" }
 string_type = { "str" }
 qubit_type = { "Qubit" }

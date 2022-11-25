@@ -771,23 +771,19 @@ fn build_ast_from_braket_expr(pair: Pair<Rule>) -> IResult<Array> {
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
     match pair.as_rule() {
         Rule::integer_type => match pair.as_str() {
-            "i32" => return Ok(TypeDef::Integer32),
-            "i64" => return Ok(TypeDef::Integer64),
+            "int" => return Ok(TypeDef::Integer),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::unsigned_integer_type => match pair.as_str() {
-            "u32" => return Ok(TypeDef::UnsignedInteger32),
-            "u64" => return Ok(TypeDef::UnsignedInteger64),
+            "u_int" => return Ok(TypeDef::UnsignedInteger),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::float_type => match pair.as_str() {
-            "f32" => return Ok(TypeDef::Float32),
-            "f64" => return Ok(TypeDef::Float64),
+            "float" => return Ok(TypeDef::Float),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::complex_type => match pair.as_str() {
-            "c64" => return Ok(TypeDef::Complex64),
-            "c128" => return Ok(TypeDef::Complex128),
+            "complex" => return Ok(TypeDef::Complex),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::boolean_type => match pair.as_str() {

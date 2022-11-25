@@ -27,12 +27,9 @@ mod rula {
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
     use std::rc::Rc;
-    use std::sync::Mutex as StdMutex;
     use tokio::sync::Mutex as TokioMutex;
     use tokio::time::{sleep, Duration};
     pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-    pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> =
-        OnceCell::new();
     pub enum UnreadyRules {}
     impl UnreadyRules {
         pub fn check_arg_resolved(&self) -> Option<ReadyRules> {
@@ -82,13 +79,14 @@ mod rula {
     pub fn initialize_static_interface(__num_nodes: u64) -> __StaticInterfaceList {
         let mut __static_interface_list = __StaticInterfaceList::new();
         __static_interface_list.__update_num_node(__num_nodes);
-        for (index, i_name) in vec!["qn0", "INTERFACE"].iter().enumerate() {
+        for _ in 0..__num_nodes {
             let mut __static_interface = __StaticInterface::new();
-            __static_interface.__add_interface_name(i_name);
-            let qnic_interface = QnicInterface::generate_mock_interface(index as u32, i_name, 10);
-            let qnic_info = qnic_interface.get_qnic_info();
-            __static_interface.__add_interface(i_name, qnic_interface);
-            __static_interface.__add_qnic_info(i_name, qnic_info);
+            for (index, i_name) in vec!["qn0", "INTERFACE"].iter().enumerate() {
+                __static_interface.__add_interface_name(i_name);
+                let qnic_interface =
+                    QnicInterface::generate_mock_interface(index as u32, i_name, 10);
+                __static_interface.__add_interface(i_name, qnic_interface);
+            }
             __static_interface_list.__add_static_interface(__static_interface);
         }
         __static_interface_list.__check();
@@ -133,14 +131,12 @@ mod rula {
     pub struct __StaticInterface {
         pub interface_names: HashSet<String>,
         pub interfaces: HashMap<String, QnicInterface>,
-        pub qnic_info: HashMap<String, QnicInfo>,
     }
     impl __StaticInterface {
         pub fn new() -> Self {
             __StaticInterface {
                 interface_names: HashSet::new(),
                 interfaces: HashMap::new(),
-                qnic_info: HashMap::new(),
             }
         }
         pub fn __add_interface_name(&mut self, value: &str) {
@@ -157,23 +153,10 @@ mod rula {
                 panic!("No interface found {}", name);
             }
         }
-        pub fn __add_qnic_info(&mut self, name: &str, qnic_info: QnicInfo) {
-            if self.interface_names.contains(name) {
-                self.qnic_info.insert(name.to_string(), qnic_info);
-            } else {
-                panic!("No interface found {}", name);
-            }
-        }
         pub fn __get_interface(&self, interface_name: &str) -> QnicInterface {
             self.interfaces
                 .get(interface_name)
                 .expect("Failed to get interface")
-                .clone()
-        }
-        pub fn __get_qnic_info(&self, qnic_name: &str) -> QnicInfo {
-            self.qnic_info
-                .get(qnic_name)
-                .expect("Failed to get interface info")
                 .clone()
         }
     }

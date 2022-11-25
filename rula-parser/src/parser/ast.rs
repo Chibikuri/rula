@@ -1199,14 +1199,10 @@ impl Ident {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
-    Integer32,
-    Integer64,
-    UnsignedInteger32,
-    UnsignedInteger64,
-    Float32,
-    Float64,
-    Complex64,
-    Complex128,
+    Integer,
+    UnsignedInteger,
+    Float,
+    Complex,
     Boolean,
     Str,
     Qubit,

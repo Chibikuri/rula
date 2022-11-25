@@ -223,7 +223,7 @@ mod let_tests {
     #[test]
     #[rustfmt::skip]
     fn test_simple_let_stmt_int() {
-        let let_stmt = r#"let hello:i32 = 123;"#;
+        let let_stmt = r#"let hello:int = 123;"#;
         let let_ast_nodes = rula_parser::parse(let_stmt).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
@@ -232,7 +232,7 @@ mod let_tests {
                         Let::new(
                             Ident::new(
                                 "hello",
-                                Some(TypeDef::Integer32),
+                                Some(TypeDef::Integer),
                                 IdentType::Other, 
                             ),
                             Expr::new(
@@ -684,7 +684,7 @@ mod fn_def_test {
     #[test]
     #[rustfmt::skip]
     fn test_simple_fn_def() {
-        let fn_def_expr = "fn(block:i32){expression}";
+        let fn_def_expr = "fn(block:int){expression}";
         let fn_def_asts = rula_parser::parse(fn_def_expr).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
@@ -696,7 +696,7 @@ mod fn_def_test {
                                     vec![
                                         Ident::new(
                                             "block",
-                                            Some(TypeDef::Integer32),
+                                            Some(TypeDef::Integer),
                                             IdentType::Other, 
                                         )
                                         ],
@@ -729,7 +729,7 @@ mod fn_def_test {
     #[test]
     #[rustfmt::skip]
     fn test_mlti_args_fn_def() {
-        let fn_def_expr = "fn(block:i32, hello:str){expression}";
+        let fn_def_expr = "fn(block:int, hello:str){expression}";
         let fn_def_asts = rula_parser::parse(fn_def_expr).unwrap();
         let target_ast_nodes =
             build_stmt_ast(
@@ -741,7 +741,7 @@ mod fn_def_test {
                                     vec![
                                         Ident::new(
                                             "block",
-                                            Some(TypeDef::Integer32),
+                                            Some(TypeDef::Integer),
                                             IdentType::Other,
                                         ),
                                         Ident::new(
@@ -1721,54 +1721,39 @@ mod test_literals {
     #[test]
     fn test_type_literals() {
         // divition is tricky a little
-        let lit_expr = "let integer:i32 = val;";
+        let lit_expr = "let number:int = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Integer32));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Integer));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:i64 = val;";
+        let lit_expr = "let number:float = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Integer64));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Float));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:f32 = val;";
+        let lit_expr = "let number:u_int = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Float32));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::UnsignedInteger));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:f64 = val;";
+        let lit_expr = "let number:complex = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Float64));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Complex));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:u32 = val;";
+        let lit_expr = "let number:bool = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::UnsignedInteger32));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Boolean));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:u64 = val;";
+        let lit_expr = "let number:str = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::UnsignedInteger64));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Str));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let integer:c128 = val;";
+        let lit_expr = "let number:Qubit = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Complex128));
-        assert_eq!(target_ast_nodes, fn_def_asts);
-
-        let lit_expr = "let integer:bool = val;";
-        let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Boolean));
-        assert_eq!(target_ast_nodes, fn_def_asts);
-
-        let lit_expr = "let integer:str = val;";
-        let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Str));
-        assert_eq!(target_ast_nodes, fn_def_asts);
-
-        let lit_expr = "let integer:Qubit = val;";
-        let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("integer", Some(TypeDef::Qubit));
+        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Qubit));
         assert_eq!(target_ast_nodes, fn_def_asts);
     }
 

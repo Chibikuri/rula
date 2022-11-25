@@ -93,7 +93,7 @@ pub fn generate(
     let ruleset_gen = if with_ruleset {
         quote!(
             let mut static_ruleset = RuleSet::<ActionClauses>::new("");
-            ruleset.gen_ruleset(&mut static_ruleset);
+            ruleset.gen_ruleset(&mut static_ruleset, i as u32);
             println!("{:#?}", &static_ruleset);
         )
     } else {
@@ -169,7 +169,6 @@ pub fn generate(
         mod rula{
             #default_imports
             pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-            pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
             pub enum UnreadyRules{
                 #(#unready_rule_names),*
             }
@@ -557,13 +556,13 @@ pub(super) fn generate_interface(
             let mut __static_interface_list = __StaticInterfaceList::new();
             __static_interface_list.__update_num_node(__num_nodes);
             // Generate mock qnic here
-            for (index, i_name) in vec![#(#interface_names),*].iter().enumerate(){
+            for _ in 0..__num_nodes{
                 let mut __static_interface = __StaticInterface::new();
-                __static_interface.__add_interface_name(i_name);
-                let qnic_interface = QnicInterface::generate_mock_interface(index as u32, i_name, 10);
-                let qnic_info = qnic_interface.get_qnic_info();
-                __static_interface.__add_interface(i_name, qnic_interface);
-                __static_interface.__add_qnic_info(i_name, qnic_info);
+                for (index, i_name) in vec![#(#interface_names),*].iter().enumerate(){
+                    __static_interface.__add_interface_name(i_name);
+                    let qnic_interface = QnicInterface::generate_mock_interface(index as u32, i_name, 10);
+                    __static_interface.__add_interface(i_name, qnic_interface);
+                }
                 __static_interface_list.__add_static_interface(__static_interface);
             }
             __static_interface_list.__check();
@@ -607,14 +606,11 @@ pub(super) fn generate_interface(
         pub struct __StaticInterface{
             pub interface_names: HashSet<String>,
             pub interfaces: HashMap<String, QnicInterface>,
-            // At this moment, rule cannot recognize the partner information.
-            // This qnic information is translated to interface information later
-            pub qnic_info: HashMap<String, QnicInfo>,
         }
 
         impl __StaticInterface{
             pub fn new() -> Self{
-                __StaticInterface { interface_names: HashSet::new(), interfaces: HashMap::new(), qnic_info: HashMap::new() }
+                __StaticInterface { interface_names: HashSet::new(), interfaces: HashMap::new()}
             }
 
             pub fn __add_interface_name(&mut self, value: &str){
@@ -633,20 +629,8 @@ pub(super) fn generate_interface(
                 }
             }
 
-            pub fn __add_qnic_info(&mut self, name: &str, qnic_info: QnicInfo){
-                if self.interface_names.contains(name){
-                    self.qnic_info.insert(name.to_string(), qnic_info);
-                }else{
-                    panic!("No interface found {}", name);
-                }
-            }
-
             pub fn __get_interface(&self, interface_name: &str) -> QnicInterface{
                 self.interfaces.get(interface_name).expect("Failed to get interface").clone()
-            }
-
-            pub fn __get_qnic_info(&self, qnic_name: &str) -> QnicInfo{
-                self.qnic_info.get(qnic_name).expect("Failed to get interface info").clone()
             }
 
         }
@@ -1362,8 +1346,9 @@ pub(super) fn generate_ruleset_expr(
 
             #config
 
-            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
+            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>, owner: u32){
                 ruleset.update_name(&self.name);
+                ruleset.update_owner_addr(Some(AddressKind::IntegerKind(owner)));
                 for rname in vec![#(#rule_names),*]{
                     self.unready_rules
                     .get_mut(rname)
@@ -1461,14 +1446,6 @@ pub(super) fn generate_rule(
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
-
-                let mut static_interfaces = HashMap::new();
-                let interface_list = STATIC_INTERFACES.get().expect("Unable to find interface table");
-                for i_name in vec![#(#interface_idents), *].iter(){
-                    let interface_def = interface_list.lock().unwrap().get(i_name).expect("Unable to get interface").clone();
-                    // let interface_def = QnicInterface::generate_mock_interface(i_name, 10);
-                    static_interfaces.insert(i_name.to_string(), interface_def);
-                }
                 // 2. return structure
                 #unready_rule_name_token{
                     interface_names: vec![#(#interface_idents),*],
@@ -1972,10 +1949,8 @@ pub(super) fn generate_ident(
 pub(super) fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
     match type_hint {
         TypeDef::Boolean => Ok(quote!(bool)),
-        TypeDef::Integer32 => Ok(quote!(i32)),
-        TypeDef::Integer64 => Ok(quote!(i64)),
-        TypeDef::UnsignedInteger32 => Ok(quote!(u32)),
-        TypeDef::UnsignedInteger64 => Ok(quote!(u64)),
+        TypeDef::Integer => Ok(quote!(i64)),
+        TypeDef::UnsignedInteger => Ok(quote!(u64)),
         TypeDef::Str => Ok(quote!(String)),
         TypeDef::Qubit => Ok(quote!(QubitInterface)),
         TypeDef::Vector(inner) => {
@@ -2027,22 +2002,16 @@ pub mod helper {
             Some(hint) => {
                 match hint {
                     // Convert to available type
-                    TypeDef::Integer32 => TypeHint::Integer64,
-                    TypeDef::Integer64 => TypeHint::Integer64,
-                    TypeDef::Float32 => TypeHint::Float64,
-                    TypeDef::Float64 => TypeHint::Float64,
+                    TypeDef::Integer => TypeHint::Integer64,
+                    TypeDef::Float => TypeHint::Float64,
                     TypeDef::Str => TypeHint::Str,
-                    TypeDef::UnsignedInteger32 => TypeHint::UnsignedInteger64,
-                    TypeDef::UnsignedInteger64 => TypeHint::UnsignedInteger64,
+                    TypeDef::UnsignedInteger => TypeHint::UnsignedInteger64,
                     TypeDef::Boolean => TypeHint::Boolean,
                     TypeDef::Vector(inner) => match &**inner {
-                        TypeDef::Integer32 => TypeHint::I64Vector,
-                        TypeDef::Integer64 => TypeHint::I64Vector,
-                        TypeDef::Float32 => TypeHint::F64Vector,
-                        TypeDef::Float64 => TypeHint::F64Vector,
+                        TypeDef::Integer => TypeHint::I64Vector,
+                        TypeDef::Float => TypeHint::F64Vector,
                         TypeDef::Str => TypeHint::StrVector,
-                        TypeDef::UnsignedInteger32 => TypeHint::U64Vector,
-                        TypeDef::UnsignedInteger64 => TypeHint::U64Vector,
+                        TypeDef::UnsignedInteger => TypeHint::U64Vector,
                         TypeDef::Boolean => TypeHint::BoolVector,
                         _ => todo!(),
                     },
@@ -2060,46 +2029,26 @@ pub mod helper {
             Some(hint) => {
                 match hint {
                     // Convert to available type
-                    TypeDef::Integer32 => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
-                    TypeDef::Integer64 => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
-                    TypeDef::Float32 => (quote!(Float64), quote!(LibTypeHint::Float64)),
-                    TypeDef::Float64 => (quote!(Float64), quote!(LibTypeHint::Float64)),
+                    TypeDef::Integer => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
+                    TypeDef::Float => (quote!(Float64), quote!(LibTypeHint::Float64)),
                     TypeDef::Str => (quote!(Str), quote!(LibTypeHint::Str)),
-                    TypeDef::UnsignedInteger32 => (
-                        quote!(UnsignedInteger64),
-                        quote!(LibTypeHint::UnsignedInteger64),
-                    ),
-                    TypeDef::UnsignedInteger64 => (
+                    TypeDef::UnsignedInteger => (
                         quote!(UnsignedInteger64),
                         quote!(LibTypeHint::UnsignedInteger64),
                     ),
                     TypeDef::Boolean => (quote!(Boolean), quote!(TypeHint::Boolean)),
                     TypeDef::Vector(content_type) => match &**content_type {
-                        TypeDef::Integer32 => (
+                        TypeDef::Integer => (
                             quote!(I64Vector),
                             quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Integer64))),
                         ),
-                        TypeDef::Integer64 => (
-                            quote!(I64Vector),
-                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Integer64))),
-                        ),
-                        TypeDef::UnsignedInteger32 => (
+                        TypeDef::UnsignedInteger => (
                             quote!(U64Vector),
                             quote!(LibTypeHint::Vector(Box::new(
                                 LibTypeHint::UnsignedInteger64
                             ))),
                         ),
-                        TypeDef::UnsignedInteger64 => (
-                            quote!(U64Vector),
-                            quote!(LibTypeHint::Vector(Box::new(
-                                LibTypeHint::UnsignedInteger64
-                            ))),
-                        ),
-                        TypeDef::Float32 => (
-                            quote!(F64Vector),
-                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Float64))),
-                        ),
-                        TypeDef::Float64 => (
+                        TypeDef::Float => (
                             quote!(F64Vector),
                             quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Float64))),
                         ),
