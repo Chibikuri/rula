@@ -1,9 +1,9 @@
 use super::ruleset::action::v2::ActionClauses;
 use super::ruleset::condition::v1::{CmpKind, CmpTarget};
 use super::RuleVec;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QResult {
     pub result: MeasResult,
     pub generated_actions: Vec<ActionClauses>,
@@ -20,7 +20,7 @@ impl QResult {
     pub fn __static__add_result(&mut self, _: RuleVec, result: String) {}
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MeasResult {
     pub qubit_address: u32,
     pub output: String,

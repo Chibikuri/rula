@@ -135,7 +135,7 @@ pub fn generate(
         unready_rule_adder.push(quote!(
             ruleset.add_unready_rule(
                 String::from(#rname),
-                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new())
+                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new(__static_interface_list.__get_interface(i)))
             )
         ));
 
@@ -159,6 +159,8 @@ pub fn generate(
     Ok(quote!(
         use rula_lib as rula_std;
         use std::fs;
+        use std::fs::File;
+        use std::io::Write;
         use crate::rula_std::ruleset::ruleset::*;
         use rula_std::ruleset::action::v2::ActionClauses;
         #[allow(non_snake_case)]
@@ -207,12 +209,19 @@ pub fn generate(
         }
 
         pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>, #config_arg){
-            rula::initialize_static_interface();
+            let __static_interface_list = rula::initialize_static_interface(#num_node);
             for i in 0..#num_node{
                 let mut ruleset = rula::RuleSetExec::init();
                 #(#unready_rule_adder);*;
                 ruleset.resolve_config(Box::new(&config), Some(i as usize));
                 #ruleset_gen
+
+                let output_file_path = format!("tests/generated/test_{}.json", i);
+                let mut file = File::create(output_file_path).expect("Failed to create a new file");
+                let json_ruleset = serde_json::to_string(&static_ruleset).unwrap();
+                write!(&file, "{}", json_ruleset).unwrap();
+                file.flush().expect("Failed to write");
+
                 rulesets.push(static_ruleset);
             }
         }
@@ -535,8 +544,8 @@ pub(super) fn generate_interface(
             let initialize_interface = || TokioMutex::new(HashMap::new());
             INTERFACES.get_or_init(initialize_interface);
             let interface_list = INTERFACES.get().expect("Failed to get interface");
-            for interface_name in vec![#(#interface_names),*] {
-                let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
+            for (index, interface_name) in vec![#(#interface_names),*].iter().enumerate() {
+                let mock_qnic = QnicInterface::generate_mock_interface(index as u32, interface_name, 10);
                 interface_list
                     .lock()
                     .await
@@ -544,18 +553,102 @@ pub(super) fn generate_interface(
             }
         }
 
-        pub fn initialize_static_interface() {
-            assert!(STATIC_INTERFACES.get().is_none());
-            let initialize_interface = || StdMutex::new(HashMap::new());
-            STATIC_INTERFACES.get_or_init(initialize_interface);
-            let interface_list = STATIC_INTERFACES.get().expect("Failed to get interface");
-            for interface_name in vec![#(#interface_names),*] {
-                let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
-                interface_list
-                    .lock()
-                    .unwrap()
-                    .insert(interface_name.to_string(), mock_qnic);
+        pub fn initialize_static_interface(__num_nodes: u64)-> __StaticInterfaceList{
+            let mut __static_interface_list = __StaticInterfaceList::new();
+            __static_interface_list.__update_num_node(__num_nodes);
+            // Generate mock qnic here
+            for (index, i_name) in vec![#(#interface_names),*].iter().enumerate(){
+                let mut __static_interface = __StaticInterface::new();
+                __static_interface.__add_interface_name(i_name);
+                let qnic_interface = QnicInterface::generate_mock_interface(index as u32, i_name, 10);
+                let qnic_info = qnic_interface.get_qnic_info();
+                __static_interface.__add_interface(i_name, qnic_interface);
+                __static_interface.__add_qnic_info(i_name, qnic_info);
+                __static_interface_list.__add_static_interface(__static_interface);
             }
+            __static_interface_list.__check();
+            __static_interface_list
+        }
+
+        type NodeNumber = u64;
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct __StaticInterfaceList{
+            pub num_nodes: u64,
+            pub __static_interfaces: HashMap<NodeNumber, __StaticInterface>,
+            index: u64,
+        }
+
+        impl __StaticInterfaceList{
+            pub fn new() -> Self{
+                __StaticInterfaceList { num_nodes: 0, __static_interfaces: HashMap::new(), index: 0}
+            }
+
+            pub fn __add_static_interface(&mut self, __static_interface: __StaticInterface){
+                self.__static_interfaces.insert(self.index, __static_interface);
+                self.index += 1;
+            }
+
+            pub fn __get_interface(&self, index: NodeNumber) -> __StaticInterface{
+                self.__static_interfaces.get(&index).expect("No interface found").clone()
+            }
+
+            pub fn __update_num_node(&mut self, num_nodes: u64){
+                self.num_nodes = num_nodes;
+            }
+
+            pub fn __check(&self){
+                if self.__static_interfaces.len() != self.num_nodes as usize{
+                    panic!("The qnics are not properly registered")
+                }
+            }
+        }
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct __StaticInterface{
+            pub interface_names: HashSet<String>,
+            pub interfaces: HashMap<String, QnicInterface>,
+            // At this moment, rule cannot recognize the partner information.
+            // This qnic information is translated to interface information later
+            pub qnic_info: HashMap<String, QnicInfo>,
+        }
+
+        impl __StaticInterface{
+            pub fn new() -> Self{
+                __StaticInterface { interface_names: HashSet::new(), interfaces: HashMap::new(), qnic_info: HashMap::new() }
+            }
+
+            pub fn __add_interface_name(&mut self, value: &str){
+                if !self.interface_names.contains(value){
+                    self.interface_names.insert(value.to_string());
+                }else{
+                    panic!("Interface name duplication {}", value);
+                }
+            }
+
+            pub fn __add_interface(&mut self, name: &str, qnic: QnicInterface){
+                if self.interface_names.contains(name){
+                    self.interfaces.insert(name.to_string(), qnic);
+                }else{
+                    panic!("No interface found {}", name);
+                }
+            }
+
+            pub fn __add_qnic_info(&mut self, name: &str, qnic_info: QnicInfo){
+                if self.interface_names.contains(name){
+                    self.qnic_info.insert(name.to_string(), qnic_info);
+                }else{
+                    panic!("No interface found {}", name);
+                }
+            }
+
+            pub fn __get_interface(&self, interface_name: &str) -> QnicInterface{
+                self.interfaces.get(interface_name).expect("Failed to get interface").clone()
+            }
+
+            pub fn __get_qnic_info(&self, qnic_name: &str) -> QnicInfo{
+                self.qnic_info.get(qnic_name).expect("Failed to get interface info").clone()
+            }
+
         }
     ))
 }
@@ -1359,12 +1452,12 @@ pub(super) fn generate_rule(
         pub struct #unready_rule_name_token{
             interface_names: Vec<String>,
             // Should copy interface information laters
-            static_interfaces: HashMap<String, QnicInterface>,
+            static_interfaces: __StaticInterface,
             arguments: HashMap<String, Argument>,
         }
 
         impl #unready_rule_name_token{
-            pub fn new() -> #unready_rule_name_token{
+            pub fn new(__static_interface:__StaticInterface) -> #unready_rule_name_token{
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
@@ -1378,8 +1471,8 @@ pub(super) fn generate_rule(
                 }
                 // 2. return structure
                 #unready_rule_name_token{
-                    interface_names: vec![#(#interface_idents), *],
-                    static_interfaces: static_interfaces,
+                    interface_names: vec![#(#interface_idents),*],
+                    static_interfaces: __static_interface,
                     arguments: empty_argument,
                 }
             }
@@ -1832,7 +1925,7 @@ pub(super) fn generate_ident(
             } else {
                 // In static
                 quote!(
-                    self.static_interfaces.get(#ident_str).expect("Unable to get Interface")
+                    self.static_interfaces.__get_interface(#ident_str)
                 )
             }
         }

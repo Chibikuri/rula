@@ -106,6 +106,7 @@ pub struct InterfaceInfo {
     partner_addr: Option<u32>,
     qnic_id: Option<u64>,
     qnic_type: Option<QnicType>,
+    qnic_address: Option<IpAddr>,
 }
 
 impl InterfaceInfo {
@@ -113,11 +114,13 @@ impl InterfaceInfo {
         partner_addr: Option<u32>,
         qnic_id: Option<u64>,
         qnic_type: Option<QnicType>,
+        qnic_address: Option<IpAddr>
     ) -> Self {
         InterfaceInfo {
             partner_addr: partner_addr,
             qnic_id: qnic_id,
             qnic_type: qnic_type,
+            qnic_address: qnic_address,
         }
     }
 }

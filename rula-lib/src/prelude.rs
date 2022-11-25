@@ -1,4 +1,3 @@
-
 use super::qubit::QubitInterface;
 use super::*;
 use crate::ruleset::action::v2::Send;
@@ -11,6 +10,14 @@ pub fn __static__free(rules: RuleVec, _: QubitInterface) {
         rule.borrow_mut().add_action_clause(ActionClauses::Free);
     }
 }
+
+pub async fn promote(qubit: &QubitInterface) {}
+
+pub fn __static__promote(rules: RuleVec, _: QubitInterface) {
+    for rule in &*rules.borrow_mut() {
+        rule.borrow_mut().add_action_clause(ActionClauses::Promote)
+    }
+}
 pub fn send(message: &Message) {}
 pub fn __static__send(rules: RuleVec, message: Message) {
     for rule in &*rules.borrow_mut() {
@@ -19,7 +26,7 @@ pub fn __static__send(rules: RuleVec, message: Message) {
     }
 }
 pub fn __get_interface_info(name: &String) -> InterfaceInfo {
-    InterfaceInfo::new(None, None, None)
+    InterfaceInfo::new(None, None, None, None)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,8 +62,6 @@ impl Argument {
     pub fn eval_bool(&self) -> bool {
         self.value.eval_bool()
     }
-
-    // pub fn eval_u64_vec(&self) -> Vec<u>
 
     pub fn eval_unsigned_int64(&self) -> u64 {
         self.value.eval_unsigned_int64()

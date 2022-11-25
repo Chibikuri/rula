@@ -1,9 +1,9 @@
 use super::result::{MeasResult, QResult};
 use super::RuleVec;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Message {
     pub kind: String,
     pub src: IpAddr,
