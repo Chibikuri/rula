@@ -280,6 +280,7 @@ mod let_tests {
                                             )
                                         ),
                                         // {expression}
+                                        vec![
                                         Stmt::new(
                                             StmtKind::Expr(
                                                 Expr::new(
@@ -296,7 +297,7 @@ mod let_tests {
                                                     )
                                                 )
                                             )
-                                        ),
+                                        )],
                                         // elif ~
                                         None,
                                         // else ~
@@ -343,7 +344,7 @@ mod if_tests {
                                         )
                                     ),
                                     // {expression}
-                                    Stmt::new(
+                                    vec![Stmt::new(
                                         StmtKind::Expr(
                                             Expr::new(
                                                 ExprKind::Lit(
@@ -359,7 +360,7 @@ mod if_tests {
                                                 )
                                             )
                                         )
-                                    ),
+                                    )],
                                     // elif ~
                                     None,
                                     // else ~
@@ -405,7 +406,7 @@ mod if_tests {
                                                         )
                                                     ),
                                                     // {expression}
-                                                    Stmt::new(
+                                                    vec![Stmt::new(
                                                         StmtKind::Expr(
                                                             Expr::new(
                                                                 ExprKind::Lit(
@@ -421,7 +422,7 @@ mod if_tests {
                                                                 )
                                                             )
                                                         )
-                                                    ),
+                                                    )],
                                                     // elif ~
                                                     None,
                                                     // else ~
@@ -491,7 +492,7 @@ mod if_tests {
                                                         )
                                                     ),
                                                     // {expression}
-                                                    Stmt::new(
+                                                    vec![Stmt::new(
                                                         StmtKind::Expr(
                                                             Expr::new(
                                                                 ExprKind::Lit(
@@ -507,7 +508,7 @@ mod if_tests {
                                                                 )
                                                             )
                                                         )
-                                                    ),
+                                                    )],
                                                     // elif ~
                                                     Some(
                                                         If::new(
@@ -526,7 +527,7 @@ mod if_tests {
                                                                 )
                                                             ),
                                                             // else if () {statement2;};
-                                                            Stmt::new(
+                                                            vec![Stmt::new(
                                                                 StmtKind::Expr(
                                                                     Expr::new(
                                                                         ExprKind::Lit(
@@ -542,7 +543,7 @@ mod if_tests {
                                                                         )
                                                                     )
                                                                 )
-                                                            ),
+                                                            )],
                                                             None,
                                                             None,
                                                         ),
@@ -591,7 +592,7 @@ mod if_tests {
                                         )
                                     ),
                                     // {expression}
-                                    Stmt::new(
+                                    vec![Stmt::new(
                                         StmtKind::Expr(
                                             Expr::new(
                                                 ExprKind::Lit(
@@ -607,7 +608,7 @@ mod if_tests {
                                                 )
                                             )
                                         )
-                                    ),
+                                    )],
                                     // elif ~
                                     Some(
                                         If::new(
@@ -626,7 +627,7 @@ mod if_tests {
                                                 )
                                             ),
                                             // else if () {statement2;};
-                                            Stmt::new(
+                                            vec![Stmt::new(
                                                 StmtKind::Expr(
                                                     Expr::new(
                                                         ExprKind::Lit(
@@ -642,7 +643,7 @@ mod if_tests {
                                                         )
                                                     )
                                                 )
-                                            ),
+                                            )],
                                             None,
                                             None,
                                         )
@@ -959,7 +960,7 @@ mod for_expr_test {
                                             )
                                         )
                                     ),
-                                    Stmt::new(
+                                    vec![Stmt::new(
                                         StmtKind::Expr(
                                             Expr::new(
                                                 ExprKind::Lit(
@@ -975,7 +976,7 @@ mod for_expr_test {
                                                 )
                                             )
                                         )
-                                    )
+                                    )]
                                 )
                             )
                         )
@@ -1028,7 +1029,7 @@ mod for_expr_test {
                                             )
                                         )
                                     ),
-                                    Stmt::new(
+                                    vec![Stmt::new(
                                         StmtKind::Expr(
                                             Expr::new(
                                                 ExprKind::Lit(
@@ -1044,7 +1045,7 @@ mod for_expr_test {
                                                 )
                                             )
                                         )
-                                    )
+                                    )]
                                 )
                             )
                         )
@@ -1107,7 +1108,7 @@ mod for_expr_test {
                                             )
                                         )
                                     ),
-                                    Stmt::new(
+                                    vec![Stmt::new(
                                         StmtKind::Expr(
                                             Expr::new(
                                                 ExprKind::Lit(
@@ -1123,7 +1124,7 @@ mod for_expr_test {
                                                 )
                                             )
                                         )
-                                    )
+                                    )]
                                 )
                             )
                         )
@@ -1505,7 +1506,7 @@ mod test_rule_expr {
     #[rustfmt::skip]
     fn test_simple_rule_expr() {
 
-        let rule_expr = "rule hello<qn0>(q2: Qubit, q3: Qubit){cond{} => act{}}";
+        let rule_expr = "rule hello<qn0>(q2: qubit, q3: qubit){cond{} => act{}}";
         let rule_expr_asts = rula_parser::parse(rule_expr).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
@@ -1736,10 +1737,10 @@ mod test_literals {
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::UnsignedInteger));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:complex = val;";
-        let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
-        let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Complex));
-        assert_eq!(target_ast_nodes, fn_def_asts);
+        // let lit_expr = "let number:complex = val;";
+        // let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
+        // let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Complex));
+        // assert_eq!(target_ast_nodes, fn_def_asts);
 
         let lit_expr = "let number:bool = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
@@ -1751,7 +1752,7 @@ mod test_literals {
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Str));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:Qubit = val;";
+        let lit_expr = "let number:qubit = val;";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Qubit));
         assert_eq!(target_ast_nodes, fn_def_asts);

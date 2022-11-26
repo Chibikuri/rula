@@ -752,7 +752,13 @@ pub(super) fn generate_if(
         false,
     )
     .unwrap();
-    let stmt_quote = generate_stmt(&mut *if_expr.stmt, None, ident_tracker, false).unwrap();
+    let generated = {
+        let mut gen_stmt = vec![];
+        for stmt in &mut if_expr.stmts {
+            gen_stmt.push(generate_stmt(stmt, None, ident_tracker, false).unwrap());
+        }
+        gen_stmt
+    };
     if if_expr.elif.len() > 0 {
         // no elif statement
         if if_expr.elif[0] == None {
@@ -763,7 +769,7 @@ pub(super) fn generate_if(
                         generate_stmt(els_stmt, None, ident_tracker, false).unwrap();
                     return Ok(quote!(
                         if #block_quote{
-                            #stmt_quote
+                            #(#generated)*
                         }else{
                             #els_stmt_quote
                         }
@@ -774,7 +780,7 @@ pub(super) fn generate_if(
                     // This could be error in rust code
                     return Ok(quote!(
                         if #block_quote{
-                            #stmt_quote
+                            #(#generated)*
                         }
                     ));
                 }
@@ -797,7 +803,7 @@ pub(super) fn generate_if(
                         generate_stmt(els_stmt, None, ident_tracker, false).unwrap();
                     Ok(quote!(
                         if #block_quote {
-                            #stmt_quote
+                            #(#generated)*
                         }#(else #elif_quotes)*
 
                         else{
@@ -807,7 +813,7 @@ pub(super) fn generate_if(
                 }
                 None => Ok(quote!(
                     if #block_quote {
-                        #stmt_quote
+                        #(#generated)*
                     }#(elif #elif_quotes)*
                 )),
             }
@@ -835,18 +841,24 @@ pub(super) fn generate_for(
         false,
     )
     .unwrap();
-    let stmt = generate_stmt(&mut for_expr.stmt, None, ident_tracker, false).unwrap();
+    let generated = {
+        let mut gen_stmt = vec![];
+        for stmt in &mut for_expr.stmts {
+            gen_stmt.push(generate_stmt(stmt, None, ident_tracker, false).unwrap())
+        }
+        gen_stmt
+    };
     if ident_list.len() == 1 {
         let var = &ident_list[0];
         Ok(quote!(
             for #var in #generator {
-                #stmt
+                #(#generated)*
             }
         ))
     } else if ident_list.len() > 1 {
         Ok(quote!(
             for (#(#ident_list),* ) in generator {
-                #stmt
+                #(#generated)*
             }
         ))
     } else {
@@ -1951,6 +1963,7 @@ pub(super) fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
         TypeDef::Boolean => Ok(quote!(bool)),
         TypeDef::Integer => Ok(quote!(i64)),
         TypeDef::UnsignedInteger => Ok(quote!(u64)),
+        TypeDef::Float => Ok(quote!(f64)),
         TypeDef::Str => Ok(quote!(String)),
         TypeDef::Qubit => Ok(quote!(QubitInterface)),
         TypeDef::Vector(inner) => {

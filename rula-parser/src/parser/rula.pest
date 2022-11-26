@@ -14,7 +14,7 @@ interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 config_def = {"#config: " ~ "(" ~ int ~ ")" ~"{" ~ config_item? ~ ("," ~ config_item)* ~ ","? ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 config_item = { ident ~ ":" ~ typedef_lit}
 // Variable assignment
-let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ ("=" ~ expr )? ~ ";" }
+let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ "=" ~ expr ~ ";" }
 
 // Expressions
 expr = { ( import_expr
@@ -128,15 +128,15 @@ braket_expr = {"[" ~ literal_list? ~ "]"}
 angle_expr = _{"<" ~ ( ( ident_typed? ~ ( "," ~ ident_typed )* ) )? ~ ">"}
 
 // Expression with parenthesis
-paren_expr = _{ "(" ~ ( expr )?  ~ ")" }
+paren_expr = _{ "(" ~ expr  ~ ")" }
 
 // Statement srrounded by curly brace
-brace_stmt = _{ "{" ~ stmt? ~ "}" }
+brace_stmt = _{ "{" ~ stmt* ~ "}" }
 
 // Identifiers
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }
-ident_typed = { ident ~ ( ":" ~ typedef_lit ) }
-ident = @{ "#"? ~ ASCII_ALPHA~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
+ident_typed = { ident ~ ":" ~ typedef_lit }
+ident = @{ASCII_ALPHA~ ( ASCII_ALPHA | ASCII_DIGIT | "_" )* }
 
 // Literals (ref: https://pest.rs/book/examples/rust/literals.html)
 literal_expr = { ( bool | string | ident | number | binary | hex | unicord ) }
@@ -174,7 +174,7 @@ typedef_lit = { ( vector_type
                   | integer_type
                   | unsigned_integer_type
                   | float_type
-                  | complex_type
+                //   | complex_type
                   | boolean_type
                   | string_type
                   | qubit_type
@@ -183,10 +183,10 @@ vector_type = {"vec" ~ "[" ~ typedef_lit ~ "]"}
 integer_type = { "int" }
 unsigned_integer_type = { "u_int" }
 float_type = { "float" }
-complex_type = { "complex" }
+// complex_type = { "complex" }
 boolean_type = { "bool" }
 string_type = { "str" }
-qubit_type = { "Qubit" }
+qubit_type = { "qubit" }
 reserved_words = { "OR" }
  
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }

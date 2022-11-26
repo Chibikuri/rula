@@ -782,10 +782,11 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             "float" => return Ok(TypeDef::Float),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
-        Rule::complex_type => match pair.as_str() {
-            "complex" => return Ok(TypeDef::Complex),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        },
+        // Right now complex support is not supported TODO
+        // Rule::complex_type => match pair.as_str() {
+        //     "complex" => return Ok(TypeDef::Complex),
+        //     _ => return Err(RuLaError::RuLaSyntaxError),
+        // },
         Rule::boolean_type => match pair.as_str() {
             "bool" => return Ok(TypeDef::Boolean),
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -795,7 +796,7 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::qubit_type => match pair.as_str() {
-            "Qubit" => return Ok(TypeDef::Qubit),
+            "qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::vector_type => Ok(TypeDef::Vector(Box::new(

@@ -152,9 +152,13 @@ fn test_simple_if() {
             IdentType::Other,
         ))))),
         // {expression}
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new(
+                "expression",
+                None,
+                IdentType::Other,
+            ))),
+        ))))],
         // elif ~
         None,
         // else ~
@@ -185,9 +189,13 @@ fn test_if_else() {
             IdentType::Other,
         ))))),
         // {expression}
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new(
+                "expression",
+                None,
+                IdentType::Other,
+            ))),
+        ))))],
         // elif ~
         None,
         // else ~
@@ -231,9 +239,13 @@ fn test_if_elif_else() {
             IdentType::Other,
         ))))),
         // {expression}
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new(
+                "expression",
+                None,
+                IdentType::Other,
+            ))),
+        ))))],
         // elif ~
         Some(If::new(
             // else if (block)
@@ -243,9 +255,13 @@ fn test_if_elif_else() {
                 IdentType::Other,
             ))))),
             // else if () {statement2;};
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression2", None, IdentType::Other)),
-            ))))),
+            vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                Lit::new(LitKind::Ident(Ident::new(
+                    "expression2",
+                    None,
+                    IdentType::Other,
+                ))),
+            ))))],
             None,
             None,
         )),
@@ -297,9 +313,9 @@ fn test_simple_for_generation() {
             None,
             IdentType::Other,
         ))))),
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new("hello", None, IdentType::Other))),
+        ))))],
     );
 
     let mut tracker = IdentTracker::new();
@@ -330,9 +346,9 @@ fn test_multi_arg_for_generation() {
             None,
             IdentType::Other,
         ))))),
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new("hello", None, IdentType::Other))),
+        ))))],
     );
     let mut tracker = IdentTracker::new();
     tracker.register("a", Identifier::new(IdentType::Other, TypeHint::Unknown));
