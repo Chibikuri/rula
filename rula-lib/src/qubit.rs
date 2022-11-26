@@ -1,16 +1,18 @@
 use super::*;
 use crate::ruleset::action::v2::*;
 use serde::{Deserialize, Serialize};
-use std::cell::Cell;
+use std::{cell::Cell, net::IpAddr};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QubitInterface {
     pub busy: Cell<bool>,
+    pub parent_qnic_address: Option<IpAddr>,
 }
 impl QubitInterface {
     pub fn new() -> Self {
         QubitInterface {
             busy: Cell::new(false),
+            parent_qnic_address: None,
         }
     }
     pub async fn ready(&self) -> bool {
@@ -43,6 +45,7 @@ impl QubitInterface {
     pub fn gen_mock() -> Self {
         QubitInterface {
             busy: Cell::new(false),
+            parent_qnic_address: None,
         }
     }
 }

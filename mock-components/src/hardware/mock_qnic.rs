@@ -14,7 +14,7 @@ pub struct MockQnic {
     /// Index for qubit
     pub index: u64,
     /// Basic qnic information.
-    qnic_type: Option<QnicType>,
+    qnic_type: Option<MockQnicType>,
     qnic_id: Option<u32>,
     pub qnic_address: Option<IpAddr>,
 }
@@ -242,8 +242,8 @@ impl MockQnic {
         }
     }
 
-    async fn info(&mut self) -> IResult<QnicInfo> {
-        Ok(QnicInfo::new(
+    async fn info(&mut self) -> IResult<MockQnicInfo> {
+        Ok(MockQnicInfo::new(
             self.qnic_type.clone(),
             self.qnic_id,
             self.qnic_address,
@@ -306,12 +306,12 @@ impl MockQnic {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QnicReturnable {
     MeasResult(MeasResult),
-    QnicInfo(QnicInfo),
+    QnicInfo(MockQnicInfo),
     None,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum QnicType {
+pub enum MockQnicType {
     QnicE,
     QnicP,
     QnicRp,
@@ -319,21 +319,21 @@ pub enum QnicType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct QnicInfo {
-    pub qnic_type: Option<QnicType>,
+pub struct MockQnicInfo {
+    pub qnic_type: Option<MockQnicType>,
     pub qnic_id: Option<u32>,
     pub qnic_address: Option<IpAddr>,
     pub num_qubit: u32,
 }
 
-impl QnicInfo {
+impl MockQnicInfo {
     pub fn new(
-        qnic_type: Option<QnicType>,
+        qnic_type: Option<MockQnicType>,
         qnic_id: Option<u32>,
         qnic_address: Option<IpAddr>,
         num_qubit: u32,
     ) -> Self {
-        QnicInfo {
+        MockQnicInfo {
             qnic_type: qnic_type,
             qnic_id: qnic_id,
             qnic_address: qnic_address,

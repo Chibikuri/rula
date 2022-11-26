@@ -96,8 +96,8 @@ rule_expr = { ^"rule" ~ ident ~ "<" ~ ident_list?~ ">"~ argument_def ~ "{" ~ rul
 rule_contents = { cond_expr ~ "=>" ~ act_expr ~ (stmt)* }
 
 // Condition expression for qubit to wait until all meet
-cond_expr = { ^"cond" ~ ident? ~ "{" ~ monitor_expr? ~ awaitable? ~ ("," ~ awaitable)* ~ ","? ~ "}" }
-monitor_expr = { ^"watch" ~ "{" ~ (let_stmt)*  ~ "}"}
+cond_expr = { ^"cond" ~ ident? ~ "{" ~ watch_expr? ~ awaitable? ~ ("," ~ awaitable)* ~ ","? ~ "}" }
+watch_expr = { ^"watch" ~ "{" ~ (let_stmt)*  ~ "}"}
 awaitable = { comp_expr | fn_call_expr | variable_call_expr }
 
 // Action expression for qubit to act on operations

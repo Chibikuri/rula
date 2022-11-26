@@ -652,7 +652,7 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            Rule::monitor_expr => {
+            Rule::watch_expr => {
                 cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
             }
             Rule::awaitable => cond_expr.add_awaitable(

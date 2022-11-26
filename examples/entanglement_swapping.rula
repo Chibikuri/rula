@@ -6,25 +6,16 @@ import std::operation::bsm;
 // automatic assignment for qnic interfaces
 #interface: {qn0, qn1} => qnall;
 
-// This can also be defined by toml file
-// CONFIG includes node specific variables
 #config: (5){
-    distance: vec[u64],
+    distance: vec[u_int],
 } => CONFIG;
 
-//rule default<qn0>() {
-//	cond{
-//        time() - qubit.initiated() > 0.0003,
-//	} => act{
-//		free(q);
-//	}
-//}
 
-rule swapping<qn0, qn1>(distance: u64) {
+rule swapping<qn0, qn1>(distance: u_int) {
     cond {
         watch {
-            let q1: Qubit = qn0.request_resource(1, qn0.get_partner_by_hop(distance));
-            let q2: Qubit = qn1.request_resource(1, qn1.get_partner_by_hop(distance));
+            let q1: qubit = qn0.request_resource(1, qn0.get_partner_by_hop(distance));
+            let q2: qubit = qn1.request_resource(1, qn1.get_partner_by_hop(distance));
         }
         distance > 0,
         q1.ready(),
@@ -40,14 +31,14 @@ rule swapping<qn0, qn1>(distance: u64) {
 }
 
 // Fix here to qnall
-rule pauli_correction<qn0>(distance: u64){
+rule pauli_correction<qn0>(distance: u_int){
     cond {
         watch{
             let message = qn0.get_message(qn0.get_partner_by_hop(distance));
         }    
         message.kind == "swapping",
     } => act{
-        let target_qubit: Qubit = qn0.get_qubit_by_partner(message.src, message.body.result.qubit_address);
+        let target_qubit: qubit = qn0.get_qubit_by_partner(message.src, message.body.result.qubit_address);
         // Want to remove this Result future
         match result: message.body.result.get_result(){
             "00" => {},
@@ -61,7 +52,6 @@ rule pauli_correction<qn0>(distance: u64){
 
 
 ruleset(CONFIG) entanglement_swapping{
-    default: default()
     swapping(CONFIG.distance)
     pauli_correction(CONFIG.distance)
 }
