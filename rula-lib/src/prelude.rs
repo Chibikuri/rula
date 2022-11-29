@@ -13,7 +13,6 @@ pub fn __static__free(rules: RuleVec, _: QubitInterface) {
 
 pub async fn promote(qubit: &QubitInterface) {}
 
-
 pub fn __static__promote(rules: RuleVec, _: QubitInterface) {
     for rule in &*rules.borrow_mut() {
         rule.borrow_mut().add_action_clause(ActionClauses::Promote)
@@ -34,8 +33,8 @@ pub fn __comp<T: PartialOrd>(lhs: T, op: __CmpOp, rhs: T) -> bool {
     op.cmp(lhs, rhs)
 }
 
-pub fn __static__comp<T: PartialEq>(lhs: T, op: __CmpOp, rhs: T) -> bool {
-    true
+pub fn __static__comp<T: PartialOrd>(lhs: T, op: __CmpOp, rhs: T, rules: RuleVec) -> bool {
+    op.cmp(lhs, rhs)
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -299,7 +299,7 @@ mod let_tests {
                                             )
                                         )],
                                         // elif ~
-                                        None,
+                                        vec![],
                                         // else ~
                                         None,
                                     )
@@ -362,7 +362,7 @@ mod if_tests {
                                         )
                                     )],
                                     // elif ~
-                                    None,
+                                    vec![],
                                     // else ~
                                     None,
                                 )
@@ -424,7 +424,7 @@ mod if_tests {
                                                         )
                                                     )],
                                                     // elif ~
-                                                    None,
+                                                    vec![],
                                                     // else ~
                                                     Some(
                                                         Stmt::new(
@@ -510,7 +510,7 @@ mod if_tests {
                                                         )
                                                     )],
                                                     // elif ~
-                                                    Some(
+                                                    vec![Some(
                                                         If::new(
                                                             // else if (block)
                                                             Expr::new(
@@ -544,10 +544,10 @@ mod if_tests {
                                                                     )
                                                                 )
                                                             )],
-                                                            None,
+                                                            vec![],
                                                             None,
                                                         ),
-                                                    ),
+                                                    )],
                                                     // else ~
                                                     None,
                                                 )
@@ -610,7 +610,7 @@ mod if_tests {
                                         )
                                     )],
                                     // elif ~
-                                    Some(
+                                    vec![Some(
                                         If::new(
                                             // else if (block)
                                             Expr::new(
@@ -644,10 +644,10 @@ mod if_tests {
                                                     )
                                                 )
                                             )],
-                                            None,
+                                            vec![],
                                             None,
                                         )
-                                    ),
+                                    )],
                                     // else ~
                                     Some(
                                         Stmt::new(

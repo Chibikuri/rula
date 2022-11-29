@@ -159,7 +159,7 @@ fn test_simple_if() {
             ))),
         ))))],
         // elif ~
-        None,
+        vec![],
         // else ~
         None,
     );
@@ -196,7 +196,7 @@ fn test_if_else() {
             ))),
         ))))],
         // elif ~
-        None,
+        vec![],
         // else ~
         Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
             Lit::new(LitKind::Ident(Ident::new(
@@ -246,7 +246,7 @@ fn test_if_elif_else() {
             ))),
         ))))],
         // elif ~
-        Some(If::new(
+        vec![Some(If::new(
             // else if (block)
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                 "block2",
@@ -261,9 +261,9 @@ fn test_if_elif_else() {
                     IdentType::Other,
                 ))),
             ))))],
+            vec![],
             None,
-            None,
-        )),
+        ))],
         // else ~
         Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
             Lit::new(LitKind::Ident(Ident::new(

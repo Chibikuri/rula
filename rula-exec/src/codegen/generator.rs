@@ -728,8 +728,9 @@ pub(super) fn generate_if(
     do_await: bool,
     in_static: bool,
 ) -> IResult<TokenStream> {
-    // block could have invalid expression here.
-    let block_quote = generate_expr(
+    // if (block) {expression}
+    // (block)
+    let first_condition = generate_expr(
         &mut *if_expr.block,
         None,
         ident_tracker,
@@ -738,76 +739,49 @@ pub(super) fn generate_if(
         false,
     )
     .unwrap();
-    let generated = {
+    let generated_stmt = {
         let mut gen_stmt = vec![];
         for stmt in &mut if_expr.stmts {
             gen_stmt.push(generate_stmt(stmt, None, ident_tracker, do_await, in_static).unwrap());
         }
         gen_stmt
     };
+
+    let generated_els = match &mut *if_expr.els {
+        Some(els) => {
+            let els_stmt = generate_stmt(els, None, ident_tracker, do_await, in_static).unwrap();
+            quote!(
+                else{
+                    #els_stmt
+                }
+            )
+        }
+        None => quote!(),
+    };
+
     if if_expr.elif.len() > 0 {
-        // no elif statement
-        if if_expr.elif[0] == None {
-            match &mut *if_expr.els {
-                // With else statement
-                Some(els_stmt) => {
-                    let els_stmt_quote =
-                        generate_stmt(els_stmt, None, ident_tracker, do_await, in_static).unwrap();
-                    return Ok(quote!(
-                        if #block_quote{
-                            #(#generated)*
-                        }else{
-                            #els_stmt_quote
-                        }
-                    ));
-                }
+        let mut elif_quotes = vec![];
+        for elif_expr in &mut *if_expr.elif {
+            match elif_expr {
+                Some(if_expr) => elif_quotes
+                    .push(generate_if(if_expr, ident_tracker, do_await, in_static).unwrap()),
                 None => {
-                    // No error statement
-                    // This could be error in rust code
-                    return Ok(quote!(
-                        if #block_quote{
-                            #(#generated)*
-                        }
-                    ));
+                    unreachable!()
                 }
-            }
-        } else {
-            // No elif expr
-            let mut elif_quotes = vec![];
-            for elif_expr in &mut *if_expr.elif {
-                match elif_expr {
-                    Some(if_expr) => elif_quotes
-                        .push(generate_if(if_expr, ident_tracker, do_await, in_static).unwrap()),
-                    None => {
-                        unreachable!()
-                    }
-                }
-            }
-
-            match &mut *if_expr.els {
-                Some(els_stmt) => {
-                    let els_stmt_quote =
-                        generate_stmt(els_stmt, None, ident_tracker, do_await, in_static).unwrap();
-                    Ok(quote!(
-                        if #block_quote {
-                            #(#generated)*
-                        }#(else #elif_quotes)*
-
-                        else{
-                            #els_stmt_quote
-                        }
-                    ))
-                }
-                None => Ok(quote!(
-                    if #block_quote {
-                        #(#generated)*
-                    }#(elif #elif_quotes)*
-                )),
             }
         }
+        Ok(quote!(
+            if #first_condition {
+                #(#generated_stmt)*
+            }#(else #elif_quotes)*
+            #generated_els
+        ))
     } else {
-        // Duplication?
-        panic!("This should not happen in the current initialization");
+        Ok(quote!(
+            if #first_condition{
+                #(#generated_stmt)*
+            }#generated_els
+        ))
     }
 }
 
@@ -1239,7 +1213,7 @@ pub(super) fn generate_comp(
         }
     };
     if in_static {
-        Ok(quote!(__comp(#lhs, #cmp_op, #rhs)))
+        Ok(quote!(__static__comp(#lhs, #cmp_op, #rhs, Rc::clone(&rules))))
     } else {
         Ok(quote!(__comp(#lhs, #cmp_op, #rhs)))
     }

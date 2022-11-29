@@ -387,12 +387,12 @@ pub struct If {
 }
 
 impl If {
-    pub fn new(block: Expr, stmt: Vec<Stmt>, elif: Option<If>, els: Option<Stmt>) -> If {
+    pub fn new(block: Expr, stmt: Vec<Stmt>, elif: Vec<Option<If>>, els: Option<Stmt>) -> If {
         If {
             // enum type validation
             block: Box::new(block),
             stmts: stmt,
-            elif: vec![elif],
+            elif: elif,
             els: Box::new(els),
         }
     }
@@ -401,7 +401,7 @@ impl If {
         If {
             block: Box::new(Expr::place_holder()),
             stmts: vec![],
-            elif: vec![None],
+            elif: vec![],
             els: Box::new(None),
         }
     }
@@ -415,10 +415,6 @@ impl If {
     }
 
     pub fn add_elif(&mut self, elif: If) {
-        // Um, better way?
-        if self.elif[0] == None {
-            self.elif.pop();
-        }
         self.elif.push(Some(elif));
     }
 
