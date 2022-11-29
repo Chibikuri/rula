@@ -190,7 +190,7 @@ mod let_tests {
     #[test]
     #[rustfmt::skip]
     fn test_simple_let_stmt() {
-        let let_stmt = r#"let hello: str = "world";"#;
+        let let_stmt = r#"let hello: str = "world""#;
         let let_ast_nodes = rula_parser::parse(let_stmt).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
@@ -223,7 +223,7 @@ mod let_tests {
     #[test]
     #[rustfmt::skip]
     fn test_simple_let_stmt_int() {
-        let let_stmt = r#"let hello:int = 123;"#;
+        let let_stmt = r#"let hello:int = 123"#;
         let let_ast_nodes = rula_parser::parse(let_stmt).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
@@ -250,7 +250,7 @@ mod let_tests {
     #[test]
     #[rustfmt::skip]
     fn test_let_with_if_expr(){
-        let let_stmt = "let hello = if(block){expression};";
+        let let_stmt = "let hello = if(block){expression}";
         let let_if_ast_nodes = rula_parser::parse(let_stmt).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
@@ -1722,17 +1722,17 @@ mod test_literals {
     #[test]
     fn test_type_literals() {
         // divition is tricky a little
-        let lit_expr = "let number:int = val;";
+        let lit_expr = "let number:int = val";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Integer));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:float = val;";
+        let lit_expr = "let number:float = val";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Float));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:u_int = val;";
+        let lit_expr = "let number:u_int = val";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::UnsignedInteger));
         assert_eq!(target_ast_nodes, fn_def_asts);
@@ -1742,17 +1742,17 @@ mod test_literals {
         // let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Complex));
         // assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:bool = val;";
+        let lit_expr = "let number:bool = val";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Boolean));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:str = val;";
+        let lit_expr = "let number:str = val";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Str));
         assert_eq!(target_ast_nodes, fn_def_asts);
 
-        let lit_expr = "let number:qubit = val;";
+        let lit_expr = "let number:qubit = val";
         let fn_def_asts = rula_parser::parse(lit_expr).unwrap();
         let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Qubit));
         assert_eq!(target_ast_nodes, fn_def_asts);

@@ -1,72 +1,59 @@
 import std::time::time;
-import std::message::{Message, get_message};
+import std::message::Message;
 import std::result::Result;
 
-#interface: {qn};
-CONFIG = {
-	distance: [1, 1, 1, 1, 1]
-}
+#interface: {qn0, qn1};
 
-rule default<qn>() {
-	cond{
-		time() - qubit.initiated() > 0.0003,
-	} => act{
-		free(q);
-	}
+#config: (5){
+    distance: vec[u_int],
+} => CONFIG;
 
-}
 
-rule local_operation<qn>(distance) {
-	// define future for qubit status
-	monitor:
-		let q0 = qn.get_free_qubit(1, qn.get_partner_by_hop(distance));
-		let q1 = qn.get_free_qubit(1, qn.get_partner_by_hop(distance));
+rule local_operation<qn0, qn1>(distance: u_int) {
 	cond {
-		// qubit 1 is ready and locked for this rule process
-		q0.ready(),
-		q1.ready(),
-		OR(
-			q0.expected_fidelity() > 0.8 && q0.expected_fidelity() < 0.95,
-			time() - q0.initiated() > 0.0001,
-		),
+		watch {
+			let q0 = qn0.request_resource(1, qn0.get_partner_by_hop(distance))
+			let q1 = qn0.request_resource(1, qn0.get_partner_by_hop(distance))
+		}
+	q0.ready(),
+	q1.ready(),
+	q0.expected_fidelity() > 0.8,
+	q0.expected_fidelity() < 0.95,
 	} => act {
-		let message = Message(kind="purification", src=qn0,
-					dest=qn.get_partner_by_hop(distance));
-		q0.cx(q1);
-		let result = Result(q1);
-		result["meas_result"] = q1.measure();
-		message.append_body(result);
-		send(message);
-		return result["meas_result"];
+	let message = Message("purification", qn0.address, qn0.get_partner_by_hop(distance))
+	q0.cx(q1)
+	let result = Result(q1)
+	result.add_result(q1.measure_z())
+	message.append_body(result)
+	send(message)
+	promote(q0)
 	}
 }
 
-rule parity_check<qn> (self_result){
-	monitor:
-		let message = qn0.get_message();
+rule parity_check<qn0, qn1> (self_result: str){
 	cond {
-		message.kind == "purification",
+		watch{
+			let message = qn0.get_message(qn0.get_partner_by_hop(distance))
+			}
+			message.kind == "purification",
 	} => act{
 		let target_qubit = qn0.get_qubit_by_partner(message.src,
-						message.body.result.qubit_address)
-		match result: message.content["meas_result"]{
-			(self_result == result) => {
-				if self_result == "0" {
-					// do nothing
-				}else{
-					target_qubit.x();
-				}
+		message.body.result.qubit_address)
+		if (message.body.result.get_output() == self_result){
+			if (self_result == "0") {
+				// do nothing
+			}else{
+				target_qubit.x()
 			}
-			(self_result != result) => {
-				free(target_qubit);
-			}
+		} else {
+			free(target_qubit)
 		}
 	}
 }
 
+
 ruleset(CONFIG) purification {
-	default: default(),
-	let self_result = local_operation(CONFIG.partners);
-	parity_check(self_result);
+	let self_result = local_operation(CONFIG.partners)
+	parity_check(self_result)
 }
 

@@ -20,7 +20,7 @@ impl Message {
             body: result,
         }
     }
-    pub fn append_body(&mut self, result: &QResult) {}
+    pub async fn append_body(&mut self, result: &QResult) {}
     pub fn __static__append_body(&mut self, _: RuleVec, result: QResult) {}
 }
 
@@ -41,12 +41,12 @@ pub fn Message(kind: &str, src_addr: &IpAddr, dst_addr: &IpAddr) -> Message {
 
 pub fn __static__Message(
     _: RuleVec,
-    kind: &str,
+    kind: String,
     src_qnic_addr: IpAddr,
     dst_qnic_addr: IpAddr,
 ) -> Message {
     Message::new(
-        kind,
+        &kind,
         &src_qnic_addr,
         &dst_qnic_addr,
         QResult {

@@ -46,6 +46,26 @@ mod generate_swapping_rust {
             rula_exec::codegen::generator::generate(&mut ast, true, Some(config_file_path))
                 .unwrap();
         generate_token_stream_file(generated, "test3.rs");
+        assert_eq!(1, 1);
+    }
+
+    #[test]
+    fn gen_purification() {
+        // 0. load example file
+        let mut rula_program =
+            File::open("../examples/single_purification.rula").expect("target file not found");
+        let mut contents = String::new();
+        rula_program
+            .read_to_string(&mut contents)
+            .expect("Something went wrong reading the file");
+        // 1. parse
+        let mut ast = rula_parser::parse(&contents).unwrap();
+        let config_file_path = PathBuf::from("../examples/entanglement_swapping.toml");
+
+        let generated =
+            rula_exec::codegen::generator::generate(&mut ast, true, Some(config_file_path))
+                .unwrap();
+        generate_token_stream_file(generated, "purification.rs");
         assert_eq!(1, 2);
     }
 }

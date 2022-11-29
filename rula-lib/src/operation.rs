@@ -2,7 +2,7 @@ use super::*;
 use crate::qubit::QubitInterface;
 use crate::ruleset::action::v2::*;
 
-pub fn bsm(q1: &QubitInterface, q2: &QubitInterface) -> String {
+pub async fn bsm(q1: &QubitInterface, q2: &QubitInterface) -> String {
     String::from("result")
 }
 pub fn __static__bsm(rules: RuleVec, q1: QubitInterface, q2: QubitInterface) -> String {

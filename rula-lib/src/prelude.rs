@@ -13,12 +13,13 @@ pub fn __static__free(rules: RuleVec, _: QubitInterface) {
 
 pub async fn promote(qubit: &QubitInterface) {}
 
+
 pub fn __static__promote(rules: RuleVec, _: QubitInterface) {
     for rule in &*rules.borrow_mut() {
         rule.borrow_mut().add_action_clause(ActionClauses::Promote)
     }
 }
-pub fn send(message: &Message) {}
+pub async fn send(message: &Message) {}
 pub fn __static__send(rules: RuleVec, message: Message) {
     for rule in &*rules.borrow_mut() {
         rule.borrow_mut()
@@ -27,6 +28,38 @@ pub fn __static__send(rules: RuleVec, message: Message) {
 }
 pub fn __get_interface_info(name: &String) -> InterfaceInfo {
     InterfaceInfo::new(None, None, None, None)
+}
+
+pub fn __comp<T: PartialOrd>(lhs: T, op: __CmpOp, rhs: T) -> bool {
+    op.cmp(lhs, rhs)
+}
+
+pub fn __static__comp<T: PartialEq>(lhs: T, op: __CmpOp, rhs: T) -> bool {
+    true
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum __CmpOp {
+    Lt,  // <
+    Gt,  // >
+    LtE, // <=
+    GtE, // >=
+    Eq,  // ==
+    Nq,  // !=
+}
+
+impl __CmpOp {
+    pub fn cmp<T: PartialOrd>(&self, lhs: T, rhs: T) -> bool {
+        match self {
+            __CmpOp::Lt => lhs < rhs,
+            __CmpOp::Gt => lhs > rhs,
+            __CmpOp::LtE => lhs <= rhs,
+            __CmpOp::GtE => lhs >= rhs,
+            __CmpOp::Eq => lhs == rhs,
+            __CmpOp::Nq => lhs != rhs,
+            _ => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

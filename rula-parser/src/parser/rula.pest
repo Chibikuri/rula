@@ -14,7 +14,7 @@ interface_def = {"#interface:" ~ "{" ~ ident_list ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 config_def = {"#config: " ~ "(" ~ int ~ ")" ~"{" ~ config_item? ~ ("," ~ config_item)* ~ ","? ~ "}" ~ ("=>" ~ ident)? ~ ";"}
 config_item = { ident ~ ":" ~ typedef_lit}
 // Variable assignment
-let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ "=" ~ expr ~ ";" }
+let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ "=" ~ expr}
 
 // Expressions
 expr = { ( import_expr
@@ -72,8 +72,9 @@ struct_expr = { ^"struct" ~ struct_name ~ "{" ~ (ident_typed)? ~ ("," ~ ident_ty
 struct_name = { ident } // for parser use
 
 // Return expression to return variables
-return_expr = {^"return" ~ ( ident | tuple | fn_call_expr )?}
+return_expr = {^"return" ~ ( variable_call_expr | fn_call_expr | ident | tuple)?}
 tuple = {"(" ~ literal_list? ~ ")"}
+
 
 // Match expression to do pattern matching
 match_expr = {^"match" ~ (ident ~ ":")? ~ expr ~ "{" ~ (match_arm ~  ",")* ~ (^"finally" ~ "=>" ~ match_action)? ~ "}"}
@@ -190,4 +191,4 @@ qubit_type = { "qubit" }
 reserved_words = { "OR" }
  
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
-WHITESPACE = _{ ( " " | "\n" ) }
+WHITESPACE = _{ ( " " | "\n" | "\t") }

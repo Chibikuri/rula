@@ -10,14 +10,21 @@ pub struct QResult {
 }
 
 impl QResult {
-    pub fn add_tag(&mut self, tag: &str) -> &mut Self {
+    pub async fn add_tag(&mut self, tag: &str) -> &mut Self {
         self
     }
-    pub fn __static__add_tag(&mut self, _: RuleVec, tag: &str) -> &mut Self {
+    pub fn __static__add_tag(&mut self, _: RuleVec, tag: String) -> &mut Self {
         self
     }
-    pub fn add_result(&mut self, result: &String) {}
+    pub async fn add_result(&mut self, result: &String) {}
     pub fn __static__add_result(&mut self, _: RuleVec, result: String) {}
+
+    pub async fn get_output(&self) -> String {
+        self.result.get_output().await
+    }
+    pub fn __static__get_output(&self, _: RuleVec) -> String {
+        String::from("__static__result")
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -27,12 +34,12 @@ pub struct MeasResult {
 }
 
 impl MeasResult {
-    pub fn get_output(&self) -> &str {
-        &self.output
+    pub async fn get_output(&self) -> String {
+        self.output.clone()
     }
-    pub fn __static__get_output(&self, _: RuleVec) -> &str {
+    pub fn __static__get_output(&self, _: RuleVec) -> String {
         // Nothing happen in the static ruleset generation
-        "__static__result"
+        String::from("__static__result")
     }
 
     pub fn get_result(&self) -> &str {

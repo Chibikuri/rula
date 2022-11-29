@@ -442,6 +442,15 @@ fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
     let mut return_expr = Return::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
+            Rule::variable_call_expr => return_expr.add_target(Expr::new(
+                ExprKind::VariableCallExpr(build_ast_from_variable_call_expr(block).unwrap()),
+            )),
+            Rule::fn_call_expr => return_expr.add_target(Expr::new(ExprKind::FnCall(
+                build_ast_from_fn_call_expr(block).unwrap(),
+            ))),
+            Rule::tuple => {
+                todo!("Tuple return is under construction")
+            }
             Rule::ident => return_expr.add_target(Expr::new(ExprKind::Lit(Lit::new(
                 LitKind::Ident(build_ast_from_ident(block).unwrap()),
             )))),
