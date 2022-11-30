@@ -498,7 +498,8 @@ fn test_simple_comp() {
         "prev_count",
         Identifier::new(IdentType::Other, TypeHint::Unknown),
     );
-    let test_stream = generate_comp(&mut comp_expr, None, &mut tracker, false, false).unwrap();
+    let test_stream =
+        generate_comp(&mut comp_expr, None, &mut tracker, false, false, false).unwrap();
     assert_eq!(
         "__comp (count , __CmpOp :: Gt , prev_count)",
         test_stream.to_string()

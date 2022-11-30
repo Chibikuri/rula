@@ -2,9 +2,11 @@
 use crate::rula_std::ruleset::ruleset::*;
 use rula_lib as rula_std;
 use rula_std::ruleset::action::v2::ActionClauses;
+use std::cell::RefCell;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::rc::Rc;
 #[allow(non_snake_case)]
 #[allow(non_camel_case_types)]
 #[allow(unused_doc_comments)]
@@ -164,8 +166,10 @@ mod rula {
 pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>) {
     let __static_interface_list = rula::initialize_static_interface(1);
     for i in 0..1 {
-        let mut ruleset = rula::RuleSetExec::init();
-        ruleset.resolve_config(Box::new(&config), Some(i as usize));
+        let mut ruleset = Rc::new(RefCell::new(rula::RuleSetExec::init()));
+        ruleset
+            .borrow_mut()
+            .resolve_config(Box::new(&config), Some(i as usize));
         let output_file_path = format!("tests/generated/test_{}.json", i);
         let mut file = File::create(output_file_path).expect("Failed to create a new file");
         let json_ruleset = serde_json::to_string(&static_ruleset).unwrap();

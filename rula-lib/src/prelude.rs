@@ -33,8 +33,19 @@ pub fn __comp<T: PartialOrd>(lhs: T, op: __CmpOp, rhs: T) -> bool {
     op.cmp(lhs, rhs)
 }
 
-pub fn __static__comp<T: PartialOrd>(lhs: T, op: __CmpOp, rhs: T, rules: RuleVec) -> bool {
-    op.cmp(lhs, rhs)
+pub fn __static__comp<T: PartialOrd>(
+    lhs: T,
+    op: __CmpOp,
+    rhs: T,
+    reverse: bool,
+    rules: RuleVec,
+) -> bool {
+    if reverse {
+        let new_op = op.get_reverse();
+        new_op.cmp(lhs, rhs)
+    } else {
+        op.cmp(lhs, rhs)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -57,6 +68,17 @@ impl __CmpOp {
             __CmpOp::Eq => lhs == rhs,
             __CmpOp::Nq => lhs != rhs,
             _ => panic!(),
+        }
+    }
+
+    pub fn get_reverse(&self) -> __CmpOp {
+        match self {
+            __CmpOp::Lt => __CmpOp::Gt,
+            __CmpOp::Gt => __CmpOp::Lt,
+            __CmpOp::LtE => __CmpOp::GtE,
+            __CmpOp::GtE => __CmpOp::LtE,
+            __CmpOp::Eq => __CmpOp::Nq,
+            __CmpOp::Nq => __CmpOp::Eq,
         }
     }
 }
@@ -141,7 +163,7 @@ impl ArgVal {
         match self {
             ArgVal::Str(string) => string.to_string(),
             _ => {
-                panic!("This needs to be string")
+                panic!("This needs to be string not {:#?}", &self)
             }
         }
     }
