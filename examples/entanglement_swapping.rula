@@ -5,7 +5,7 @@ import std::operation::bsm;
 
 #interface: {qn0, qn1} => qnall;
 
-#config: (5){
+#config: (512){
     distance: vec[u_int],
 } => CONFIG;
 

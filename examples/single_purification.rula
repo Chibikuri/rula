@@ -4,7 +4,7 @@ import std::result::Result;
 
 #interface: {qn0, qn1};
 
-#config: (5){
+#config: (100){
     distance: vec[u_int],
 } => CONFIG;
 
@@ -26,11 +26,11 @@ rule local_operation<qn0, qn1>(distance: u_int) {
 	result.add_result(q1.measure_z())
 	message.append_body(result)
 	send(message)
-	promote(q0)
+	return q0
 	}
 }
 
-rule parity_check<qn0, qn1> (self_result: str){
+rule parity_check<qn0, qn1> (self_result: str, distance: u_int){
 	cond {
 		watch{
 			let message = qn0.get_message(qn0.get_partner_by_hop(distance))
@@ -40,11 +40,7 @@ rule parity_check<qn0, qn1> (self_result: str){
 		let target_qubit = qn0.get_qubit_by_partner(message.src,
 		message.body.result.qubit_address)
 		if (message.body.result.get_output() == self_result){
-			if (self_result == "0") {
-				// do nothing
-			}else{
-				target_qubit.x()
-			}
+			promote(target_qubit)
 		} else {
 			free(target_qubit)
 		}
@@ -53,7 +49,8 @@ rule parity_check<qn0, qn1> (self_result: str){
 
 
 ruleset(CONFIG) purification {
-	let self_result = local_operation(CONFIG.partners)
-	parity_check(self_result)
+	let self_result = local_operation(CONFIG.distance)
+	// FIXME, Right now, the argument name must be rule argument name.
+	parity_check(self_result, CONFIG.distance)
 }
 

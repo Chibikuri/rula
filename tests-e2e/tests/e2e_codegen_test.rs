@@ -60,7 +60,7 @@ mod generate_swapping_rust {
             .expect("Something went wrong reading the file");
         // 1. parse
         let mut ast = rula_parser::parse(&contents).unwrap();
-        let config_file_path = PathBuf::from("../examples/entanglement_swapping.toml");
+        let config_file_path = PathBuf::from("../examples/single_purification.toml");
 
         let generated =
             rula_exec::codegen::generator::generate(&mut ast, true, Some(config_file_path))

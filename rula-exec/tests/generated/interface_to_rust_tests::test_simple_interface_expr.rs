@@ -10,6 +10,8 @@ use std::rc::Rc;
 #[allow(non_snake_case)]
 #[allow(non_camel_case_types)]
 #[allow(unused_doc_comments)]
+#[allow(dead_code)]
+#[allow(warnings, unused)]
 mod rula {
     use super::*;
     use once_cell::sync::OnceCell;
@@ -163,6 +165,7 @@ mod rula {
         }
     }
 }
+#[allow(unused_mut)]
 pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>) {
     let __static_interface_list = rula::initialize_static_interface(1);
     for i in 0..1 {
@@ -201,6 +204,6 @@ mod tests {
     #[tokio::test]
     async fn run_main() {
         main().await;
-        assert_eq!(1, 2);
+        assert_eq!(1, 1);
     }
 }

@@ -72,7 +72,7 @@ pub fn generate(
         quote!(
             let mut static_ruleset = RuleSet::<ActionClauses>::new("");
             ruleset.borrow_mut().gen_ruleset(&mut static_ruleset, i as u32);
-            println!("{:#?}", &static_ruleset);
+            // println!("{:#?}", &static_ruleset);
         )
     } else {
         quote!()
@@ -149,6 +149,8 @@ pub fn generate(
         #[allow(non_snake_case)]
         #[allow(non_camel_case_types)]
         #[allow(unused_doc_comments)]
+        #[allow(dead_code)]
+        #[allow(warnings, unused)]
         mod rula{
             #default_imports
             pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
@@ -190,6 +192,7 @@ pub fn generate(
             #rula_program
         }
 
+        #[allow(unused_mut)]
         pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>, #config_arg){
             let __static_interface_list = rula::initialize_static_interface(#num_node);
             for i in 0..#num_node{
@@ -1067,7 +1070,13 @@ pub(super) fn generate_return(
         false,
     )
     .unwrap();
-    Ok(quote!(return #expr))
+    // Suppose used in rule
+    // TODO rule check
+    if in_static {
+        Ok(quote!(self.parent_ruleset.borrow_mut().__register_return_val(&self.name, #expr)))
+    } else {
+        Ok(quote!(self.parent_ruleset.borrow_mut().__register_return_val(&self.name, #expr.await)))
+    }
 }
 
 // Generate Match expression to achieve match action
@@ -1352,30 +1361,32 @@ pub(super) fn generate_ruleset_expr(
     // 1. Generate static RuleSet for serialized output
     // Get meta information for this RuleSet
     let ruleset_name = &*ruleset_expr.name.name;
-    let mut rule_names = vec![];
-    for rule in &ruleset_expr.rules {
-        match rule {
-            // Ordinary Rule call (e.g. swapping_rule())
-            RuleIdentifier::FnCall(fn_call_expr) => {
-                // Rule without any return values
-                rule_names.push(String::from(&*fn_call_expr.func_name.name));
-            }
-            RuleIdentifier::Let(let_stmt) => {
-                // Rule with return value
-                // In the static RuleSet, it doesn't care if there is a return value or not
-                // The name of the function must be in RULE_TABLE
-                let expr = &*let_stmt.expr;
-                match &*expr.kind {
-                    ExprKind::FnCall(fn_call) => {
-                        // rule_add_evaluater(&*fn_call.func_name.name).unwrap();
-                        rule_names.push(String::from(&*fn_call.func_name.name));
+    let rule_names = {
+        let mut rnames = vec![];
+        for rule in &ruleset_expr.rules {
+            match rule {
+                // Ordinary Rule call (e.g. swapping_rule())
+                RuleIdentifier::FnCall(fn_call_expr) => {
+                    // Rule without any return values
+                    rnames.push(String::from(&*fn_call_expr.func_name.name));
+                }
+                RuleIdentifier::Let(let_stmt) => {
+                    // Rule with return value
+                    // In the static RuleSet, it doesn't care if there is a return value or not
+                    // The name of the function must be in RULE_TABLE
+                    let expr = &*let_stmt.expr;
+                    match &*expr.kind {
+                        ExprKind::FnCall(fn_call) => {
+                            // rule_add_evaluater(&*fn_call.func_name.name).unwrap();
+                            rnames.push(String::from(&*fn_call.func_name.name));
+                        }
+                        _ => unreachable!("Invalid RuleCall {:#?}", rule),
                     }
-                    _ => unreachable!("Invalid RuleCall {:#?}", rule),
                 }
             }
         }
-    }
-
+        rnames
+    };
     // Replace all the TBD information with configed values
     // Expand Config here
     let config = match &*ruleset_expr.config {
@@ -1456,6 +1467,12 @@ pub(super) fn generate_ruleset_expr(
                 ruleset.update_name(&self.name);
                 ruleset.update_owner_addr(Some(AddressKind::IntegerKind(owner)));
                 for rname in vec![#(#rule_names),*]{
+                    let mut unready_rule = self.unready_rules.get_mut(rname).expect("Unable to find the rules");
+                    for (ret_arg_name, arg) in self.returned_values.iter(){
+                        if unready_rule.arg_list().contains(&ret_arg_name){
+                            unready_rule.resolve_argument(&ret_arg_name, arg.clone());
+                        }
+                    }
                     self.unready_rules
                     .get_mut(rname)
                     .expect("unable to find rule")
@@ -1536,11 +1553,14 @@ pub(super) fn generate_rule(
 
     Ok(quote!(
         pub struct #rule_name_token{
+            name: String,
             interface_names: Vec<String>,
             arguments: HashMap<String, Argument>,
+            parent_ruleset: Rc<RefCell<RuleSetExec>>,
         }
 
         pub struct #unready_rule_name_token{
+            name: String,
             interface_names: Vec<String>,
             // Should copy interface information laters
             static_interfaces: __StaticInterface,
@@ -1555,6 +1575,7 @@ pub(super) fn generate_rule(
                 #(#argument_adder);*;
                 // 2. return structure
                 #unready_rule_name_token{
+                    name: String::from(#rule_name_string),
                     interface_names: vec![#(#interface_idents),*],
                     static_interfaces: __static_interface,
                     arguments: empty_argument,
@@ -1571,8 +1592,10 @@ pub(super) fn generate_rule(
                 Some(
                     ReadyRules::#rule_name_token(
                     #rule_name_token{
+                        name: self.name.clone(),
                         interface_names: self.interface_names.clone(),
                         arguments: self.arguments.clone(),
+                        parent_ruleset: self.parent_ruleset.clone(),
                     }))
             }
 
@@ -1593,8 +1616,8 @@ pub(super) fn generate_rule(
                 arg_vec
             }
 
-            pub fn register_return_val(&mut self, arg_name: &str, argument: Argument){
-                self.parent_ruleset.borrow_mut().__register_return_val(arg_name, argument);
+            pub fn register_return_val(&mut self, rule_name: &str, argument: Argument){
+                self.parent_ruleset.borrow_mut().__register_return_val(rule_name, argument);
             }
             #[doc = "No execution, but gen ruleset"]
             fn static_ruleset_gen(&mut self) -> Stage<ActionClausesV2>{
@@ -2109,7 +2132,7 @@ pub mod helper {
             #[tokio::test]
             async fn run_main() {
                 main().await;
-                assert_eq!(1, 2);
+                assert_eq!(1, 1);
             }
         )
     }

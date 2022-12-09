@@ -15,6 +15,7 @@ rula-exection/tests/generated
 cargo-test*
 cov.sh
 just.sh
+perf.sh
 
 # just for testing
 playground

@@ -188,7 +188,6 @@ float_type = { "float" }
 boolean_type = { "bool" }
 string_type = { "str" }
 qubit_type = { "qubit" }
-reserved_words = { "OR" }
  
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" | "\t") }
