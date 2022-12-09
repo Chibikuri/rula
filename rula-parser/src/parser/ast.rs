@@ -381,18 +381,18 @@ impl Iterator for PathKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct If {
     pub block: Box<Expr>, // StmtKind::Expr
-    pub stmt: Box<Stmt>,
+    pub stmts: Vec<Stmt>,
     pub elif: Vec<Option<If>>, // Vec [ExprKind::If] (If ~ else ~ else is error in grammar level)
     pub els: Box<Option<Stmt>>,
 }
 
 impl If {
-    pub fn new(block: Expr, stmt: Stmt, elif: Option<If>, els: Option<Stmt>) -> If {
+    pub fn new(block: Expr, stmt: Vec<Stmt>, elif: Vec<Option<If>>, els: Option<Stmt>) -> If {
         If {
             // enum type validation
             block: Box::new(block),
-            stmt: Box::new(stmt),
-            elif: vec![elif],
+            stmts: stmt,
+            elif: elif,
             els: Box::new(els),
         }
     }
@@ -400,8 +400,8 @@ impl If {
     pub fn place_holder() -> If {
         If {
             block: Box::new(Expr::place_holder()),
-            stmt: Box::new(Stmt::place_holder()),
-            elif: vec![None],
+            stmts: vec![],
+            elif: vec![],
             els: Box::new(None),
         }
     }
@@ -411,14 +411,10 @@ impl If {
     }
 
     pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt);
+        self.stmts.push(stmt)
     }
 
     pub fn add_elif(&mut self, elif: If) {
-        // Um, better way?
-        if self.elif[0] == None {
-            self.elif.pop();
-        }
         self.elif.push(Some(elif));
     }
 
@@ -431,9 +427,6 @@ impl If {
             // Maybe just error returning
             panic!("No block expressio set!");
         }
-        if *self.stmt == Stmt::place_holder() {
-            panic!("No statement found!");
-        }
     }
 }
 
@@ -442,22 +435,22 @@ impl If {
 pub struct For {
     pub pattern: Vec<Ident>,
     pub generator: Box<Expr>,
-    pub stmt: Box<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 impl For {
-    pub fn new(idents: Vec<Ident>, expression: Expr, statement: Stmt) -> Self {
+    pub fn new(idents: Vec<Ident>, expression: Expr, statements: Vec<Stmt>) -> Self {
         For {
             pattern: idents,
             generator: Box::new(expression),
-            stmt: Box::new(statement),
+            stmts: statements,
         }
     }
     pub fn place_holder() -> Self {
         For {
             pattern: vec![],
             generator: Box::new(Expr::place_holder()),
-            stmt: Box::new(Stmt::place_holder()),
+            stmts: vec![],
         }
     }
     pub fn add_ident(&mut self, ident: Ident) {
@@ -467,7 +460,7 @@ impl For {
         self.generator = Box::new(expr);
     }
     pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt);
+        self.stmts.push(stmt);
     }
 }
 
@@ -1199,14 +1192,10 @@ impl Ident {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
-    Integer32,
-    Integer64,
-    UnsignedInteger32,
-    UnsignedInteger64,
-    Float32,
-    Float64,
-    Complex64,
-    Complex128,
+    Integer,
+    UnsignedInteger,
+    Float,
+    // Complex,
     Boolean,
     Str,
     Qubit,

@@ -133,11 +133,15 @@ mod if_ast_to_rust_tests {
                     IdentType::Other,
                 ))))),
                 // {expression}
-                Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                    LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-                ))))),
+                vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                    Lit::new(LitKind::Ident(Ident::new(
+                        "expression",
+                        None,
+                        IdentType::Other,
+                    ))),
+                ))))],
                 // elif ~
-                None,
+                vec![],
                 // else ~
                 None,
             ))))));

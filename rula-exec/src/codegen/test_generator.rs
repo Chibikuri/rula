@@ -7,9 +7,9 @@ mod test_let_stmt_gen {
     use super::*;
     #[test]
     fn test_simple_let_stmt() {
-        // let x:u32 = test_gen();
+        // let x:u_int = test_gen();
         let mut test_ast = Let::new(
-            Ident::new("x", Some(TypeDef::UnsignedInteger32), IdentType::Other),
+            Ident::new("x", Some(TypeDef::UnsignedInteger), IdentType::Other),
             Expr::new(ExprKind::FnCall(FnCall::new(
                 Ident::new("test_gen", None, IdentType::Other),
                 vec![],
@@ -18,16 +18,16 @@ mod test_let_stmt_gen {
         let mut tracker = IdentTracker::new();
         tracker.register("x", Identifier::new(IdentType::Other, TypeHint::Unknown));
         let generated_let = generate_let(&mut test_ast, None, &mut tracker, false, false).unwrap();
-        assert_eq!("let mut x : u32 = test_gen () ;", generated_let.to_string());
+        assert_eq!("let mut x : u64 = test_gen () ;", generated_let.to_string());
     }
 
     #[test]
     #[ignore = "error occur in singleton generation"]
     fn test_static_let_stmt() {
         // generate static function
-        // let x : u32 = test_gen(); --> let x : u32 = __static__test_gen();
+        // let x : u_int = test_gen(); --> let x : u32 = __static__test_gen();
         let mut test_ast = Let::new(
-            Ident::new("x", Some(TypeDef::UnsignedInteger32), IdentType::Other),
+            Ident::new("x", Some(TypeDef::UnsignedInteger), IdentType::Other),
             Expr::new(ExprKind::FnCall(FnCall::new(
                 Ident::new("test_gen", None, IdentType::Other),
                 vec![],
@@ -100,7 +100,6 @@ mod test_let_stmt_gen {
 // ident tests
 #[test]
 fn test_ident_no_type_hint() {
-    initialize_singleton();
     let test_ident = Ident::new("hello", None, IdentType::Other);
     let mut tracker = IdentTracker::new();
     tracker.register(
@@ -152,11 +151,15 @@ fn test_simple_if() {
             IdentType::Other,
         ))))),
         // {expression}
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new(
+                "expression",
+                None,
+                IdentType::Other,
+            ))),
+        ))))],
         // elif ~
-        None,
+        vec![],
         // else ~
         None,
     );
@@ -169,7 +172,7 @@ fn test_simple_if() {
         "expression",
         Identifier::new(IdentType::Other, TypeHint::Unknown),
     );
-    let test_stream = generate_if(&mut simple_if, &mut tracker).unwrap();
+    let test_stream = generate_if(&mut simple_if, &mut tracker, false, false).unwrap();
     assert_eq!("if block { expression }", test_stream.to_string());
 }
 
@@ -185,11 +188,15 @@ fn test_if_else() {
             IdentType::Other,
         ))))),
         // {expression}
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new(
+                "expression",
+                None,
+                IdentType::Other,
+            ))),
+        ))))],
         // elif ~
-        None,
+        vec![],
         // else ~
         Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
             Lit::new(LitKind::Ident(Ident::new(
@@ -212,7 +219,7 @@ fn test_if_else() {
         "expression2",
         Identifier::new(IdentType::Other, TypeHint::Unknown),
     );
-    let test_stream = generate_if(&mut if_else, &mut tracker).unwrap();
+    let test_stream = generate_if(&mut if_else, &mut tracker, false, false).unwrap();
     assert_eq!(
         "if block { expression } else { expression2 }",
         test_stream.to_string()
@@ -231,11 +238,15 @@ fn test_if_elif_else() {
             IdentType::Other,
         ))))),
         // {expression}
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("expression", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new(
+                "expression",
+                None,
+                IdentType::Other,
+            ))),
+        ))))],
         // elif ~
-        Some(If::new(
+        vec![Some(If::new(
             // else if (block)
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                 "block2",
@@ -243,12 +254,16 @@ fn test_if_elif_else() {
                 IdentType::Other,
             ))))),
             // else if () {statement2;};
-            Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(Ident::new("expression2", None, IdentType::Other)),
-            ))))),
+            vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                Lit::new(LitKind::Ident(Ident::new(
+                    "expression2",
+                    None,
+                    IdentType::Other,
+                ))),
+            ))))],
+            vec![],
             None,
-            None,
-        )),
+        ))],
         // else ~
         Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
             Lit::new(LitKind::Ident(Ident::new(
@@ -279,7 +294,7 @@ fn test_if_elif_else() {
         "expression3",
         Identifier::new(IdentType::Other, TypeHint::Unknown),
     );
-    let test_stream = generate_if(&mut if_elif_else, &mut tracker).unwrap();
+    let test_stream = generate_if(&mut if_elif_else, &mut tracker, false, false).unwrap();
     assert_eq!(
         "if block { expression } else if block2 { expression2 } else { expression3 }",
         test_stream.to_string()
@@ -297,9 +312,9 @@ fn test_simple_for_generation() {
             None,
             IdentType::Other,
         ))))),
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new("hello", None, IdentType::Other))),
+        ))))],
     );
 
     let mut tracker = IdentTracker::new();
@@ -330,9 +345,9 @@ fn test_multi_arg_for_generation() {
             None,
             IdentType::Other,
         ))))),
-        Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
-            LitKind::Ident(Ident::new("hello", None, IdentType::Other)),
-        ))))),
+        vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+            Lit::new(LitKind::Ident(Ident::new("hello", None, IdentType::Other))),
+        ))))],
     );
     let mut tracker = IdentTracker::new();
     tracker.register("a", Identifier::new(IdentType::Other, TypeHint::Unknown));
@@ -381,10 +396,10 @@ fn test_simple_while() {
 // FnDef test
 #[test]
 fn test_simple_fn_def() {
-    // fn(block:i32, hello:str){expression}
+    // fn(block:int, hello:str){expression}
     let mut simple_fn_def = FnDef::new(
         vec![
-            Ident::new("block", Some(TypeDef::Integer32), IdentType::Other),
+            Ident::new("block", Some(TypeDef::Integer), IdentType::Other),
             Ident::new("hello", Some(TypeDef::Str), IdentType::Other),
         ],
         Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(Lit::new(
@@ -406,7 +421,7 @@ fn test_simple_fn_def() {
     );
     let test_stream = generate_fn_def(&mut simple_fn_def, &mut tracker).unwrap();
     assert_eq!(
-        "pub fn (block : i32 , hello : String) { expression }",
+        "pub fn (block : i64 , hello : String) { expression }",
         test_stream.to_string()
     );
 }
@@ -442,20 +457,20 @@ fn test_simple_struct() {
 }
 
 // Return test
-#[test]
-fn test_simple_return() {
-    // return hello
-    let mut simple_return = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
-        Ident::new("hello", None, IdentType::Other),
-    )))));
-    let mut tracker = IdentTracker::new();
-    tracker.register(
-        "hello",
-        Identifier::new(IdentType::Other, TypeHint::Unknown),
-    );
-    let test_stream = generate_return(&mut simple_return, &mut tracker).unwrap();
-    assert_eq!("return hello ;", test_stream.to_string());
-}
+// #[test]
+// fn test_simple_return() {
+//     // return hello
+//     let mut simple_return = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
+//         Ident::new("hello", None, IdentType::Other),
+//     )))));
+//     let mut tracker = IdentTracker::new();
+//     tracker.register(
+//         "hello",
+//         Identifier::new(IdentType::Other, TypeHint::Unknown),
+//     );
+//     let test_stream = generate_return(&mut simple_return, &mut tracker, false).unwrap();
+//     assert_eq!("return hello ;", test_stream.to_string());
+// }
 
 // Comp expr test
 #[test]
@@ -483,8 +498,12 @@ fn test_simple_comp() {
         "prev_count",
         Identifier::new(IdentType::Other, TypeHint::Unknown),
     );
-    let test_stream = generate_comp(&mut comp_expr, None, &mut tracker).unwrap();
-    assert_eq!("count > prev_count", test_stream.to_string());
+    let test_stream =
+        generate_comp(&mut comp_expr, None, &mut tracker, false, false, false).unwrap();
+    assert_eq!(
+        "__comp (count , __CmpOp :: Gt , prev_count)",
+        test_stream.to_string()
+    );
 }
 
 #[test]

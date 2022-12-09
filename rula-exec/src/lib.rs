@@ -17,7 +17,6 @@ pub mod codegen {
     pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
 }
 
-
 pub mod utils {}
 
 #[cfg(test)]

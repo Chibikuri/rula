@@ -442,6 +442,15 @@ fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
     let mut return_expr = Return::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
+            Rule::variable_call_expr => return_expr.add_target(Expr::new(
+                ExprKind::VariableCallExpr(build_ast_from_variable_call_expr(block).unwrap()),
+            )),
+            Rule::fn_call_expr => return_expr.add_target(Expr::new(ExprKind::FnCall(
+                build_ast_from_fn_call_expr(block).unwrap(),
+            ))),
+            Rule::tuple => {
+                todo!("Tuple return is under construction")
+            }
             Rule::ident => return_expr.add_target(Expr::new(ExprKind::Lit(Lit::new(
                 LitKind::Ident(build_ast_from_ident(block).unwrap()),
             )))),
@@ -652,7 +661,7 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            Rule::monitor_expr => {
+            Rule::watch_expr => {
                 cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
             }
             Rule::awaitable => cond_expr.add_awaitable(
@@ -771,25 +780,22 @@ fn build_ast_from_braket_expr(pair: Pair<Rule>) -> IResult<Array> {
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
     match pair.as_rule() {
         Rule::integer_type => match pair.as_str() {
-            "i32" => return Ok(TypeDef::Integer32),
-            "i64" => return Ok(TypeDef::Integer64),
+            "int" => return Ok(TypeDef::Integer),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::unsigned_integer_type => match pair.as_str() {
-            "u32" => return Ok(TypeDef::UnsignedInteger32),
-            "u64" => return Ok(TypeDef::UnsignedInteger64),
+            "u_int" => return Ok(TypeDef::UnsignedInteger),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::float_type => match pair.as_str() {
-            "f32" => return Ok(TypeDef::Float32),
-            "f64" => return Ok(TypeDef::Float64),
+            "float" => return Ok(TypeDef::Float),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
-        Rule::complex_type => match pair.as_str() {
-            "c64" => return Ok(TypeDef::Complex64),
-            "c128" => return Ok(TypeDef::Complex128),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        },
+        // Right now complex support is not supported TODO
+        // Rule::complex_type => match pair.as_str() {
+        //     "complex" => return Ok(TypeDef::Complex),
+        //     _ => return Err(RuLaError::RuLaSyntaxError),
+        // },
         Rule::boolean_type => match pair.as_str() {
             "bool" => return Ok(TypeDef::Boolean),
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -799,7 +805,7 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::qubit_type => match pair.as_str() {
-            "Qubit" => return Ok(TypeDef::Qubit),
+            "qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::vector_type => Ok(TypeDef::Vector(Box::new(

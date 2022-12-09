@@ -7,33 +7,14 @@ use super::IResult;
 
 use rula_parser::parser::ast::*;
 
-use once_cell::sync::OnceCell;
 use proc_macro2::{Span, TokenStream};
 use std::path::PathBuf;
-use std::sync::Mutex;
 use syn::Lit as SynLit;
 use syn::{LitFloat, LitInt, LitStr};
 
-// These are used but only in quote! macro
-#[allow(unused_imports)]
-use mock_components::hardware::result::MeasResult;
-#[allow(unused_imports)]
-use std::net::SocketAddr;
-
 // Right now, compilation is all single thread. In the future, this could be multi thread.
 // Mutex would be a good choice for that.
-static RULES: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
-
-// Initialize singleton values
-// RULESET_FACTORY: collect information needed to create a RuleSet
-// RULESET: ruleset instance (will be deprecated in generator)
-pub(super) fn initialize_singleton() {
-    // Set the initial RuleSet so that other RuleSet call can only get without init
-    // For testing purpose, dividing initialize phase into two
-    assert!(RULES.get().is_none());
-    let initialize_rule = || Mutex::new(vec![]);
-    let _ = RULES.get_or_init(initialize_rule);
-}
+// static RULES: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
 
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
@@ -44,9 +25,6 @@ pub fn generate(
     with_ruleset: bool,
     config_path: Option<PathBuf>,
 ) -> IResult<TokenStream> {
-    // initialize all the global values RULE_TABLE
-    initialize_singleton();
-
     // ident_tracker tracks all the identifier especially special values
     // Special values to be tracked
     // - QnicInterfaceName
@@ -93,8 +71,8 @@ pub fn generate(
     let ruleset_gen = if with_ruleset {
         quote!(
             let mut static_ruleset = RuleSet::<ActionClauses>::new("");
-            ruleset.gen_ruleset(&mut static_ruleset);
-            println!("{:#?}", &static_ruleset);
+            ruleset.borrow_mut().gen_ruleset(&mut static_ruleset, i as u32);
+            // println!("{:#?}", &static_ruleset);
         )
     } else {
         quote!()
@@ -121,8 +99,7 @@ pub fn generate(
     let mut arg_resolvers = vec![];
     let mut ruleset_gen_enum = vec![];
 
-    let rules = RULES.get().expect("Unable to get rule table");
-    for rname in rules.lock().unwrap().iter() {
+    for rname in ident_tracker.rule_names {
         let rname_unready = format_ident!("unready_{}", rname);
         let rname_ready = format_ident!("{}", rname);
         unready_rule_names.push(quote!(
@@ -133,9 +110,12 @@ pub fn generate(
         ));
 
         unready_rule_adder.push(quote!(
-            ruleset.add_unready_rule(
+            ruleset.borrow_mut().add_unready_rule(
                 String::from(#rname),
-                rula::UnreadyRules::#rname_unready(rula::#rname_unready::new())
+                rula::UnreadyRules::#rname_unready(
+                    rula::#rname_unready::new(__static_interface_list.__get_interface(i),
+                    Rc::clone(&ruleset)
+                ))
             )
         ));
 
@@ -159,15 +139,21 @@ pub fn generate(
     Ok(quote!(
         use rula_lib as rula_std;
         use std::fs;
+        use std::fs::File;
+        use std::io::Write;
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
         use crate::rula_std::ruleset::ruleset::*;
         use rula_std::ruleset::action::v2::ActionClauses;
         #[allow(non_snake_case)]
         #[allow(non_camel_case_types)]
         #[allow(unused_doc_comments)]
+        #[allow(dead_code)]
+        #[allow(warnings, unused)]
         mod rula{
             #default_imports
             pub static INTERFACES: OnceCell<TokioMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
-            pub static STATIC_INTERFACES: OnceCell<StdMutex<HashMap<String, QnicInterface>>> = OnceCell::new();
             pub enum UnreadyRules{
                 #(#unready_rule_names),*
             }
@@ -206,13 +192,21 @@ pub fn generate(
             #rula_program
         }
 
+        #[allow(unused_mut)]
         pub fn __gen_static_rulesets(rulesets: &mut Vec<RuleSet<ActionClauses>>, #config_arg){
-            rula::initialize_static_interface();
+            let __static_interface_list = rula::initialize_static_interface(#num_node);
             for i in 0..#num_node{
-                let mut ruleset = rula::RuleSetExec::init();
+                let mut ruleset = Rc::new(RefCell::new(rula::RuleSetExec::init()));
                 #(#unready_rule_adder);*;
-                ruleset.resolve_config(Box::new(&config), Some(i as usize));
+                ruleset.borrow_mut().resolve_config(Box::new(&config), Some(i as usize));
                 #ruleset_gen
+
+                let output_file_path = format!("tests/generated/test_{}.json", i);
+                let mut file = File::create(output_file_path).expect("Failed to create a new file");
+                let json_ruleset = serde_json::to_string(&static_ruleset).unwrap();
+                write!(&file, "{}", json_ruleset).unwrap();
+                file.flush().expect("Failed to write");
+
                 rulesets.push(static_ruleset);
             }
         }
@@ -272,7 +266,7 @@ pub(super) fn generate_program(
         // Right now, a program can takes a stmt
         match program_block {
             ProgramKind::Stmt(stmt) => {
-                stmts.push(generate_stmt(stmt, None, ident_tracker, false).unwrap())
+                stmts.push(generate_stmt(stmt, None, ident_tracker, false, false).unwrap())
             }
         }
     }
@@ -288,6 +282,7 @@ pub(super) fn generate_stmt(
     stmt: &mut Stmt,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    do_await: bool,
     in_static: bool,
 ) -> IResult<TokenStream> {
     let generated_stmt = match &mut *stmt.kind {
@@ -296,9 +291,16 @@ pub(super) fn generate_stmt(
         }
         StmtKind::Interface(interface) => Ok(generate_interface(interface, ident_tracker).unwrap()),
         StmtKind::Config(config) => Ok(generate_config(config, ident_tracker).unwrap()),
-        StmtKind::Expr(expr) => {
-            Ok(generate_expr(expr, rule_name, ident_tracker, false, in_static, false).unwrap())
-        }
+        StmtKind::Expr(expr) => Ok(generate_expr(
+            expr,
+            rule_name,
+            ident_tracker,
+            do_await,
+            in_static,
+            false,
+            false,
+        )
+        .unwrap()),
         StmtKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generate rula"),
         )),
@@ -360,14 +362,14 @@ pub(super) fn generate_config(
             }
 
             // If there is a config name exist, return the corresponding value as an Argument type
-            pub fn __get_as_arg(&self, config_val: &str, index: Option<usize>) -> Argument{
+            pub fn __get_as_arg(&self, config_val: &str, index: Option<usize>) -> Option<Argument>{
                 if self.__key_exist(config_val){
                     match config_val{
                         #(#conf_key_match),*,
                         _ => {panic!("This should not happen")}
                     }
                 }else{
-                    panic!("No config value {} found", config_val);
+                    None
                 }
             }
         }
@@ -409,11 +411,11 @@ pub(super) fn generate_config_item(
                         match index{
                             Some(ind) => {
                                 arg.add_argument(ArgVal::#arg_val_token_in_vec(self.#value_name[ind].clone()), #type_hint_token_in_vec);
-                                arg
+                                Some(arg)
                             },
                             None => {
                                 arg.add_argument(ArgVal::#arg_val_token(self.#value_name.clone()), #type_hint_token);
-                                arg
+                                Some(arg)
                             }
                         }
                     }
@@ -483,6 +485,7 @@ pub(super) fn generate_let(
         do_await,
         in_static,
         false,
+        false,
     )
     .unwrap();
 
@@ -535,8 +538,8 @@ pub(super) fn generate_interface(
             let initialize_interface = || TokioMutex::new(HashMap::new());
             INTERFACES.get_or_init(initialize_interface);
             let interface_list = INTERFACES.get().expect("Failed to get interface");
-            for interface_name in vec![#(#interface_names),*] {
-                let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
+            for (index, interface_name) in vec![#(#interface_names),*].iter().enumerate() {
+                let mock_qnic = QnicInterface::generate_mock_interface(index as u32, interface_name, 10);
                 interface_list
                     .lock()
                     .await
@@ -544,18 +547,87 @@ pub(super) fn generate_interface(
             }
         }
 
-        pub fn initialize_static_interface() {
-            assert!(STATIC_INTERFACES.get().is_none());
-            let initialize_interface = || StdMutex::new(HashMap::new());
-            STATIC_INTERFACES.get_or_init(initialize_interface);
-            let interface_list = STATIC_INTERFACES.get().expect("Failed to get interface");
-            for interface_name in vec![#(#interface_names),*] {
-                let mock_qnic = QnicInterface::generate_mock_interface(interface_name, 10);
-                interface_list
-                    .lock()
-                    .unwrap()
-                    .insert(interface_name.to_string(), mock_qnic);
+        pub fn initialize_static_interface(__num_nodes: u64)-> __StaticInterfaceList{
+            let mut __static_interface_list = __StaticInterfaceList::new();
+            __static_interface_list.__update_num_node(__num_nodes);
+            // Generate mock qnic here
+            for _ in 0..__num_nodes{
+                let mut __static_interface = __StaticInterface::new();
+                for (index, i_name) in vec![#(#interface_names),*].iter().enumerate(){
+                    __static_interface.__add_interface_name(i_name);
+                    let qnic_interface = QnicInterface::generate_mock_interface(index as u32, i_name, 10);
+                    __static_interface.__add_interface(i_name, qnic_interface);
+                }
+                __static_interface_list.__add_static_interface(__static_interface);
             }
+            __static_interface_list.__check();
+            __static_interface_list
+        }
+
+        type NodeNumber = u64;
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct __StaticInterfaceList{
+            pub num_nodes: u64,
+            pub __static_interfaces: HashMap<NodeNumber, __StaticInterface>,
+            index: u64,
+        }
+
+        impl __StaticInterfaceList{
+            pub fn new() -> Self{
+                __StaticInterfaceList { num_nodes: 0, __static_interfaces: HashMap::new(), index: 0}
+            }
+
+            pub fn __add_static_interface(&mut self, __static_interface: __StaticInterface){
+                self.__static_interfaces.insert(self.index, __static_interface);
+                self.index += 1;
+            }
+
+            pub fn __get_interface(&self, index: NodeNumber) -> __StaticInterface{
+                self.__static_interfaces.get(&index).expect("No interface found").clone()
+            }
+
+            pub fn __update_num_node(&mut self, num_nodes: u64){
+                self.num_nodes = num_nodes;
+            }
+
+            pub fn __check(&self){
+                if self.__static_interfaces.len() != self.num_nodes as usize{
+                    panic!("The qnics are not properly registered")
+                }
+            }
+        }
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct __StaticInterface{
+            pub interface_names: HashSet<String>,
+            pub interfaces: HashMap<String, QnicInterface>,
+        }
+
+        impl __StaticInterface{
+            pub fn new() -> Self{
+                __StaticInterface { interface_names: HashSet::new(), interfaces: HashMap::new()}
+            }
+
+            pub fn __add_interface_name(&mut self, value: &str){
+                if !self.interface_names.contains(value){
+                    self.interface_names.insert(value.to_string());
+                }else{
+                    panic!("Interface name duplication {}", value);
+                }
+            }
+
+            pub fn __add_interface(&mut self, name: &str, qnic: QnicInterface){
+                if self.interface_names.contains(name){
+                    self.interfaces.insert(name.to_string(), qnic);
+                }else{
+                    panic!("No interface found {}", name);
+                }
+            }
+
+            pub fn __get_interface(&self, interface_name: &str) -> QnicInterface{
+                self.interfaces.get(interface_name).expect("Failed to get interface").clone()
+            }
+
         }
     ))
 }
@@ -567,10 +639,13 @@ pub(super) fn generate_expr(
     do_await: bool,
     in_static: bool,
     in_closure: bool,
+    do_reverse: bool,
 ) -> IResult<TokenStream> {
     match &mut *expr.kind {
         ExprKind::Import(import_expr) => Ok(generate_import(import_expr, ident_tracker).unwrap()),
-        ExprKind::If(if_expr) => Ok(generate_if(if_expr, ident_tracker).unwrap()),
+        ExprKind::If(if_expr) => {
+            Ok(generate_if(if_expr, ident_tracker, do_await, in_static).unwrap())
+        }
         ExprKind::For(for_expr) => Ok(generate_for(for_expr, ident_tracker).unwrap()),
         ExprKind::While(while_expr) => Ok(generate_while(while_expr, ident_tracker).unwrap()),
         ExprKind::FnDef(fn_def_expr) => Ok(generate_fn_def(fn_def_expr, ident_tracker).unwrap()),
@@ -584,13 +659,21 @@ pub(super) fn generate_expr(
         )
         .unwrap()),
         ExprKind::Struct(struct_expr) => Ok(generate_struct(struct_expr, ident_tracker).unwrap()),
-        ExprKind::Return(return_expr) => Ok(generate_return(return_expr, ident_tracker).unwrap()),
+        ExprKind::Return(return_expr) => {
+            Ok(generate_return(return_expr, ident_tracker, in_static).unwrap())
+        }
         ExprKind::Match(match_expr) => {
             Ok(generate_match(match_expr, ident_tracker, in_static).unwrap())
         }
-        ExprKind::Comp(comp_expr) => {
-            Ok(generate_comp(comp_expr, rule_name, ident_tracker).unwrap())
-        }
+        ExprKind::Comp(comp_expr) => Ok(generate_comp(
+            comp_expr,
+            rule_name,
+            ident_tracker,
+            do_await,
+            in_static,
+            do_reverse,
+        )
+        .unwrap()),
         ExprKind::RuleSetExpr(ruleset_expr) => {
             Ok(generate_ruleset_expr(ruleset_expr, ident_tracker).unwrap())
         }
@@ -611,7 +694,9 @@ pub(super) fn generate_expr(
         )
         .unwrap()),
         ExprKind::Array(array_expr) => Ok(generate_array(&array_expr, ident_tracker).unwrap()),
-        ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr, ident_tracker, in_static).unwrap()),
+        ExprKind::Lit(lit_expr) => {
+            Ok(generate_lit(&lit_expr, ident_tracker, in_static, false).unwrap())
+        }
         ExprKind::Term(term_expr) => Ok(generate_term(*term_expr).unwrap()),
         ExprKind::PlaceHolder => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at generating expression"),
@@ -664,80 +749,139 @@ pub(super) fn generate_import(
 pub(super) fn generate_if(
     if_expr: &mut If,
     ident_tracker: &mut IdentTracker,
+    do_await: bool,
+    in_static: bool,
 ) -> IResult<TokenStream> {
-    // block could have invalid expression here.
-    let block_quote = generate_expr(
+    // if (block) {expression}
+    // (block)
+    let first_condition = generate_expr(
         &mut *if_expr.block,
         None,
         ident_tracker,
-        false,
+        do_await,
+        in_static,
         false,
         false,
     )
     .unwrap();
-    let stmt_quote = generate_stmt(&mut *if_expr.stmt, None, ident_tracker, false).unwrap();
-    if if_expr.elif.len() > 0 {
-        // no elif statement
-        if if_expr.elif[0] == None {
-            match &mut *if_expr.els {
-                // With else statement
-                Some(els_stmt) => {
-                    let els_stmt_quote =
-                        generate_stmt(els_stmt, None, ident_tracker, false).unwrap();
-                    return Ok(quote!(
-                        if #block_quote{
-                            #stmt_quote
-                        }else{
-                            #els_stmt_quote
-                        }
-                    ));
-                }
-                None => {
-                    // No error statement
-                    // This could be error in rust code
-                    return Ok(quote!(
-                        if #block_quote{
-                            #stmt_quote
-                        }
-                    ));
-                }
-            }
-        } else {
-            // No elif expr
-            let mut elif_quotes = vec![];
-            for elif_expr in &mut *if_expr.elif {
-                match elif_expr {
-                    Some(if_expr) => elif_quotes.push(generate_if(if_expr, ident_tracker).unwrap()),
-                    None => {
-                        unreachable!()
-                    }
-                }
-            }
+    let generated_stmt = {
+        let mut gen_stmt = vec![];
+        for stmt in &mut if_expr.stmts {
+            gen_stmt.push(generate_stmt(stmt, None, ident_tracker, do_await, in_static).unwrap());
+        }
+        gen_stmt
+    };
 
-            match &mut *if_expr.els {
-                Some(els_stmt) => {
-                    let els_stmt_quote =
-                        generate_stmt(els_stmt, None, ident_tracker, false).unwrap();
-                    Ok(quote!(
-                        if #block_quote {
-                            #stmt_quote
-                        }#(else #elif_quotes)*
-
-                        else{
-                            #els_stmt_quote
-                        }
-                    ))
+    let generated_els = match &mut *if_expr.els {
+        Some(els) => {
+            let els_stmt = generate_stmt(els, None, ident_tracker, do_await, in_static).unwrap();
+            quote!(
+                else{
+                    #els_stmt
                 }
-                None => Ok(quote!(
-                    if #block_quote {
-                        #stmt_quote
-                    }#(elif #elif_quotes)*
-                )),
+            )
+        }
+        None => quote!(),
+    };
+
+    let generated_elifs = {
+        let mut elifs = vec![];
+        for elif_expr in &mut *if_expr.elif {
+            match &mut *elif_expr {
+                Some(inner_if_expr) => elifs
+                    .push(generate_if(inner_if_expr, ident_tracker, do_await, in_static).unwrap()),
+                None => unreachable!(),
             }
         }
+        elifs
+    };
+    if !in_static {
+        if if_expr.elif.len() > 0 {
+            Ok(quote!(
+                if #first_condition {
+                    #(#generated_stmt)*
+                }#(else #generated_elifs)*
+                #generated_els
+            ))
+        } else {
+            Ok(quote!(
+                if #first_condition{
+                    #(#generated_stmt)*
+                }#generated_els
+            ))
+        }
     } else {
-        // Duplication?
-        panic!("This should not happen in the current initialization");
+        // In static rule generation, the rule is spanned to multiple rules in one stage
+        let generated_static_els = match &mut *if_expr.els {
+            Some(els) => {
+                let els_stmt =
+                    generate_stmt(els, None, ident_tracker, do_await, in_static).unwrap();
+                quote!(
+                        #els_stmt
+                )
+            }
+            None => quote!(),
+        };
+
+        let inverse_condition = generate_expr(
+            &mut *if_expr.block,
+            None,
+            ident_tracker,
+            do_await,
+            in_static,
+            true,
+            true,
+        )
+        .unwrap();
+
+        if if_expr.elif.len() > 0 {
+            todo!()
+            // Ok(quote!(
+            //     let _ = ||{
+            //         #first_condition
+            //         #(#generated_stmt);*
+            //     };
+            //     let _ = ||{
+            //         #(#generated_elifs);*
+            //     };
+            //     let _ = ||{
+            //         #generated_static_els
+            //     };
+            // ))
+        } else {
+            Ok(quote!(
+
+                let __rules = rules.clone();
+                let mut __temp_rule_store = vec![];
+                let final_num_rule = rules.borrow().len() * 2;
+
+                // prepare first condition
+                let rules = __rules.clone();
+                #first_condition;
+                #(#generated_stmt);*;
+                for __gen_rule in &*rules.borrow(){
+                    __temp_rule_store.push(__gen_rule.clone());
+                }
+
+                let rules = __rules.clone();
+                #inverse_condition;
+                #generated_static_els;
+
+                for __gen_rule in &*rules.borrow(){
+                    __temp_rule_store.push(__gen_rule.clone());
+                }
+
+                let rules = Rc::new(RefCell::new(vec![]));
+                for __rule in __temp_rule_store{
+                    rules.borrow_mut().push(__rule.clone());
+                }
+
+                if rules.borrow().len() != final_num_rule{
+                    panic!("Errors on the number of rules")
+                }
+
+            ))
+        }
     }
 }
 
@@ -756,20 +900,27 @@ pub(super) fn generate_for(
         false,
         false,
         false,
+        false,
     )
     .unwrap();
-    let stmt = generate_stmt(&mut for_expr.stmt, None, ident_tracker, false).unwrap();
+    let generated = {
+        let mut gen_stmt = vec![];
+        for stmt in &mut for_expr.stmts {
+            gen_stmt.push(generate_stmt(stmt, None, ident_tracker, false, false).unwrap())
+        }
+        gen_stmt
+    };
     if ident_list.len() == 1 {
         let var = &ident_list[0];
         Ok(quote!(
             for #var in #generator {
-                #stmt
+                #(#generated)*
             }
         ))
     } else if ident_list.len() > 1 {
         Ok(quote!(
             for (#(#ident_list),* ) in generator {
-                #stmt
+                #(#generated)*
             }
         ))
     } else {
@@ -790,9 +941,10 @@ pub(super) fn generate_while(
         false,
         false,
         false,
+        false,
     )
     .unwrap();
-    let stmt = generate_stmt(&mut while_expr.stmt, None, ident_tracker, false).unwrap();
+    let stmt = generate_stmt(&mut while_expr.stmt, None, ident_tracker, false, false).unwrap();
     Ok(quote!(
         while #block{
             #stmt
@@ -815,7 +967,7 @@ pub(super) fn generate_fn_def(
             }
         }
     }
-    let stmt = generate_stmt(&mut fn_def_expr.stmt, None, ident_tracker, false).unwrap();
+    let stmt = generate_stmt(&mut fn_def_expr.stmt, None, ident_tracker, false, false).unwrap();
     // TODO: register this function to function name list and make it checkable
     // Here could have generics in the future
     Ok(quote!(
@@ -844,8 +996,16 @@ pub(super) fn generate_fn_call(
     let generated_arguments = {
         let mut args = vec![];
         for arg in &mut fn_call_expr.arguments {
-            let generated_arg =
-                generate_expr(arg, rule_name, ident_tracker, do_await, in_static, false).unwrap();
+            let generated_arg = generate_expr(
+                arg,
+                rule_name,
+                ident_tracker,
+                do_await,
+                in_static,
+                false,
+                false,
+            )
+            .unwrap();
             if in_static {
                 args.push(generated_arg);
             } else {
@@ -894,22 +1054,29 @@ pub(super) fn generate_struct(
     ))
 }
 
+// Promote resources to the next stage
 pub(super) fn generate_return(
     return_expr: &mut Return,
     ident_tracker: &mut IdentTracker,
+    in_static: bool,
 ) -> IResult<TokenStream> {
     let expr = generate_expr(
         &mut return_expr.target,
         None,
         ident_tracker,
         false,
+        in_static,
         false,
         false,
     )
     .unwrap();
-    Ok(quote!(
-        return #expr;
-    ))
+    // Suppose used in rule
+    // TODO rule check
+    if in_static {
+        Ok(quote!(self.parent_ruleset.borrow_mut().__register_return_val(&self.name, #expr)))
+    } else {
+        Ok(quote!(self.parent_ruleset.borrow_mut().__register_return_val(&self.name, #expr.await)))
+    }
 }
 
 // Generate Match expression to achieve match action
@@ -925,6 +1092,7 @@ pub(super) fn generate_match(
         ident_tracker,
         false,
         in_static,
+        false,
         false,
     )
     .unwrap();
@@ -1100,7 +1268,7 @@ pub(super) fn generate_match_condition(
 ) -> IResult<TokenStream> {
     // Right now, satisfiable can only take literals, but in the future, this should be more flexible
     match &mut *match_condition.satisfiable {
-        Satisfiable::Lit(literal) => Ok(generate_lit(literal, ident_tracker, false).unwrap()),
+        Satisfiable::Lit(literal) => Ok(generate_lit(literal, ident_tracker, false, true).unwrap()),
         _ => Err(RuLaCompileError::RuLaInitializationError(
             InitializationError::new("at match condition"),
         )),
@@ -1116,7 +1284,16 @@ pub(super) fn generate_match_action(
     let mut actionables = vec![];
     for actionable in &mut *match_action.actionable {
         actionables.push(
-            generate_expr(actionable, None, ident_tracker, true, in_static, in_closure).unwrap(),
+            generate_expr(
+                actionable,
+                None,
+                ident_tracker,
+                true,
+                in_static,
+                in_closure,
+                false,
+            )
+            .unwrap(),
         );
     }
     Ok(quote!(
@@ -1128,12 +1305,16 @@ pub(super) fn generate_comp(
     comp_expr: &mut Comp,
     rule_name: Option<&String>,
     ident_tracker: &mut IdentTracker,
+    do_await: bool,
+    in_static: bool,
+    do_reverse: bool,
 ) -> IResult<TokenStream> {
     let lhs = generate_expr(
         &mut comp_expr.lhs,
         rule_name,
         ident_tracker,
-        false,
+        do_await,
+        in_static,
         false,
         false,
     )
@@ -1142,25 +1323,35 @@ pub(super) fn generate_comp(
         &mut comp_expr.rhs,
         rule_name,
         ident_tracker,
-        false,
+        do_await,
+        in_static,
         false,
         false,
     )
     .unwrap();
-    let op = match *comp_expr.comp_op {
-        CompOpKind::Lt => quote!(<),
-        CompOpKind::Gt => quote!(>),
-        CompOpKind::LtE => quote!(<=),
-        CompOpKind::GtE => quote!(>=),
-        CompOpKind::Eq => quote!(==),
-        CompOpKind::Nq => quote!(!=),
+    let (op, cmp_op) = match *comp_expr.comp_op {
+        CompOpKind::Lt => (quote!(<), quote!(__CmpOp::Lt)),
+        CompOpKind::Gt => (quote!(>), quote!(__CmpOp::Gt)),
+        CompOpKind::LtE => (quote!(<=), quote!(__CmpOp::LtE)),
+        CompOpKind::GtE => (quote!(>=), quote!(__CmpOp::GtE)),
+        CompOpKind::Eq => (quote!(==), quote!(__CmpOp::Eq)),
+        CompOpKind::Nq => (quote!(!=), quote!(__CmpOp::Nq)),
         CompOpKind::PlaceHolder => {
             return Err(RuLaCompileError::RuLaInitializationError(
                 InitializationError::new("at generating comp expression"),
             ))
         }
     };
-    Ok(quote!(#lhs #op #rhs))
+    if in_static {
+        if do_reverse {
+            // If we need opposite condition for ruleset generation, set do reverse
+            Ok(quote!(__static__comp(#lhs, #cmp_op, #rhs, true, Rc::clone(&rules))))
+        } else {
+            Ok(quote!(__static__comp(#lhs, #cmp_op, #rhs, false, Rc::clone(&rules))))
+        }
+    } else {
+        Ok(quote!(__comp(#lhs, #cmp_op, #rhs)))
+    }
 }
 
 pub(super) fn generate_ruleset_expr(
@@ -1168,43 +1359,34 @@ pub(super) fn generate_ruleset_expr(
     ident_tracker: &mut IdentTracker,
 ) -> IResult<TokenStream> {
     // 1. Generate static RuleSet for serialized output
-    // Get tables to store rules
-    let rules = RULES.get().expect("Failed to get Rule table");
     // Get meta information for this RuleSet
     let ruleset_name = &*ruleset_expr.name.name;
-    let mut rule_names = vec![];
-
-    for rule in &ruleset_expr.rules {
-        match rule {
-            // Ordinary Rule call (e.g. swapping_rule())
-            RuleIdentifier::FnCall(fn_call_expr) => {
-                // Rule without any return values
-                rules
-                    .lock()
-                    .unwrap()
-                    .push(String::from(&*fn_call_expr.func_name.name));
-                rule_names.push(String::from(&*fn_call_expr.func_name.name));
-            }
-            RuleIdentifier::Let(let_stmt) => {
-                // Rule with return value
-                // In the static RuleSet, it doesn't care if there is a return value or not
-                // The name of the function must be in RULE_TABLE
-                let expr = &*let_stmt.expr;
-                match &*expr.kind {
-                    ExprKind::FnCall(fn_call) => {
-                        // rule_add_evaluater(&*fn_call.func_name.name).unwrap();
-                        rules
-                            .lock()
-                            .unwrap()
-                            .push(String::from(&*fn_call.func_name.name));
-                        rule_names.push(String::from(&*fn_call.func_name.name));
+    let rule_names = {
+        let mut rnames = vec![];
+        for rule in &ruleset_expr.rules {
+            match rule {
+                // Ordinary Rule call (e.g. swapping_rule())
+                RuleIdentifier::FnCall(fn_call_expr) => {
+                    // Rule without any return values
+                    rnames.push(String::from(&*fn_call_expr.func_name.name));
+                }
+                RuleIdentifier::Let(let_stmt) => {
+                    // Rule with return value
+                    // In the static RuleSet, it doesn't care if there is a return value or not
+                    // The name of the function must be in RULE_TABLE
+                    let expr = &*let_stmt.expr;
+                    match &*expr.kind {
+                        ExprKind::FnCall(fn_call) => {
+                            // rule_add_evaluater(&*fn_call.func_name.name).unwrap();
+                            rnames.push(String::from(&*fn_call.func_name.name));
+                        }
+                        _ => unreachable!("Invalid RuleCall {:#?}", rule),
                     }
-                    _ => unreachable!("Invalid RuleCall {:#?}", rule),
                 }
             }
         }
-    }
-
+        rnames
+    };
     // Replace all the TBD information with configed values
     // Expand Config here
     let config = match &*ruleset_expr.config {
@@ -1217,8 +1399,15 @@ pub(super) fn generate_ruleset_expr(
                 pub fn resolve_config(&mut self, config: Box<&#name>, index: Option<usize>){
                     for (_, rule) in &mut self.unready_rules{
                         for arg in &mut rule.arg_list(){
-                            let argument = config.__get_as_arg(arg, index);
-                            rule.resolve_argument(arg, argument);
+                            match config.__get_as_arg(arg, index){
+                                Some(argument) => {
+                                    rule.resolve_argument(arg, argument)
+                                },
+                                None => {
+                                    // Value should be promoted by previous rule
+                                    rule.resolve_argument(arg, Argument::init());
+                                }
+                            }
                         }
                     }
                 }
@@ -1236,6 +1425,7 @@ pub(super) fn generate_ruleset_expr(
             name: String,
             unready_rules: HashMap<String, UnreadyRules>,
             rules: HashMap<String, ReadyRules>,
+            returned_values: HashMap<String, Argument>,
         }
         // impl <F: std::marker::Copy>RuleSetExec <F>
         // where F: FnOnce(HashMap<String, Argument>) -> Box<dyn Rulable>,
@@ -1246,7 +1436,11 @@ pub(super) fn generate_ruleset_expr(
                     name: #ruleset_name.to_string(),
                     unready_rules: HashMap::new(),
                     rules: HashMap::new(),
+                    returned_values: HashMap::new(),
                 }
+            }
+            pub fn __register_return_val(&mut self, arg_name: &str, value: Argument){
+                self.returned_values.insert(arg_name.to_string(), value);
             }
             // pub fn add_rule<F: std::marker::Copy>(&mut self, name: String, rule: F)
             pub fn add_unready_rule(&mut self, name: String, rule: UnreadyRules)
@@ -1269,9 +1463,16 @@ pub(super) fn generate_ruleset_expr(
 
             #config
 
-            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>){
+            pub fn gen_ruleset(&mut self, ruleset: &mut RuleSet<ActionClausesV2>, owner: u32){
                 ruleset.update_name(&self.name);
+                ruleset.update_owner_addr(Some(AddressKind::IntegerKind(owner)));
                 for rname in vec![#(#rule_names),*]{
+                    let mut unready_rule = self.unready_rules.get_mut(rname).expect("Unable to find the rules");
+                    for (ret_arg_name, arg) in self.returned_values.iter(){
+                        if unready_rule.arg_list().contains(&ret_arg_name){
+                            unready_rule.resolve_argument(&ret_arg_name, arg.clone());
+                        }
+                    }
                     self.unready_rules
                     .get_mut(rname)
                     .expect("unable to find rule")
@@ -1352,35 +1553,33 @@ pub(super) fn generate_rule(
 
     Ok(quote!(
         pub struct #rule_name_token{
+            name: String,
             interface_names: Vec<String>,
             arguments: HashMap<String, Argument>,
+            parent_ruleset: Rc<RefCell<RuleSetExec>>,
         }
 
         pub struct #unready_rule_name_token{
+            name: String,
             interface_names: Vec<String>,
             // Should copy interface information laters
-            static_interfaces: HashMap<String, QnicInterface>,
+            static_interfaces: __StaticInterface,
             arguments: HashMap<String, Argument>,
+            parent_ruleset: Rc<RefCell<RuleSetExec>>,
         }
 
         impl #unready_rule_name_token{
-            pub fn new() -> #unready_rule_name_token{
+            pub fn new(__static_interface:__StaticInterface, parent_ruleset: Rc<RefCell<RuleSetExec>>) -> #unready_rule_name_token{
                 // 1. prepare empty arguments based on arugment list
                 let mut empty_argument = HashMap::new();
                 #(#argument_adder);*;
-
-                let mut static_interfaces = HashMap::new();
-                let interface_list = STATIC_INTERFACES.get().expect("Unable to find interface table");
-                for i_name in vec![#(#interface_idents), *].iter(){
-                    let interface_def = interface_list.lock().unwrap().get(i_name).expect("Unable to get interface").clone();
-                    // let interface_def = QnicInterface::generate_mock_interface(i_name, 10);
-                    static_interfaces.insert(i_name.to_string(), interface_def);
-                }
                 // 2. return structure
                 #unready_rule_name_token{
-                    interface_names: vec![#(#interface_idents), *],
-                    static_interfaces: static_interfaces,
+                    name: String::from(#rule_name_string),
+                    interface_names: vec![#(#interface_idents),*],
+                    static_interfaces: __static_interface,
                     arguments: empty_argument,
+                    parent_ruleset: parent_ruleset,
                 }
             }
 
@@ -1393,8 +1592,10 @@ pub(super) fn generate_rule(
                 Some(
                     ReadyRules::#rule_name_token(
                     #rule_name_token{
+                        name: self.name.clone(),
                         interface_names: self.interface_names.clone(),
                         arguments: self.arguments.clone(),
+                        parent_ruleset: self.parent_ruleset.clone(),
                     }))
             }
 
@@ -1413,6 +1614,10 @@ pub(super) fn generate_rule(
                     arg_vec.push(arg.clone());
                 }
                 arg_vec
+            }
+
+            pub fn register_return_val(&mut self, rule_name: &str, argument: Argument){
+                self.parent_ruleset.borrow_mut().__register_return_val(rule_name, argument);
             }
             #[doc = "No execution, but gen ruleset"]
             fn static_ruleset_gen(&mut self) -> Stage<ActionClausesV2>{
@@ -1464,7 +1669,7 @@ pub(super) fn generate_rule_content(
     let post_process = &mut rule_content_expr.post_processing;
     let mut post_processes = vec![];
     for stmt in post_process {
-        post_processes.push(generate_stmt(stmt, None, ident_tracker, false).unwrap());
+        post_processes.push(generate_stmt(stmt, None, ident_tracker, false, false).unwrap());
     }
     // Generate executable
     // Here we should consider to use TaskMonitor in tokio to track the status of watched values
@@ -1603,19 +1808,15 @@ pub(super) fn generate_awaitable(
                 false,
             )
             .unwrap();
-            if in_static {
-                quote!(#generated_val)
-            } else {
-                quote!(
-                  #generated_val.await
-                )
-            }
+            quote!(#generated_val)
         }
         Awaitable::Comp(comp) => {
-            let generated_comp = generate_comp(comp, rule_name, ident_tracker).unwrap();
-            quote!(
-                (||{ #generated_comp })()
-            )
+            let generated_comp = if in_static {
+                generate_comp(comp, rule_name, ident_tracker, false, in_static, false).unwrap()
+            } else {
+                generate_comp(comp, rule_name, ident_tracker, true, in_static, false).unwrap()
+            };
+            quote!(#generated_comp)
         }
     };
     if in_static {
@@ -1642,7 +1843,8 @@ pub(super) fn generate_act(
             StmtKind::Let(let_stmt) => action_calls
                 .push(generate_let(let_stmt, rule_name, ident_tracker, false, false).unwrap()),
             _ => {
-                let generated = generate_stmt(action, rule_name, ident_tracker, false).unwrap();
+                let generated =
+                    generate_stmt(action, rule_name, ident_tracker, true, false).unwrap();
                 action_calls.push(quote!(
                     #generated;
                 ))
@@ -1666,7 +1868,8 @@ pub(super) fn generate_static_act(
             StmtKind::Let(let_stmt) => static_action_calls
                 .push(generate_let(let_stmt, rule_name, ident_tracker, false, true).unwrap()),
             _ => {
-                let generated = generate_stmt(action, rule_name, ident_tracker, true).unwrap();
+                let generated =
+                    generate_stmt(action, rule_name, ident_tracker, false, true).unwrap();
                 static_action_calls.push(quote!(
                     #generated;
                 ))
@@ -1718,6 +1921,8 @@ pub(super) fn generate_variable_call(
     for (index, val) in &mut variable_call_expr.variables.iter().enumerate() {
         let specified = if index == 0 {
             false
+        } else if do_await {
+            true
         } else {
             match &variable_call_expr.variables[index - 1] {
                 Callable::Ident(ident) => {
@@ -1731,7 +1936,6 @@ pub(super) fn generate_variable_call(
                 _ => false,
             }
         };
-
         match val.clone() {
             Callable::FnCall(mut fn_call_inner) => {
                 if specified {
@@ -1776,7 +1980,7 @@ pub(super) fn generate_array(
 ) -> IResult<TokenStream> {
     let mut items = vec![];
     for lits in array_expr.items.iter() {
-        items.push(generate_lit(lits, ident_tracker, false).unwrap());
+        items.push(generate_lit(lits, ident_tracker, false, false).unwrap());
     }
     Ok(quote!(vec![#(#items),*]))
 }
@@ -1785,6 +1989,7 @@ pub(super) fn generate_lit(
     lit: &Lit,
     ident_tracker: &mut IdentTracker,
     in_static: bool,
+    in_match: bool,
 ) -> IResult<TokenStream> {
     match &*lit.kind {
         LitKind::Ident(ident_lit) => {
@@ -1796,7 +2001,11 @@ pub(super) fn generate_lit(
         }
         LitKind::StringLit(string_lit) => {
             let val = SynLit::Str(LitStr::new(&string_lit.as_string(), Span::call_site()));
-            Ok(quote!(#val))
+            if in_match {
+                Ok(quote!(#val))
+            } else {
+                Ok(quote!(#val.to_string()))
+            }
         }
         _ => todo!("{:#?} not yet implemented", lit),
     }
@@ -1832,7 +2041,7 @@ pub(super) fn generate_ident(
             } else {
                 // In static
                 quote!(
-                    self.static_interfaces.get(#ident_str).expect("Unable to get Interface")
+                    self.static_interfaces.__get_interface(#ident_str)
                 )
             }
         }
@@ -1879,10 +2088,9 @@ pub(super) fn generate_ident(
 pub(super) fn generate_type_hint(type_hint: &TypeDef) -> IResult<TokenStream> {
     match type_hint {
         TypeDef::Boolean => Ok(quote!(bool)),
-        TypeDef::Integer32 => Ok(quote!(i32)),
-        TypeDef::Integer64 => Ok(quote!(i64)),
-        TypeDef::UnsignedInteger32 => Ok(quote!(u32)),
-        TypeDef::UnsignedInteger64 => Ok(quote!(u64)),
+        TypeDef::Integer => Ok(quote!(i64)),
+        TypeDef::UnsignedInteger => Ok(quote!(u64)),
+        TypeDef::Float => Ok(quote!(f64)),
         TypeDef::Str => Ok(quote!(String)),
         TypeDef::Qubit => Ok(quote!(QubitInterface)),
         TypeDef::Vector(inner) => {
@@ -1924,7 +2132,7 @@ pub mod helper {
             #[tokio::test]
             async fn run_main() {
                 main().await;
-                assert_eq!(1, 2);
+                assert_eq!(1, 1);
             }
         )
     }
@@ -1934,22 +2142,16 @@ pub mod helper {
             Some(hint) => {
                 match hint {
                     // Convert to available type
-                    TypeDef::Integer32 => TypeHint::Integer64,
-                    TypeDef::Integer64 => TypeHint::Integer64,
-                    TypeDef::Float32 => TypeHint::Float64,
-                    TypeDef::Float64 => TypeHint::Float64,
+                    TypeDef::Integer => TypeHint::Integer64,
+                    TypeDef::Float => TypeHint::Float64,
                     TypeDef::Str => TypeHint::Str,
-                    TypeDef::UnsignedInteger32 => TypeHint::UnsignedInteger64,
-                    TypeDef::UnsignedInteger64 => TypeHint::UnsignedInteger64,
+                    TypeDef::UnsignedInteger => TypeHint::UnsignedInteger64,
                     TypeDef::Boolean => TypeHint::Boolean,
                     TypeDef::Vector(inner) => match &**inner {
-                        TypeDef::Integer32 => TypeHint::I64Vector,
-                        TypeDef::Integer64 => TypeHint::I64Vector,
-                        TypeDef::Float32 => TypeHint::F64Vector,
-                        TypeDef::Float64 => TypeHint::F64Vector,
+                        TypeDef::Integer => TypeHint::I64Vector,
+                        TypeDef::Float => TypeHint::F64Vector,
                         TypeDef::Str => TypeHint::StrVector,
-                        TypeDef::UnsignedInteger32 => TypeHint::U64Vector,
-                        TypeDef::UnsignedInteger64 => TypeHint::U64Vector,
+                        TypeDef::UnsignedInteger => TypeHint::U64Vector,
                         TypeDef::Boolean => TypeHint::BoolVector,
                         _ => todo!(),
                     },
@@ -1967,46 +2169,26 @@ pub mod helper {
             Some(hint) => {
                 match hint {
                     // Convert to available type
-                    TypeDef::Integer32 => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
-                    TypeDef::Integer64 => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
-                    TypeDef::Float32 => (quote!(Float64), quote!(LibTypeHint::Float64)),
-                    TypeDef::Float64 => (quote!(Float64), quote!(LibTypeHint::Float64)),
+                    TypeDef::Integer => (quote!(Integer64), quote!(LibTypeHint::Integer64)),
+                    TypeDef::Float => (quote!(Float64), quote!(LibTypeHint::Float64)),
                     TypeDef::Str => (quote!(Str), quote!(LibTypeHint::Str)),
-                    TypeDef::UnsignedInteger32 => (
-                        quote!(UnsignedInteger64),
-                        quote!(LibTypeHint::UnsignedInteger64),
-                    ),
-                    TypeDef::UnsignedInteger64 => (
+                    TypeDef::UnsignedInteger => (
                         quote!(UnsignedInteger64),
                         quote!(LibTypeHint::UnsignedInteger64),
                     ),
                     TypeDef::Boolean => (quote!(Boolean), quote!(TypeHint::Boolean)),
                     TypeDef::Vector(content_type) => match &**content_type {
-                        TypeDef::Integer32 => (
+                        TypeDef::Integer => (
                             quote!(I64Vector),
                             quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Integer64))),
                         ),
-                        TypeDef::Integer64 => (
-                            quote!(I64Vector),
-                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Integer64))),
-                        ),
-                        TypeDef::UnsignedInteger32 => (
+                        TypeDef::UnsignedInteger => (
                             quote!(U64Vector),
                             quote!(LibTypeHint::Vector(Box::new(
                                 LibTypeHint::UnsignedInteger64
                             ))),
                         ),
-                        TypeDef::UnsignedInteger64 => (
-                            quote!(U64Vector),
-                            quote!(LibTypeHint::Vector(Box::new(
-                                LibTypeHint::UnsignedInteger64
-                            ))),
-                        ),
-                        TypeDef::Float32 => (
-                            quote!(F64Vector),
-                            quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Float64))),
-                        ),
-                        TypeDef::Float64 => (
+                        TypeDef::Float => (
                             quote!(F64Vector),
                             quote!(LibTypeHint::Vector(Box::new(LibTypeHint::Float64))),
                         ),

@@ -185,7 +185,7 @@ pub mod v1 {
         #[test]
         fn test_condition_clause() {
             let mut condition = Condition::new(None);
-            let interface = InterfaceInfo::new(None, None, None);
+            let interface = InterfaceInfo::new(None, None, None, None);
             // from(fidelity: f64, qnic_interface: Interface)
             let fidelity_clause = v1::ConditionClauses::Fidelity(v1::Fidelity::new(0.95, None));
             condition.add_condition_clause(fidelity_clause);

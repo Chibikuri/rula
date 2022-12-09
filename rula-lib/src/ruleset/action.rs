@@ -40,6 +40,8 @@ pub mod v2 {
         Send(Send),
         /// Free consumed resource for later use
         Free,
+        /// Promote resource from one rule to the next rule
+        Promote,
         /// Update the status of qubit
         Update(Update),
     }

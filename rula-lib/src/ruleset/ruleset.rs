@@ -5,8 +5,6 @@ use std::net::IpAddr;
 use super::action::*;
 use super::condition::v1::ConditionClauses;
 use super::condition::*;
-use crate::qnic;
-use crate::qnic::QnicInterface;
 use crate::qnic::QnicType;
 
 fn generate_id() -> u128 {
@@ -29,11 +27,54 @@ pub struct RuleSet<T> {
     /// Owner address can only be solved after the all network interface options are collected
     pub owner_addr: Option<AddressKind>,
     /// Default rule to be applied
-    pub default_rule: Option<Rule<T>>,
+    // pub default_rule: Option<Rule<T>>,
     /// List of rules stored in this RuleSet
     pub stages: Vec<Stage<T>>,
     /// To give index to the rules sequentially
     num_rules: u32,
+}
+
+// For generating RuleSet for simulator or real world devices,
+// owner address will return integer value or ip address
+// This might be deprecated in the future
+// Note: This can be a generic type, but in the generator, the RuleSet is called
+// as a global singleton. For that purpose, this enum is defined.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum AddressKind {
+    // For connection to the simulator
+    IntegerKind(u32),
+    IpKind(IpAddr),
+}
+
+impl<T> RuleSet<T> {
+    pub fn new(name: &str) -> Self {
+        RuleSet {
+            name: name.to_string(),
+            id: generate_id(),
+            owner_addr: None,
+            // default_rule: None,
+            stages: vec![],
+            num_rules: 0,
+        }
+    }
+
+    pub fn update_name(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
+
+    pub fn update_owner_addr(&mut self, owner_addr: Option<AddressKind>) {
+        self.owner_addr = owner_addr;
+    }
+
+    // pub fn add_default_rule(&mut self, rule: Option<Rule<T>>) {
+    //     self.default_rule = rule;
+    // }
+
+    pub fn add_stage(&mut self, mut stage: Stage<T>) {
+        stage.update_id(self.num_rules);
+        self.stages.push(stage);
+        self.num_rules += 1;
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -59,67 +100,33 @@ impl<T> Stage<T> {
     }
 }
 
-// For generating RuleSet for simulator or real world devices,
-// owner address will return integer value or ip address
-// This might be deprecated in the future
-// Note: This can be a generic type, but in the generator, the RuleSet is called
-// as a global singleton. For that purpose, this enum is defined.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum AddressKind {
-    // For connection to the simulator
-    IntegerKind(i32),
-    IpKind(IpAddr),
-}
-
-impl<T> RuleSet<T> {
-    pub fn new(name: &str) -> Self {
-        RuleSet {
-            name: name.to_string(),
-            id: generate_id(),
-            owner_addr: None,
-            default_rule: None,
-            stages: vec![],
-            num_rules: 0,
-        }
-    }
-
-    pub fn update_name(&mut self, name: &str) {
-        self.name = name.to_string();
-    }
-
-    pub fn update_owner_addr(&mut self, owner_addr: Option<AddressKind>) {
-        self.owner_addr = owner_addr;
-    }
-
-    pub fn add_default_rule(&mut self, rule: Option<Rule<T>>) {
-        self.default_rule = rule;
-    }
-
-    pub fn add_stage(&mut self, mut stage: Stage<T>) {
-        stage.update_id(self.num_rules);
-        self.stages.push(stage);
-        self.num_rules += 1;
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InterfaceInfo {
     // This could be ip addr in the future
-    partner_addr: Option<u32>,
-    qnic_id: Option<u64>,
+    partner_addr: Option<PartnerAddr>,
+    qnic_id: Option<u32>,
     qnic_type: Option<QnicType>,
+    qnic_address: Option<IpAddr>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum PartnerAddr {
+    IpAddr(IpAddr),
+    Number(u32),
 }
 
 impl InterfaceInfo {
     pub fn new(
-        partner_addr: Option<u32>,
-        qnic_id: Option<u64>,
+        partner_addr: Option<PartnerAddr>,
+        qnic_id: Option<u32>,
         qnic_type: Option<QnicType>,
+        qnic_address: Option<IpAddr>,
     ) -> Self {
         InterfaceInfo {
             partner_addr: partner_addr,
             qnic_id: qnic_id,
             qnic_type: qnic_type,
+            qnic_address: qnic_address,
         }
     }
 }
