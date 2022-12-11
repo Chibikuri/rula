@@ -58,9 +58,6 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
             Rule::rule_expr => program.add_program(ProgramKind::RuleExpr(
                 build_ast_from_rule_expr(block).unwrap(),
             )),
-            // Rule::stmt => program.add_program(ProgramKind::Stmt(
-            //     build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap(),
-            // )),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
@@ -70,12 +67,6 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
 // Parse statement <--> {Let statement | expression}
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
-        // Rule::config_def => Ok(Stmt::new(StmtKind::Config(
-        //     build_ast_from_config_def(pair).unwrap(),
-        // ))),
-        // Rule::interface_def => Ok(Stmt::new(StmtKind::Interface(
-        //     build_ast_from_interface(pair).unwrap(),
-        // ))),
         Rule::let_stmt => Ok(Stmt::new(StmtKind::Let(
             build_ast_from_let_stmt(pair).unwrap(),
         ))),

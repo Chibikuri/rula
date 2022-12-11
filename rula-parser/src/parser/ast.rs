@@ -1,10 +1,6 @@
-use crate::parser::error::RuLaError;
-use std::collections::HashSet;
-use std::fmt::Debug;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
-type IResult<T> = std::result::Result<T, RuLaError>;
 /**
  * Top AST node starts from RuLa
 */
