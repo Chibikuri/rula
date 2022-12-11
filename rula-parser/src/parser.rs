@@ -8,9 +8,9 @@ use ast::*;
 use error::RuLaError;
 use std::path::PathBuf;
 
-use once_cell::sync::Lazy;
+// use once_cell::sync::Lazy;
 use pest::iterators::Pair;
-use pest::prec_climber::{Assoc, Operator, PrecClimber};
+// use pest::prec_climber::{Assoc, Operator, PrecClimber};
 
 // Custome error interface for rula
 pub type IResult<T> = std::result::Result<T, RuLaError>;
@@ -259,7 +259,7 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
             }
             Rule::repeater_ident => {
                 // TODO: Should this be vector?
-                rule_expr.add_repeater_ident(build_ast_from_ident(block).unwrap());
+                rule_expr.add_repeater_ident(build_ast_from_ident(block.into_inner().next().unwrap()).unwrap());
             }
             Rule::argument_def => {
                 for arg in block.into_inner() {
@@ -286,6 +286,17 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
 
 fn build_ast_from_return_type_annotation(pair: Pair<Rule>) -> IResult<ReturnTypeAnnotation> {
     let mut ret_type_annotation = ReturnTypeAnnotation::place_holder();
+    for block in pair.into_inner(){
+        match block.as_rule(){
+            Rule::typedef_lit => {
+                ret_type_annotation.add_type_def(build_ast_from_typedef_lit(block.into_inner().next().unwrap()).unwrap());
+            },
+            Rule::maybe => {
+                ret_type_annotation.update_maybe();
+            },
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
     Ok(ret_type_annotation)
 }
 
@@ -385,9 +396,11 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
 
 fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
     let mut for_expr = For::place_holder();
-    // for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ generator ~ brace_stmt }
     for block in pair.into_inner() {
         match block.as_rule() {
+            Rule::ident =>{
+                for_expr.add_ident(build_ast_from_ident(block).unwrap());
+            }
             Rule::ident_list => {
                 // omitted (patterns)
                 // for identifier lists (ident, ident2, ...)
@@ -402,7 +415,7 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
                 ));
             }
             Rule::expr => {
-                for_expr.add_generator(ForGenerator::Expr(build_ast_from_expr(block).unwrap()))
+                for_expr.add_generator(ForGenerator::Expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()))
             }
             Rule::stmt => {
                 for_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
@@ -423,7 +436,6 @@ fn build_ast_from_match_expr(pair: Pair<Rule>) -> IResult<Match> {
     let mut match_expr = Match::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ident => match_expr.add_temp_val(Some(build_ast_from_ident(block).unwrap())),
             Rule::expr => match_expr
                 .add_expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
             Rule::match_arm => match_expr.add_match_arm(build_ast_from_match_arm(block).unwrap()),
@@ -488,21 +500,9 @@ fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
 
 fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
     let mut return_expr = Return::place_holder();
-    for block in pair.into_inner() {
+    for block in pair.into_inner(){
         match block.as_rule() {
-            Rule::expr => return_expr.add_target(build_ast_from_expr(block).unwrap()),
-            // Rule::variable_call_expr => return_expr.add_target(Expr::new(
-            //     ExprKind::VariableCallExpr(build_ast_from_variable_call_expr(block).unwrap()),
-            // )),
-            // Rule::fn_call_expr => return_expr.add_target(Expr::new(ExprKind::FnCall(
-            //     build_ast_from_fn_call_expr(block).unwrap(),
-            // ))),
-            // Rule::tuple => {
-            //     todo!("Tuple return is under construction")
-            // }
-            // Rule::ident => return_expr.add_target(Expr::new(ExprKind::Lit(Lit::new(
-            //     LitKind::Ident(build_ast_from_ident(block).unwrap()),
-            // )))),
+            Rule::expr => return_expr.add_target(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
@@ -679,11 +679,6 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             "float" => return Ok(TypeDef::Float),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
-        // Right now complex support is not supported TODO
-        // Rule::complex_type => match pair.as_str() {
-        //     "complex" => return Ok(TypeDef::Complex),
-        //     _ => return Err(RuLaError::RuLaSyntaxError),
-        // },
         Rule::boolean_type => match pair.as_str() {
             "bool" => return Ok(TypeDef::Boolean),
             _ => return Err(RuLaError::RuLaSyntaxError),

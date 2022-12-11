@@ -80,6 +80,7 @@ impl Program {
 // Not program can only include a set of statements
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProgramKind {
+    Repeaters,
     Stmt(Stmt),
 }
 
@@ -353,7 +354,6 @@ impl PathKind {
             ident_vec.push(Ident::new(
                 p.clone().into_os_string().to_str().unwrap(),
                 None,
-                IdentType::Other,
             ))
         }
         ident_vec
@@ -381,12 +381,7 @@ pub struct RuleSetExpr {
 }
 
 impl RuleSetExpr {
-    pub fn new(
-        name: Ident,
-        config: Option<Ident>,
-        default: Option<FnCall>,
-        rules: Vec<Stmt>,
-    ) -> Self {
+    pub fn new(name: Ident, rules: Vec<Stmt>) -> Self {
         RuleSetExpr {
             name: Box::new(name),
             rules: rules,
@@ -466,23 +461,27 @@ impl RuleExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnTypeAnnotation {
-    pub typedefs: Vec<TypeDef>,
-    // The value might not be returned since the value mmight be freed
-    pub maybe: Vec<bool>,
+    pub typedefs: Vec<(TypeDef, bool)>,
 }
 
 impl ReturnTypeAnnotation {
-    pub fn new(typedef: Vec<TypeDef>, maybe: Vec<bool>) -> Self {
+    pub fn new(typedef: Vec<(TypeDef, bool)>) -> Self {
         ReturnTypeAnnotation {
             typedefs: typedef,
-            maybe: maybe,
         }
     }
     pub fn place_holder() -> Self {
         ReturnTypeAnnotation {
             typedefs: vec![],
-            maybe: vec![],
         }
+    }
+
+    pub fn add_type_def(&mut self, type_def: TypeDef){
+        self.typedefs.push((type_def, false));
+    }
+    pub fn update_maybe(&mut self){
+        let last_val = self.typedefs.pop().unwrap();
+        self.typedefs.push((last_val.0, true));
     }
 }
 
@@ -537,10 +536,10 @@ pub struct CondExpr {
 }
 
 impl CondExpr {
-    pub fn new(name: Option<Ident>, awaitables: Vec<CondClauses>) -> Self {
+    pub fn new(name: Option<Ident>, cond_clauses: Vec<CondClauses>) -> Self {
         CondExpr {
             name: Box::new(name),
-            clauses: awaitables,
+            clauses: cond_clauses,
         }
     }
     pub fn place_holder() -> Self {
@@ -800,37 +799,26 @@ impl Series {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
-    pub temp_val: Box<Option<Ident>>,
     pub expr: Box<Expr>,
     pub match_arms: Vec<MatchArm>,
-    pub finally: Box<Option<MatchAction>>,
+    pub otherwise: Box<Option<MatchAction>>,
 }
 
 impl Match {
-    pub fn new(
-        temp_val: Option<Ident>,
-        expr: Expr,
-        match_arms: Vec<MatchArm>,
-        finally: Option<MatchAction>,
-    ) -> Self {
+    pub fn new(expr: Expr, match_arms: Vec<MatchArm>, otherwise: Option<MatchAction>) -> Self {
         Match {
-            temp_val: Box::new(temp_val),
             expr: Box::new(expr),
             match_arms: match_arms,
-            finally: Box::new(finally),
+            otherwise: Box::new(otherwise),
         }
     }
 
     pub fn place_holder() -> Self {
         Match {
-            temp_val: Box::new(None),
             expr: Box::new(Expr::place_holder()),
             match_arms: vec![],
-            finally: Box::new(None),
+            otherwise: Box::new(None),
         }
-    }
-    pub fn add_temp_val(&mut self, temp_val: Option<Ident>) {
-        self.temp_val = Box::new(temp_val);
     }
     pub fn add_expr(&mut self, expr: Expr) {
         self.expr = Box::new(expr);
@@ -839,7 +827,7 @@ impl Match {
         self.match_arms.push(match_arm);
     }
     pub fn add_finally(&mut self, finally: Option<MatchAction>) {
-        self.finally = Box::new(finally);
+        self.otherwise = Box::new(finally);
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -1220,7 +1208,7 @@ pub struct NumberLit {
 impl NumberLit {
     pub fn new(val: &str) -> Self {
         NumberLit {
-            value: Box::new(Ident::new(val, None, IdentType::Other)),
+            value: Box::new(Ident::new(val, None)),
         }
     }
     pub fn place_holder() -> Self {
@@ -1273,25 +1261,13 @@ impl UnicordLit {
 pub struct Ident {
     pub name: Box<String>,
     pub type_hint: Box<Option<TypeDef>>,
-    pub ident_type: Box<IdentType>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum IdentType {
-    QnicInterface,
-    QubitInterface,
-    ConfigName,
-    WatchedValue,
-    RuleArgument,
-    Other,
 }
 
 impl Ident {
-    pub fn new(name: &str, type_def: Option<TypeDef>, ident_type: IdentType) -> Ident {
+    pub fn new(name: &str, type_def: Option<TypeDef>) -> Ident {
         Ident {
             name: Box::new(String::from(name)),
             type_hint: Box::new(type_def),
-            ident_type: Box::new(ident_type),
         }
     }
     // Do we have better way?
@@ -1299,7 +1275,6 @@ impl Ident {
         Ident {
             name: Box::new(String::from("")),
             type_hint: Box::new(None),
-            ident_type: Box::new(IdentType::Other),
         }
     }
     pub fn add_name(&mut self, name: &str) {
@@ -1308,9 +1283,6 @@ impl Ident {
 
     pub fn add_type_hint(&mut self, type_hint: Option<TypeDef>) {
         self.type_hint = Box::new(type_hint);
-    }
-    pub fn update_ident_type(&mut self, ident_type: IdentType) {
-        self.ident_type = Box::new(ident_type);
     }
     pub fn check(&self) {
         if *self.name == String::from("") {

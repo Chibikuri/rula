@@ -72,7 +72,7 @@ impl CmpTarget {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-enum CmpKind {
+pub enum CmpKind {
     MeasResult,
     Fidelity,
     MeasCount,

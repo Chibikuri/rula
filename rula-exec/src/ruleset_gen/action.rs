@@ -175,11 +175,11 @@ mod tests {
         let mut qcirc = QCirc::new();
         let qgate = QGate::new(QubitIdentifier { qubit_index: 0 }, QGateType::H);
         qcirc.add_qgate(qgate);
-        let clause = ActionClauses::QCirc(qcirc);
+        let clause = ActionClauses::QCirc(qcirc.clone());
         action.add_action_clause(clause);
         assert_eq!(action.name, None);
         assert_eq!(action.clauses.len(), 1);
-        assert_eq!(action.clauses[0], ActionClauses::QCirc(qcirc.clone()));
+        assert_eq!(action.clauses[0], ActionClauses::QCirc(qcirc));
     }
 
     #[test]

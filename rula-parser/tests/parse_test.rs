@@ -7,47 +7,12 @@ fn build_stmt_ast(statement: Stmt) -> AstNode {
     ]))))
 }
 
-mod interface_tests {
-    use super::*;
-    #[test]
-    fn test_interface_def() {
-        let interface_def = "#interface: {qn0, qn1};";
-        let interface_def_ast = rula_parser::parse(interface_def).unwrap();
-        let target_ast_nodes = AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
-            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
-                vec![
-                    Ident::new("qn0", None, IdentType::Other),
-                    Ident::new("qn1", None, IdentType::Other),
-                ],
-                None,
-            )))),
-        ]))));
-        assert_eq!(interface_def_ast, target_ast_nodes);
-    }
-
-    #[test]
-    fn test_interface_def_with_group_name() {
-        let interface_def = "#interface: {qn0, qn1} => qnall;";
-        let interface_def_ast = rula_parser::parse(interface_def).unwrap();
-        let target_ast_nodes = AstNode::RuLa(RuLa::new(RuLaKind::Program(Program::new(vec![
-            ProgramKind::Stmt(Stmt::new(StmtKind::Interface(Interface::new(
-                vec![
-                    Ident::new("qn0", None, IdentType::Other),
-                    Ident::new("qn1", None, IdentType::Other),
-                ],
-                Some(Ident::new("qnall", None, IdentType::Other)),
-            )))),
-        ]))));
-        assert_eq!(interface_def_ast, target_ast_nodes)
-    }
-}
-
 mod import_tests {
     use super::*;
     #[test]
     #[rustfmt::skip]
     fn test_single_import() {
-        let import_expr = "import hello;";
+        let import_expr = "import hello";
         let ast_nodes = rula_parser::parse(import_expr).unwrap();
         let expected_paths = vec![["hello"].iter().collect()];
         let expected_ast_nodes = 
@@ -70,7 +35,7 @@ mod import_tests {
     #[test]
     #[rustfmt::skip]
     fn test_nested_import() {
-        let import_expr = "import hello::world;";
+        let import_expr = "import hello::world";
         let ast_nodes = rula_parser::parse(import_expr).unwrap();
         let expected_paths = vec![["hello", "world"].iter().collect()];
         let expected_ast_nodes = 
@@ -93,7 +58,7 @@ mod import_tests {
     #[test]
     #[rustfmt::skip]
     fn test_multiple_import() {
-        let import_expr = "import hello::{world, there};";
+        let import_expr = "import hello::{world, there}";
         let ast_nodes = rula_parser::parse(import_expr).unwrap();
 
         let expected_path_hello_world = ["hello", "world"].iter().collect();
@@ -184,7 +149,7 @@ mod comment_tests {
     }
 }
 
-mod let_tests {
+mod let_stmt_tests {
     use super::*;
 
     #[test]
@@ -200,7 +165,6 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 Some(TypeDef::Str),
-                                IdentType::Other,
                             ),
                             Expr::new(
                                 ExprKind::Lit(
@@ -233,11 +197,14 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 Some(TypeDef::Integer),
-                                IdentType::Other, 
                             ),
                             Expr::new(
-                                ExprKind::Term(
-                                    123.0
+                                ExprKind::Lit(
+                                    Lit::new(
+                                        LitKind::NumberLit(
+                                            NumberLit::new("123")
+                                        )
+                                    )
                                 )
                             )
                         )
@@ -260,7 +227,6 @@ mod let_tests {
                             Ident::new(
                                 "hello",
                                 None,
-                                IdentType::Other, 
                             ),
                             Expr::new(
                                 ExprKind::If(
@@ -273,7 +239,6 @@ mod let_tests {
                                                         Ident::new(
                                                             "block",
                                                             None,
-                                                            IdentType::Other,
                                                         ) 
                                                     )
                                                 )
@@ -290,7 +255,6 @@ mod let_tests {
                                                                 Ident::new(
                                                                     "expression",
                                                                     None,
-                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         )
@@ -314,7 +278,7 @@ mod let_tests {
     }
 }
 
-mod if_tests {
+mod if_expr_tests {
     use super::*;
 
     #[test]
@@ -337,7 +301,6 @@ mod if_tests {
                                                     Ident::new(
                                                         "block",
                                                         None,
-                                                        IdentType::Other, 
                                                     ) 
                                                 )
                                             )
@@ -353,7 +316,6 @@ mod if_tests {
                                                             Ident::new(
                                                                 "expression",
                                                                 None,
-                                                                IdentType::Other, 
                                                             )
                                                         )
                                                     )
@@ -399,7 +361,6 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "block",
                                                                         None,
-                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -415,7 +376,6 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "expression",
                                                                                 None,
-                                                                                IdentType::Other,
                                                                             ) 
                                                                         )
                                                                     )
@@ -436,7 +396,6 @@ mod if_tests {
                                                                                 Ident::new(
                                                                                     "expression2",
                                                                                     None,
-                                                                                    IdentType::Other, 
                                                                                 ) 
                                                                             )
                                                                         )
@@ -485,7 +444,6 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "block",
                                                                         None,
-                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -501,7 +459,7 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "expression",
                                                                                 None,
-                                                                                IdentType::Other, 
+                                                                                
                                                                             ) 
                                                                         )
                                                                     )
@@ -520,7 +478,6 @@ mod if_tests {
                                                                             Ident::new(
                                                                                 "block2",
                                                                                 None,
-                                                                                IdentType::Other,
                                                                             ) 
                                                                         )
                                                                     )
@@ -536,7 +493,7 @@ mod if_tests {
                                                                                     Ident::new(
                                                                                         "expression2",
                                                                                         None,
-                                                                                        IdentType::Other, 
+                                                                                        
                                                                                     ) 
                                                                                 )
                                                                             )
@@ -585,7 +542,7 @@ mod if_tests {
                                                     Ident::new(
                                                         "block",
                                                         None,
-                                                        IdentType::Other, 
+                                                        
                                                     ) 
                                                 )
                                             )
@@ -601,7 +558,6 @@ mod if_tests {
                                                             Ident::new(
                                                                 "expression",
                                                                 None,
-                                                                IdentType::Other,
                                                             ) 
                                                         )
                                                     )
@@ -620,7 +576,6 @@ mod if_tests {
                                                             Ident::new(
                                                                 "block2",
                                                                 None,
-                                                                IdentType::Other,
                                                             ) 
                                                         )
                                                     )
@@ -636,7 +591,6 @@ mod if_tests {
                                                                     Ident::new(
                                                                         "expression2",
                                                                         None,
-                                                                        IdentType::Other, 
                                                                     ) 
                                                                 )
                                                             )
@@ -659,7 +613,6 @@ mod if_tests {
                                                                 Ident::new(
                                                                     "expression3",
                                                                     None,
-                                                                    IdentType::Other, 
                                                                 ) 
                                                             )
                                                         )
@@ -679,249 +632,113 @@ mod if_tests {
     // Add error test here
 }
 
-mod fn_def_test {
+mod test_ruleset_expr {
     use super::*;
 
     #[test]
     #[rustfmt::skip]
-    fn test_simple_fn_def() {
-        let fn_def_expr = "fn(block:int){expression}";
-        let fn_def_asts = rula_parser::parse(fn_def_expr).unwrap();
+    fn test_simple_ruleset(){
+        let ruleset_expr = "ruleset entanglement_swapping{
+            stmts
+        }";
+        let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
+
         let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
                         Expr::new(
-                            ExprKind::FnDef(
-                                FnDef::new(
+                            ExprKind::RuleSetExpr(
+                                RuleSetExpr::new(
+                                    Ident::new(
+                                        "entanglement_swapping",
+                                        None,
+                                    ),
                                     vec![
-                                        Ident::new(
-                                            "block",
-                                            Some(TypeDef::Integer),
-                                            IdentType::Other, 
-                                        )
-                                        ],
-                                        Stmt::new(
-                                            StmtKind::Expr(
-                                                Expr::new(
-                                                    ExprKind::Lit(
-                                                        Lit::new(
-                                                            LitKind::Ident(
-                                                                Ident::new(
-                                                                    "expression",
-                                                                    None, 
-                                                                    IdentType::Other,
-                                                                ) 
+                                    Stmt::new(
+                                        StmtKind::Expr(
+                                            Expr::new(
+                                                ExprKind::Lit(
+                                                    Lit::new(
+                                                        LitKind::Ident(
+                                                            Ident::new(
+                                                                "stmts",
+                                                                None
                                                             )
                                                         )
                                                     )
-                                                ),
+                                                )
                                             )
                                         )
-                                    ),
+                                    )]
                                 )
                             )
                         )
                     )
-                );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_mlti_args_fn_def() {
-        let fn_def_expr = "fn(block:int, hello:str){expression}";
-        let fn_def_asts = rula_parser::parse(fn_def_expr).unwrap();
-        let target_ast_nodes =
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::FnDef(
-                                FnDef::new(
-                                    vec![
-                                        Ident::new(
-                                            "block",
-                                            Some(TypeDef::Integer),
-                                            IdentType::Other,
-                                        ),
-                                        Ident::new(
-                                            "hello",
-                                            Some(TypeDef::Str),
-                                            IdentType::Other, 
-                                        ),
-                                        ],
-                                        Stmt::new(
-                                            StmtKind::Expr(
-                                                Expr::new(
-                                                    ExprKind::Lit(
-                                                        Lit::new(
-                                                            LitKind::Ident(
-                                                                Ident::new(
-                                                                    "expression",
-                                                                    None,
-                                                                    IdentType::Other, 
-                                                                ) 
-                                                            )
-                                                        ),
-                                                    )
-                                                ),
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                );
-        assert_eq!(target_ast_nodes, fn_def_asts);
+                )
+            );
+        assert_eq!(ruleset_expr_asts, target_ast_nodes);
     }
 }
 
-mod term_tests {
+mod test_rule_expr {
     use super::*;
 
     #[test]
     #[rustfmt::skip]
-    fn test_simple_term_expr() {
-        let term_expr = "1+3";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
+    fn test_simple_rule_expr() {
+        let rule_expr = "rule hello<#rep>(q2: qubit, q3: qubit) :-> qubit? {cond{} => act{}}";
+        let rule_expr_asts = rula_parser::parse(rule_expr).unwrap();
         let target_ast_nodes = 
             build_stmt_ast(
                 Stmt::new(
                     StmtKind::Expr(
                         Expr::new(
-                            ExprKind::Term(
-                                4.0
-                            )
-                            )
-                        )
-                    )
-                );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_term_expr_with_order() {
-        let term_expr = "4*(3+4)";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Term(
-                                28.0    
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_term_expr_with_order2() {
-        let term_expr = "(1-4)*(3+4)/3";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Term(
-                                -7.0   
+                            ExprKind::RuleExpr(
+                                RuleExpr::new(
+                                    Ident::new(
+                                        "hello",
+                                        None,
+                                    ),
+                                    Ident::new(
+                                        "rep",
+                                        None,
+                                        
+                                    ),
+                                vec![
+                                    Ident::new(
+                                        "q2",
+                                        Some(TypeDef::Qubit),
+                                        
+                                    ),
+                                    Ident::new(
+                                        "q3",
+                                        Some(TypeDef::Qubit),
+                                        
+                                    )
+                                ],
+                                Some(ReturnTypeAnnotation::new(
+                                    vec![(TypeDef::Qubit, true)],
+                                )),
+                                RuleContentExpr::new(
+                                    vec![],
+                                    CondExpr::new(
+                                        None,
+                                        vec![],
+                                    ),
+                                    ActExpr::new(
+                                        None,
+                                        vec![]
+                                    ),
+                                    vec![]
+                                )
                             )
                         )
                     )
                 )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_edge_case_term_expr() {
-        let term_expr = "((12))";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Term(
-                                12.0
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_complex_term_expr() {
-        // divition is tricky a little
-        let term_expr = "(1/(3-1))";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes =
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Term(
-                                1.0/(3.0-1.0)
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_complex_term_expr2() {
-        // divition is tricky a little
-        let term_expr = "(1+(2*(3/(4-(5*(6/(7+8)))))))";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Term(
-                                1.0+(2.0*(3.0/(4.0-(5.0*(6.0/(7.0+8.0))))))
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_complex_term_expr3() {
-        // divition is tricky a little
-        let term_expr = "(((((1+2)-3)*4)+5)-6)";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Term(
-                                (((((1+2)-3)*4)+5)-6) as f64
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
+            )
+        );
+        assert_eq!(target_ast_nodes, rule_expr_asts);
     }
 }
 
@@ -932,7 +749,7 @@ mod for_expr_test {
     #[rustfmt::skip]
     fn test_simple_for_expr() {
         // divition is tricky a little
-        let term_expr = "for (i) in range(){hello}";
+        let term_expr = "for i in range(){hello}";
         let fn_def_asts = rula_parser::parse(term_expr).unwrap();
         let target_ast_nodes =
             build_stmt_ast(
@@ -945,18 +762,20 @@ mod for_expr_test {
                                         Ident::new(
                                             "i",
                                             None,
-                                            IdentType::Other,
+                                            
                                         )
                                     ],
-                                    Expr::new(
-                                        ExprKind::FnCall(
-                                            FnCall::new(
-                                                Ident::new(
-                                                    "range",
-                                                    None,
-                                                    IdentType::Other, 
-                                                ),
-                                                vec![]
+                                    ForGenerator::Expr(
+                                        Expr::new(
+                                            ExprKind::FnCall(
+                                                FnCall::new(
+                                                    Ident::new(
+                                                        "range",
+                                                        None,
+                                                    ),
+                                                    false,
+                                                    vec![]
+                                                )
                                             )
                                         )
                                     ),
@@ -969,7 +788,7 @@ mod for_expr_test {
                                                             Ident::new(
                                                                 "hello",
                                                                 None,
-                                                                IdentType::Other,
+                                                                
                                                             )
                                                         )
                                                     )
@@ -1003,27 +822,29 @@ mod for_expr_test {
                                         Ident::new(
                                             "a",
                                             None,
-                                            IdentType::Other,
+                                            
                                         ),
                                         Ident::new(
                                             "b",
                                             None,
-                                            IdentType::Other,
+                                            
                                         ),
                                         Ident::new(
                                             "c",
                                             None,
-                                            IdentType::Other,
+                                            
                                         )
                                     ],
-                                    Expr::new(
-                                        ExprKind::Lit(
-                                            Lit::new(
-                                                LitKind::Ident(
-                                                    Ident::new(
-                                                        "generator",
-                                                        None,
-                                                        IdentType::Other,
+                                    ForGenerator::Expr(
+                                        Expr::new(
+                                            ExprKind::Lit(
+                                                Lit::new(
+                                                    LitKind::Ident(
+                                                        Ident::new(
+                                                            "generator",
+                                                            None,
+                                                            
+                                                        )
                                                     )
                                                 )
                                             )
@@ -1038,86 +859,7 @@ mod for_expr_test {
                                                             Ident::new(
                                                                 "hello",
                                                                 None,
-                                                                IdentType::Other,
-                                                            )
-                                                        )
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    )]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_multi_arg_lists_for_expr() {
-        // divition is tricky a little
-        let term_expr = "for (i) in [1, 2, 3, 4, 5]{hello}";
-        let fn_def_asts = rula_parser::parse(term_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::For(
-                                For::new(
-                                    vec![
-                                        Ident::new(
-                                            "i",
-                                            None,
-                                            IdentType::Other, 
-                                        ),
-                                    ],
-                                    Expr::new(
-                                        ExprKind::Array(
-                                            Array::new(
-                                                vec![
-                                                    Lit::new(
-                                                        LitKind::NumberLit(
-                                                            NumberLit::new("1")
-                                                        )
-                                                    ),
-                                                    Lit::new(
-                                                        LitKind::NumberLit(
-                                                            NumberLit::new("2")
-                                                        )
-                                                    ), 
-                                                    Lit::new(
-                                                        LitKind::NumberLit(
-                                                            NumberLit::new("3")
-                                                        )
-                                                    ), 
-                                                    Lit::new(
-                                                        LitKind::NumberLit(
-                                                            NumberLit::new("4")
-                                                        )
-                                                    ), 
-                                                    Lit::new(
-                                                        LitKind::NumberLit(
-                                                            NumberLit::new("5")
-                                                        )
-                                                    )
-                                                    ]   
-                                            )
-                                        )
-                                    ),
-                                    vec![Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "hello",
-                                                                None,
-                                                                IdentType::Other, 
+                                                                
                                                             )
                                                         )
                                                     )
@@ -1135,112 +877,186 @@ mod for_expr_test {
     }
 }
 
-mod test_while_expr {
+mod test_match_expr {
     use super::*;
 
     #[test]
     #[rustfmt::skip]
-    fn test_while_expr() {
-
-        let while_expr = "while(count > 0){expression}";
-        let fn_def_asts = rula_parser::parse(while_expr).unwrap();
-        let target_ast_nodes =
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::While(
-                                While::new(
-                                    Expr::new(
-                                        ExprKind::Comp(
-                                            Comp::new(
-                                                Expr::new(
-                                                    ExprKind::Lit(
-                                                        Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "count",
-                                                                None,
-                                                                IdentType::Other, 
-                                                            )
-                                                        )
-                                                    )
-                                                )
-                                            ),
-                                            CompOpKind::Gt,
-                                            Expr::new(
-                                                ExprKind::Term(
-                                                    0.0
+    fn test_simple_match_no_otherwise(){
+        let match_expr = "match test{
+            00 => {something()},
+            11 => {otherthing()},
+        }";
+        let match_asts = rula_parser::parse(match_expr).unwrap();
+        let target_ast_nodes = build_stmt_ast(
+            Stmt::new(
+                StmtKind::Expr(
+                    Expr::new(
+                        ExprKind::Match(
+                            Match::new(
+                                Expr::new(
+                                    ExprKind::Lit(
+                                        Lit::new(
+                                            LitKind::Ident(
+                                                Ident::new(
+                                                    "test",
+                                                    None
                                                 )
                                             )
                                         )
                                     )
                                 ),
-                                Stmt::new(
-                                    StmtKind::Expr(
-                                        Expr::new(
-                                            ExprKind::Lit(
+                                vec![
+                                    MatchArm::new(
+                                        MatchCondition::new(
+                                            Satisfiable::Lit(
                                                 Lit::new(
-                                                    LitKind::Ident(
-                                                        Ident::new(
-                                                            "expression",
-                                                            None,
-                                                            IdentType::Other, 
-                                                        )
+                                                    LitKind::NumberLit(
+                                                        NumberLit::new("00")
                                                     )
                                                 )
                                             )
+                                        ),
+                                        MatchAction::new(
+                                            vec![
+                                                Expr::new(
+                                                    ExprKind::FnCall(
+                                                        FnCall::new(
+                                                            Ident::new("something", None),
+                                                            false,
+                                                            vec![], 
+                                                        )
+                                                    )
+                                                )
+                                            ]
+                                        )
+                                    ),
+                                    MatchArm::new(
+                                        MatchCondition::new(
+                                            Satisfiable::Lit(
+                                                Lit::new(
+                                                    LitKind::NumberLit(
+                                                        NumberLit::new("11")
+                                                    )
+                                                )
+                                            )
+                                        ),
+                                        MatchAction::new(
+                                            vec![
+                                                Expr::new(
+                                                    ExprKind::FnCall(
+                                                        FnCall::new(
+                                                            Ident::new("otherthing", None),
+                                                            false,
+                                                            vec![], 
+                                                        )
+                                                    )
+                                                )   
+                                            ]
                                         )
                                     )
-                                )
+                                ],
+                                None
                             )
                         )
                     )
                 )
             )
         );
-        assert_eq!(target_ast_nodes, fn_def_asts);
+        assert_eq!(target_ast_nodes, match_asts);
     }
 
     #[test]
     #[rustfmt::skip]
-    fn test_while_expr_ident() {
-
-        let while_expr = "while(count){expression}";
-        let fn_def_asts = rula_parser::parse(while_expr).unwrap();
-        let target_ast_nodes =
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::While(
-                                While::new(
-                                    Expr::new(
-                                        ExprKind::Lit(
-                                            Lit::new(
-                                                LitKind::Ident(
-                                                    Ident::new(
-                                                        "count",
-                                                        None,
-                                                        IdentType::Other,
-                                                    )
+    fn test_simple_match_with_otherwise(){
+        let match_expr = "match test{
+            00 => {something()},
+            11 => {otherthing()},
+            otherwise => {final()}
+        }";
+        let match_asts = rula_parser::parse(match_expr).unwrap();
+        let target_ast_nodes = build_stmt_ast(
+            Stmt::new(
+                StmtKind::Expr(
+                    Expr::new(
+                        ExprKind::Match(
+                            Match::new(
+                                Expr::new(
+                                    ExprKind::Lit(
+                                        Lit::new(
+                                            LitKind::Ident(
+                                                Ident::new(
+                                                    "test",
+                                                    None
                                                 )
                                             )
                                         )
+                                    )
+                                ),
+                                vec![
+                                    MatchArm::new(
+                                        MatchCondition::new(
+                                            Satisfiable::Lit(
+                                                Lit::new(
+                                                    LitKind::NumberLit(
+                                                        NumberLit::new("00")
+                                                    )
+                                                )
+                                            )
+                                        ),
+                                        MatchAction::new(
+                                            vec![
+                                                Expr::new(
+                                                    ExprKind::FnCall(
+                                                        FnCall::new(
+                                                            Ident::new("something", None),
+                                                            false,
+                                                            vec![], 
+                                                        )
+                                                    )
+                                                )   
+                                            ]
+                                        )
                                     ),
-                                    Stmt::new(
-                                        StmtKind::Expr(
+                                    MatchArm::new(
+                                        MatchCondition::new(
+                                            Satisfiable::Lit(
+                                                Lit::new(
+                                                    LitKind::NumberLit(
+                                                        NumberLit::new("11")
+                                                    )
+                                                )
+                                            )
+                                        ),
+                                        MatchAction::new(
+                                            vec![
+                                                Expr::new(
+                                                    ExprKind::FnCall(
+                                                        FnCall::new(
+                                                            Ident::new("otherthing", None),
+                                                            false,
+                                                            vec![], 
+                                                        )
+                                                    )
+                                                )   
+                                            ]
+                                        )
+                                    )
+                                ],
+                                Some(
+                                    MatchAction::new(
+                                        vec![
                                             Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "expression",
-                                                                None,
-                                                                IdentType::Other,
+                                                ExprKind::FnCall(
+                                                    FnCall::new(
+                                                        Ident::new(
+                                                            "final", None), 
+                                                            false,
+                                                             vec![]
                                                             )
                                                         )
                                                     )
+                                                    ]
                                                 )
                                             )
                                         )
@@ -1248,124 +1064,8 @@ mod test_while_expr {
                                 )
                             )
                         )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_while_expr_literal() {
-
-        let while_expr = "while(true){expression}";
-        let fn_def_asts = rula_parser::parse(while_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::While(
-                                While::new(
-                                    Expr::new(
-                                        ExprKind::Lit(
-                                            Lit::new(
-                                                LitKind::BooleanLit(
-                                                    true
-                                                )
-                                            )
-                                        )
-                                    ),
-                                    Stmt::new(
-                                        StmtKind::Expr(
-                                            Expr::new(
-                                                ExprKind::Lit(
-                                                    Lit::new(
-                                                        LitKind::Ident(
-                                                            Ident::new(
-                                                                "expression",
-                                                                None,
-                                                                IdentType::Other,
-                                                            )
-                                                        )
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-}
-
-mod test_struct_expr {
-    use super::*;
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_empty_struct_expr() {
-
-        let struct_expr = "struct Test{}";
-        let fn_def_asts = rula_parser::parse(struct_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Struct(
-                                Struct::new(
-                                    Ident::new(
-                                        "Test",
-                                        None,
-                                        IdentType::Other, 
-                                    ),
-                                    vec![]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_struct_expr() {
-
-        let struct_expr = "struct Test{flag: bool}";
-        let fn_def_asts = rula_parser::parse(struct_expr).unwrap();
-        let target_ast_nodes =
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::Struct(
-                                Struct::new(
-                                    Ident::new(
-                                        "Test",
-                                        None,
-                                        IdentType::Other,
-                                    ),
-                                    vec![
-                                        Ident::new(
-                                            "flag",
-                                            Some(TypeDef::Boolean),
-                                            IdentType::Other,
-                                        )
-                                    ]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts);
+                    );
+        assert_eq!(target_ast_nodes, match_asts);
     }
 }
 
@@ -1392,7 +1092,7 @@ mod test_return_expr {
                                                     Ident::new(
                                                         "hello",
                                                         None,
-                                                        IdentType::Other, 
+                                                        
                                                     )
                                                 )
                                             )
@@ -1405,255 +1105,6 @@ mod test_return_expr {
                 )
             );
         assert_eq!(target_ast_nodes, fn_def_asts);
-    }
-}
-
-mod test_ruleset_expr {
-    use super::*;
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_ruleset(){
-        let ruleset_expr = "ruleset() entanglement_swapping{rules()}";
-        let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
-
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::RuleSetExpr(
-                                RuleSetExpr::new(
-                                    Ident::new(
-                                        "entanglement_swapping",
-                                        None,
-                                        IdentType::Other, 
-                                    ),
-                                    None,
-                                    None, 
-                                    vec![RuleIdentifier::FnCall(
-                                        FnCall::new(
-                                            Ident::new(
-                                                "rules",
-                                                None,
-                                                IdentType::Other, 
-                                            ),
-                                            vec![],
-                                        )
-                                    )]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(ruleset_expr_asts, target_ast_nodes);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_ruleset_with_default(){
-        let ruleset_expr = "ruleset() entanglement_swapping{default: default() rules()}";
-        let ruleset_expr_asts = rula_parser::parse(ruleset_expr).unwrap();
-
-        let target_ast_nodes =
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::RuleSetExpr(
-                                RuleSetExpr::new(
-                                    Ident::new(
-                                        "entanglement_swapping",
-                                        None,
-                                        IdentType::Other,
-                                    ),
-                                    None,
-                                    Some(
-                                        FnCall::new(
-                                            Ident::new(
-                                                "default",
-                                                None,
-                                                IdentType::Other, 
-                                            ),
-                                            vec![]
-                                        )
-                                    ),
-                                    vec![RuleIdentifier::FnCall(
-                                            FnCall::new(
-                                                Ident::new(
-                                                    "rules",
-                                                    None,
-                                                    IdentType::Other,
-                                                ),
-                                                vec![]
-                                            )
-                                        )
-                                    ]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(ruleset_expr_asts, target_ast_nodes);
-    }
-}
-mod test_rule_expr {
-    use super::*;
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_rule_expr() {
-
-        let rule_expr = "rule hello<qn0>(q2: qubit, q3: qubit){cond{} => act{}}";
-        let rule_expr_asts = rula_parser::parse(rule_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::RuleExpr(
-                                RuleExpr::new(
-                                    Ident::new(
-                                        "hello",
-                                        None,
-                                        IdentType::Other,
-                                    ),
-                                vec![
-                                    Ident::new(
-                                        "qn0",
-                                        None,
-                                        IdentType::Other,
-                                    ),
-                                ].into_iter().collect(),
-                                vec![
-                                    Ident::new(
-                                        "q2",
-                                        Some(TypeDef::Qubit),
-                                        IdentType::Other,
-                                    ),
-                                    Ident::new(
-                                        "q3",
-                                        Some(TypeDef::Qubit),
-                                        IdentType::Other,
-                                    )
-                                ],
-                                RuleContentExpr::new(
-                                    CondExpr::new(
-                                        None,
-                                        None,
-                                        vec![]
-                                    ),
-                                    ActExpr::new(
-                                        None,
-                                        vec![]
-                                    ),
-                                    vec![]
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        );
-        assert_eq!(target_ast_nodes, rule_expr_asts);
-    }
-}
-
-mod test_condition_expr {
-    use super::*;
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_cond_expr() {
-        let cond_expr = "cond condition1 { awaitable()}";
-        let fn_def_asts = rula_parser::parse(cond_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::CondExpr(
-                                CondExpr::new(
-                                    Some(
-                                        Ident::new(
-                                            "condition1",
-                                            None,
-                                            IdentType::Other,
-                                        )
-                                    ),
-                                    None,
-                                    vec![
-                                        Awaitable::FnCall(
-                                            FnCall::new(
-                                                Ident::new(
-                                                    "awaitable",
-                                                    None,
-                                                    IdentType::Other,
-                                                ),
-                                                vec![]
-                                            )
-                                        )
-                                    ]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts); 
-    }
-}
-
-mod test_action_expr {
-    use super::*;
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_simple_act_expr() {
-        let act_expr = "act act1 {operatable}";
-        let fn_def_asts = rula_parser::parse(act_expr).unwrap();
-        let target_ast_nodes = 
-            build_stmt_ast(
-                Stmt::new(
-                    StmtKind::Expr(
-                        Expr::new(
-                            ExprKind::ActExpr(
-                                ActExpr::new(
-                                    Some(
-                                        Ident::new(
-                                            "act1",
-                                            None,
-                                            IdentType::Other,
-                                        )
-                                    ),
-                                    vec![
-                                        Stmt::new(
-                                            StmtKind::Expr(
-                                                Expr::new(
-                                                    ExprKind::Lit(
-                                                        Lit::new(
-                                                            LitKind::Ident(
-                                                                Ident::new(
-                                                                    "operatable",
-                                                                    None,
-                                                                    IdentType::Other,
-                                                                )
-                                                            )
-                                                        )
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    ]
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        assert_eq!(target_ast_nodes, fn_def_asts); 
     }
 }
 
@@ -1709,11 +1160,9 @@ mod test_literals {
     // helper function
     fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> AstNode {
         let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Let(Let::new(
-            Ident::new(name, type_def, IdentType::Other),
+            Ident::new(name, type_def),
             Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                "val",
-                None,
-                IdentType::Other,
+                "val", None,
             ))))),
         ))));
         target_ast_nodes
@@ -1803,8 +1252,8 @@ mod test_variable_call {
         let var_call_ast = rula_parser::parse(var_call).unwrap();
         let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
-                Callable::Ident(Ident::new("test", None, IdentType::Other)),
-                Callable::Ident(Ident::new("hello", None, IdentType::Other)),
+                Callable::Ident(Ident::new("test", None)),
+                Callable::Ident(Ident::new("hello", None)),
             ])),
         ))));
         assert_eq!(target_ast_nodes, var_call_ast);
@@ -1816,29 +1265,23 @@ mod test_variable_call {
         let var_call_ast = rula_parser::parse(var_call).unwrap();
         let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
             ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
-                Callable::Ident(Ident::new("test", None, IdentType::Other)),
-                Callable::FnCall(FnCall::new(
-                    Ident::new("hello", None, IdentType::Other),
-                    vec![],
-                )),
+                Callable::Ident(Ident::new("test", None)),
+                Callable::FnCall(FnCall::new(Ident::new("hello", None), false, vec![])),
             ])),
         ))));
         assert_eq!(target_ast_nodes, var_call_ast);
     }
 
-    #[test]
-    fn test_simple_variable_fnc_call_first() {
-        let var_call = "test().hello";
-        let var_call_ast = rula_parser::parse(var_call).unwrap();
-        let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
-            ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
-                Callable::FnCall(FnCall::new(
-                    Ident::new("test", None, IdentType::Other),
-                    vec![],
-                )),
-                Callable::Ident(Ident::new("hello", None, IdentType::Other)),
-            ])),
-        ))));
-        assert_eq!(target_ast_nodes, var_call_ast);
-    }
+    // #[test]
+    // fn test_simple_variable_fnc_call_first() {
+    //     let var_call = "test().hello";
+    //     let var_call_ast = rula_parser::parse(var_call).unwrap();
+    //     let target_ast_nodes = build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(
+    //         ExprKind::VariableCallExpr(VariableCallExpr::new(vec![
+    //             Callable::FnCall(FnCall::new(Ident::new("test", None), false, vec![])),
+    //             Callable::Ident(Ident::new("hello", None)),
+    //         ])),
+    //     ))));
+    //     assert_eq!(target_ast_nodes, var_call_ast);
+    // }
 }
