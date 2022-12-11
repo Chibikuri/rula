@@ -1,6 +1,8 @@
 rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 
-program = { repeaters? ~ ( stmt )* }
+// Function definition could also be in this list
+// Program is composed of higher level expressions (import, rule, ruleset)
+program = { repeaters? ~ ( import_expr | rule_expr | ruleset_expr )* }
 
 stmt = { let_stmt | expr }
 
@@ -10,9 +12,6 @@ let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ "=" ~ expr}
 
 expr = {
   // named
-  import_expr |
-  ruleset_expr |
-  rule_expr |
   if_expr | 
   for_expr|
   match_expr | 

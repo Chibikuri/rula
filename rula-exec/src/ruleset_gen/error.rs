@@ -1,1 +1,3 @@
-pub enum RuleSetGenerationError {}
+pub enum RuleSetGenError {
+    InitializationError,
+}

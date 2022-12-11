@@ -81,7 +81,10 @@ impl Program {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProgramKind {
     Repeaters,
-    Stmt(Stmt),
+    // Higher level expressions
+    Import(Import),
+    RuleSetExpr(RuleSetExpr),
+    RuleExpr(RuleExpr),
 }
 
 // #[derive(Debug, Clone, PartialEq)]
@@ -135,8 +138,6 @@ impl Stmt {
 pub enum StmtKind {
     Let(Let),
     Expr(Expr),
-    // Interface(Interface),
-    // Config(Config),
     PlaceHolder, // For initialization use
 }
 
@@ -276,10 +277,6 @@ impl Expr {
  * */
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
-    //
-    Import(Import),
-    RuleSetExpr(RuleSetExpr),
-    RuleExpr(RuleExpr),
     If(If),
     For(For),
     Match(Match),
@@ -466,20 +463,16 @@ pub struct ReturnTypeAnnotation {
 
 impl ReturnTypeAnnotation {
     pub fn new(typedef: Vec<(TypeDef, bool)>) -> Self {
-        ReturnTypeAnnotation {
-            typedefs: typedef,
-        }
+        ReturnTypeAnnotation { typedefs: typedef }
     }
     pub fn place_holder() -> Self {
-        ReturnTypeAnnotation {
-            typedefs: vec![],
-        }
+        ReturnTypeAnnotation { typedefs: vec![] }
     }
 
-    pub fn add_type_def(&mut self, type_def: TypeDef){
+    pub fn add_type_def(&mut self, type_def: TypeDef) {
         self.typedefs.push((type_def, false));
     }
-    pub fn update_maybe(&mut self){
+    pub fn update_maybe(&mut self) {
         let last_val = self.typedefs.pop().unwrap();
         self.typedefs.push((last_val.0, true));
     }

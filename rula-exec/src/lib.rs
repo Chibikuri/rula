@@ -8,7 +8,6 @@ pub mod codegen {
 
     pub mod default_token;
     pub mod generator;
-    pub mod identifier;
 
     #[cfg(test)]
     pub mod test_generator;
@@ -24,11 +23,12 @@ pub mod ruleset_gen {
 
     pub mod action;
     pub mod condition;
+    pub mod identifier;
     pub mod ruleset;
     pub mod ruleset_generator;
 
-    use error::RuleSetGenerationError;
-    type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
+    use error::RuleSetGenError;
+    type IResult<T> = std::result::Result<T, RuleSetGenError>;
 }
 
 pub mod utils {}
