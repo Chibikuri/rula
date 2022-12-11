@@ -40,7 +40,7 @@ impl RuLa {
         }
     }
 
-    pub fn aoi() -> RuLa {
+    pub fn eoi() -> RuLa {
         RuLa {
             rula: Box::new(RuLaKind::Eoi),
         }
@@ -83,32 +83,32 @@ pub enum ProgramKind {
     Stmt(Stmt),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Interface {
-    pub interface: Vec<Ident>,
-    pub group_name: Box<Option<Ident>>,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Interface {
+//     pub interface: Vec<Ident>,
+//     pub group_name: Box<Option<Ident>>,
+// }
 
-impl Interface {
-    pub fn new(interfaces: Vec<Ident>, group_name: Option<Ident>) -> Self {
-        Interface {
-            interface: interfaces,
-            group_name: Box::new(group_name),
-        }
-    }
-    pub fn place_holder() -> Self {
-        Interface {
-            interface: vec![],
-            group_name: Box::new(None),
-        }
-    }
-    pub fn add_interface(&mut self, interface: Ident) {
-        self.interface.push(interface);
-    }
-    pub fn add_name(&mut self, name: Option<Ident>) {
-        self.group_name = Box::new(name);
-    }
-}
+// impl Interface {
+//     pub fn new(interfaces: Vec<Ident>, group_name: Option<Ident>) -> Self {
+//         Interface {
+//             interface: interfaces,
+//             group_name: Box::new(group_name),
+//         }
+//     }
+//     pub fn place_holder() -> Self {
+//         Interface {
+//             interface: vec![],
+//             group_name: Box::new(None),
+//         }
+//     }
+//     pub fn add_interface(&mut self, interface: Ident) {
+//         self.interface.push(interface);
+//     }
+//     pub fn add_name(&mut self, name: Option<Ident>) {
+//         self.group_name = Box::new(name);
+//     }
+// }
 
 // Statement AST could be the top level AST in user writable for now
 #[derive(Debug, Clone, PartialEq)]
@@ -134,73 +134,73 @@ impl Stmt {
 pub enum StmtKind {
     Let(Let),
     Expr(Expr),
-    Interface(Interface),
-    Config(Config),
+    // Interface(Interface),
+    // Config(Config),
     PlaceHolder, // For initialization use
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Config {
-    pub name: Box<Ident>,
-    pub num_node: Box<String>,
-    pub values: Vec<ConfigItem>,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Config {
+//     pub name: Box<Ident>,
+//     pub num_node: Box<String>,
+//     pub values: Vec<ConfigItem>,
+// }
 
-impl Config {
-    pub fn new(name: Ident, num_node: String, values: Vec<ConfigItem>) -> Self {
-        Config {
-            name: Box::new(name),
-            num_node: Box::new(num_node),
-            values: values,
-        }
-    }
+// impl Config {
+//     pub fn new(name: Ident, num_node: String, values: Vec<ConfigItem>) -> Self {
+//         Config {
+//             name: Box::new(name),
+//             num_node: Box::new(num_node),
+//             values: values,
+//         }
+//     }
 
-    pub fn place_holder() -> Self {
-        Config {
-            name: Box::new(Ident::place_holder()),
-            num_node: Box::new(String::from("0")),
-            values: vec![],
-        }
-    }
+//     pub fn place_holder() -> Self {
+//         Config {
+//             name: Box::new(Ident::place_holder()),
+//             num_node: Box::new(String::from("0")),
+//             values: vec![],
+//         }
+//     }
 
-    pub fn update_num_node(&mut self, num_conf: &str) {
-        self.num_node = Box::new(String::from(num_conf));
-    }
+//     pub fn update_num_node(&mut self, num_conf: &str) {
+//         self.num_node = Box::new(String::from(num_conf));
+//     }
 
-    pub fn update_config_name(&mut self, name: Ident) {
-        self.name = Box::new(name);
-    }
-    pub fn add_value(&mut self, config_item: ConfigItem) {
-        self.values.push(config_item);
-    }
-}
+//     pub fn update_config_name(&mut self, name: Ident) {
+//         self.name = Box::new(name);
+//     }
+//     pub fn add_value(&mut self, config_item: ConfigItem) {
+//         self.values.push(config_item);
+//     }
+// }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConfigItem {
-    pub value: Box<Ident>,
-    pub type_def: Box<TypeDef>,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct ConfigItem {
+//     pub value: Box<Ident>,
+//     pub type_def: Box<TypeDef>,
+// }
 
-impl ConfigItem {
-    pub fn new(value: Ident, type_def: TypeDef) -> Self {
-        ConfigItem {
-            value: Box::new(value),
-            type_def: Box::new(type_def),
-        }
-    }
-    pub fn place_holder() -> Self {
-        ConfigItem {
-            value: Box::new(Ident::place_holder()),
-            type_def: Box::new(TypeDef::PlaceHolder),
-        }
-    }
-    pub fn update_name(&mut self, name: Ident) {
-        self.value = Box::new(name);
-    }
-    pub fn add_type_def(&mut self, type_def: TypeDef) {
-        self.type_def = Box::new(type_def);
-    }
-}
+// impl ConfigItem {
+//     pub fn new(value: Ident, type_def: TypeDef) -> Self {
+//         ConfigItem {
+//             value: Box::new(value),
+//             type_def: Box::new(type_def),
+//         }
+//     }
+//     pub fn place_holder() -> Self {
+//         ConfigItem {
+//             value: Box::new(Ident::place_holder()),
+//             type_def: Box::new(TypeDef::PlaceHolder),
+//         }
+//     }
+//     pub fn update_name(&mut self, name: Ident) {
+//         self.value = Box::new(name);
+//     }
+//     pub fn add_type_def(&mut self, type_def: TypeDef) {
+//         self.type_def = Box::new(type_def);
+//     }
+// }
 
 /**
  * Let statement composed of identifier and expression
@@ -275,24 +275,28 @@ impl Expr {
  * */
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
+    //
     Import(Import),
-    If(If),
-    For(For),
-    While(While),
-    FnDef(FnDef),
-    FnCall(FnCall),
-    Struct(Struct),
-    Return(Return),
-    Match(Match),
-    Comp(Comp),
     RuleSetExpr(RuleSetExpr),
     RuleExpr(RuleExpr),
-    CondExpr(CondExpr),
-    ActExpr(ActExpr),
+    If(If),
+    For(For),
+    Match(Match),
+    Return(Return),
+    //
+    Send(Send),
+    FnCall(FnCall),
+    RuleCall(RuleCall),
+    Comp(Comp),
+    Term(Term), // There could be better way. Leave this for now.
     VariableCallExpr(VariableCallExpr),
-    Array(Array), // [..]
     Lit(Lit),
-    Term(f64),   // There could be better way. Leave this for now.
+    // Struct(Struct),
+    // FnDef(FnDef),
+    // While(While),
+    // CondExpr(CondExpr),
+    // ActExpr(ActExpr),
+    // Array(Array), // [..]
     PlaceHolder, // for initializing reason, but maybe better way?
 }
 
@@ -321,14 +325,14 @@ pub struct PathKind {
 }
 
 impl PathKind {
-    pub fn new() -> PathKind {
+    pub fn new() -> Self {
         PathKind {
             paths: vec![],
             index: 0,
         }
     }
 
-    pub fn from(path_vec: Vec<PathBuf>) -> PathKind {
+    pub fn from(path_vec: Vec<PathBuf>) -> Self {
         PathKind {
             paths: path_vec,
             index: 0,
@@ -367,6 +371,224 @@ impl Iterator for PathKind {
             self.index = self.index + 1;
             return Some(self.paths[curr as usize].clone());
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleSetExpr {
+    pub name: Box<Ident>,
+    pub rules: Vec<Stmt>,
+}
+
+impl RuleSetExpr {
+    pub fn new(
+        name: Ident,
+        config: Option<Ident>,
+        default: Option<FnCall>,
+        rules: Vec<Stmt>,
+    ) -> Self {
+        RuleSetExpr {
+            name: Box::new(name),
+            rules: rules,
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleSetExpr {
+            name: Box::new(Ident::place_holder()),
+            rules: vec![],
+        }
+    }
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+    pub fn add_stmt(&mut self, stmt: Stmt) {
+        self.rules.push(stmt);
+    }
+}
+
+// rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleExpr {
+    pub name: Box<Ident>,
+    pub repeater_ident: Box<Ident>,
+    pub args: Vec<Ident>,
+    pub ret_type_annotation: Box<Option<ReturnTypeAnnotation>>,
+    pub rule_content: Box<RuleContentExpr>,
+}
+
+impl RuleExpr {
+    pub fn new(
+        name: Ident,
+        repeater_ident: Ident,
+        arg_vec: Vec<Ident>,
+        ret_type_annotation: Option<ReturnTypeAnnotation>,
+        rule_content: RuleContentExpr,
+    ) -> Self {
+        RuleExpr {
+            name: Box::new(name),
+            repeater_ident: Box::new(repeater_ident),
+            args: arg_vec,
+            ret_type_annotation: Box::new(ret_type_annotation),
+            rule_content: Box::new(rule_content),
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleExpr {
+            name: Box::new(Ident::place_holder()),
+            repeater_ident: Box::new(Ident::place_holder()),
+            args: vec![],
+            ret_type_annotation: Box::new(None),
+            rule_content: Box::new(RuleContentExpr::place_holder()),
+        }
+    }
+    pub fn add_name(&mut self, name: Ident) {
+        self.name = Box::new(name);
+    }
+
+    pub fn add_repeater_ident(&mut self, name: Ident) {
+        self.repeater_ident = Box::new(name);
+    }
+
+    pub fn add_arg(&mut self, arg: Ident) {
+        self.args.push(arg);
+    }
+
+    pub fn add_return_type_annotation(
+        &mut self,
+        ret_type_annotation: Option<ReturnTypeAnnotation>,
+    ) {
+        self.ret_type_annotation = Box::new(ret_type_annotation);
+    }
+    pub fn add_rule_content(&mut self, rule_content: RuleContentExpr) {
+        self.rule_content = Box::new(rule_content)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReturnTypeAnnotation {
+    pub typedefs: Vec<TypeDef>,
+    // The value might not be returned since the value mmight be freed
+    pub maybe: Vec<bool>,
+}
+
+impl ReturnTypeAnnotation {
+    pub fn new(typedef: Vec<TypeDef>, maybe: Vec<bool>) -> Self {
+        ReturnTypeAnnotation {
+            typedefs: typedef,
+            maybe: maybe,
+        }
+    }
+    pub fn place_holder() -> Self {
+        ReturnTypeAnnotation {
+            typedefs: vec![],
+            maybe: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleContentExpr {
+    pub pre_processing: Vec<Let>,
+    pub condition_expr: Box<CondExpr>,
+    pub action_expr: Box<ActExpr>,
+    pub post_processing: Vec<Stmt>,
+}
+
+impl RuleContentExpr {
+    pub fn new(
+        pre_processing: Vec<Let>,
+        condition_expr: CondExpr,
+        action_expr: ActExpr,
+        post_processing: Vec<Stmt>,
+    ) -> Self {
+        RuleContentExpr {
+            pre_processing: pre_processing,
+            condition_expr: Box::new(condition_expr),
+            action_expr: Box::new(action_expr),
+            post_processing: post_processing,
+        }
+    }
+    pub fn place_holder() -> Self {
+        RuleContentExpr {
+            pre_processing: vec![],
+            condition_expr: Box::new(CondExpr::place_holder()),
+            action_expr: Box::new(ActExpr::place_holder()),
+            post_processing: vec![],
+        }
+    }
+    pub fn add_pre_let_stmt(&mut self, let_stmt: Let) {
+        self.pre_processing.push(let_stmt);
+    }
+    pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
+        self.condition_expr = Box::new(condition_expr);
+    }
+    pub fn add_action_expr(&mut self, action_expr: ActExpr) {
+        self.action_expr = Box::new(action_expr);
+    }
+    pub fn add_post_stmt(&mut self, stmt: Stmt) {
+        self.post_processing.push(stmt);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CondExpr {
+    pub name: Box<Option<Ident>>,
+    pub clauses: Vec<CondClauses>,
+}
+
+impl CondExpr {
+    pub fn new(name: Option<Ident>, awaitables: Vec<CondClauses>) -> Self {
+        CondExpr {
+            name: Box::new(name),
+            clauses: awaitables,
+        }
+    }
+    pub fn place_holder() -> Self {
+        CondExpr {
+            name: Box::new(None),
+            clauses: vec![],
+        }
+    }
+    pub fn add_name(&mut self, name: Option<Ident>) {
+        self.name = Box::new(name);
+    }
+    pub fn add_condition_clause(&mut self, awaitable: CondClauses) {
+        self.clauses.push(awaitable);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CondClauses {
+    Let(Let),
+    FnCall(FnCall),
+    VariableCallExpr(VariableCallExpr),
+    Comp(Comp),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActExpr {
+    pub name: Box<Option<Ident>>,
+    pub operatable: Vec<Stmt>,
+}
+
+impl ActExpr {
+    pub fn new(name: Option<Ident>, operatable: Vec<Stmt>) -> Self {
+        ActExpr {
+            name: Box::new(name),
+            operatable: operatable,
+        }
+    }
+    pub fn place_holder() -> Self {
+        ActExpr {
+            name: Box::new(None),
+            operatable: vec![],
+        }
+    }
+    pub fn add_name(&mut self, name: Option<Ident>) {
+        self.name = Box::new(name);
+    }
+    pub fn add_operatable(&mut self, stmt: Stmt) {
+        self.operatable.push(stmt);
     }
 }
 
@@ -433,31 +655,31 @@ impl If {
 // for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ expr ~ brace_stmt }
 #[derive(Debug, Clone, PartialEq)]
 pub struct For {
-    pub pattern: Vec<Ident>,
-    pub generator: Box<Expr>,
+    pub variables: Vec<Ident>,
+    pub generator: Box<ForGenerator>,
     pub stmts: Vec<Stmt>,
 }
 
 impl For {
-    pub fn new(idents: Vec<Ident>, expression: Expr, statements: Vec<Stmt>) -> Self {
+    pub fn new(idents: Vec<Ident>, expression: ForGenerator, statements: Vec<Stmt>) -> Self {
         For {
-            pattern: idents,
+            variables: idents,
             generator: Box::new(expression),
             stmts: statements,
         }
     }
     pub fn place_holder() -> Self {
         For {
-            pattern: vec![],
-            generator: Box::new(Expr::place_holder()),
+            variables: vec![],
+            generator: Box::new(ForGenerator::PlaceHolder),
             stmts: vec![],
         }
     }
     pub fn add_ident(&mut self, ident: Ident) {
-        self.pattern.push(ident);
+        self.variables.push(ident);
     }
-    pub fn add_expr(&mut self, expr: Expr) {
-        self.generator = Box::new(expr);
+    pub fn add_generator(&mut self, generator: ForGenerator) {
+        self.generator = Box::new(generator);
     }
     pub fn add_stmt(&mut self, stmt: Stmt) {
         self.stmts.push(stmt);
@@ -465,138 +687,116 @@ impl For {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct While {
-    pub block: Box<Expr>,
-    pub stmt: Box<Stmt>,
-}
-
-impl While {
-    pub fn new(block_expr: Expr, stmt: Stmt) -> Self {
-        While {
-            block: Box::new(block_expr),
-            stmt: Box::new(stmt),
-        }
-    }
-    pub fn place_holder() -> Self {
-        While {
-            block: Box::new(Expr::place_holder()),
-            stmt: Box::new(Stmt::place_holder()),
-        }
-    }
-    pub fn add_block(&mut self, block: Expr) {
-        self.block = Box::new(block)
-    }
-    pub fn add_stmt(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt)
-    }
+pub enum ForGenerator {
+    Series(Series),
+    Expr(Expr),
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FnDef {
-    pub arguments: Vec<Ident>, // LitKind::Ident
-    pub stmt: Box<Stmt>,
+pub struct Series {
+    pub start: Box<NumberLit>,
+    pub end: Box<Expr>,
 }
 
-impl FnDef {
-    pub fn new(args: Vec<Ident>, stmt: Stmt) -> FnDef {
-        FnDef {
-            arguments: args,
-            stmt: Box::new(stmt),
-        }
-    }
-    pub fn place_holder() -> FnDef {
-        FnDef {
-            arguments: vec![],
-            stmt: Box::new(Stmt::place_holder()),
-        }
-    }
-
-    pub fn add_arg(&mut self, argument: Ident) {
-        self.arguments.push(argument);
-    }
-
-    pub fn add_expr(&mut self, stmt: Stmt) {
-        self.stmt = Box::new(stmt);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FnCall {
-    pub func_name: Box<Ident>,
-    pub arguments: Vec<Expr>,
-}
-
-impl FnCall {
-    pub fn new(name: Ident, arguments: Vec<Expr>) -> Self {
-        FnCall {
-            func_name: Box::new(name),
-            arguments: arguments,
-        }
-    }
-
-    pub fn place_holder() -> Self {
-        FnCall {
-            func_name: Box::new(Ident::place_holder()),
-            arguments: vec![],
-        }
-    }
-
-    pub fn add_name(&mut self, name: Ident) {
-        self.func_name = Box::new(name);
-    }
-    pub fn add_argument(&mut self, arg: Expr) {
-        self.arguments.push(arg);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Struct {
-    pub name: Box<Ident>,
-    pub items: Vec<Ident>,
-}
-
-impl Struct {
-    pub fn new(name: Ident, item_vec: Vec<Ident>) -> Self {
-        Struct {
-            name: Box::new(name),
-            items: item_vec,
+impl Series {
+    pub fn new(start: NumberLit, end: Expr) -> Self {
+        Series {
+            start: Box::new(start),
+            end: Box::new(end),
         }
     }
     pub fn place_holder() -> Self {
-        Struct {
-            name: Box::new(Ident::place_holder()),
-            items: vec![],
+        Series {
+            start: Box::new(NumberLit::place_holder()),
+            end: Box::new(Expr::place_holder()),
         }
-    }
-
-    pub fn add_name(&mut self, name: Ident) {
-        self.name = Box::new(name)
-    }
-    pub fn add_item(&mut self, item: Ident) {
-        self.items.push(item)
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Return {
-    pub target: Box<Expr>,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct While {
+//     pub block: Box<Expr>,
+//     pub stmt: Box<Stmt>,
+// }
 
-impl Return {
-    pub fn new(return_target: Expr) -> Self {
-        Return {
-            target: Box::new(return_target),
-        }
-    }
-    pub fn place_holder() -> Self {
-        Return {
-            target: Box::new(Expr::place_holder()),
-        }
-    }
-    pub fn add_target(&mut self, target: Expr) {
-        self.target = Box::new(target);
-    }
-}
+// impl While {
+//     pub fn new(block_expr: Expr, stmt: Stmt) -> Self {
+//         While {
+//             block: Box::new(block_expr),
+//             stmt: Box::new(stmt),
+//         }
+//     }
+//     pub fn place_holder() -> Self {
+//         While {
+//             block: Box::new(Expr::place_holder()),
+//             stmt: Box::new(Stmt::place_holder()),
+//         }
+//     }
+//     pub fn add_block(&mut self, block: Expr) {
+//         self.block = Box::new(block)
+//     }
+//     pub fn add_stmt(&mut self, stmt: Stmt) {
+//         self.stmt = Box::new(stmt)
+//     }
+// }
+
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct FnDef {
+//     pub arguments: Vec<Ident>, // LitKind::Ident
+//     pub stmt: Box<Stmt>,
+// }
+
+// impl FnDef {
+//     pub fn new(args: Vec<Ident>, stmt: Stmt) -> FnDef {
+//         FnDef {
+//             arguments: args,
+//             stmt: Box::new(stmt),
+//         }
+//     }
+//     pub fn place_holder() -> FnDef {
+//         FnDef {
+//             arguments: vec![],
+//             stmt: Box::new(Stmt::place_holder()),
+//         }
+//     }
+
+//     pub fn add_arg(&mut self, argument: Ident) {
+//         self.arguments.push(argument);
+//     }
+
+//     pub fn add_expr(&mut self, stmt: Stmt) {
+//         self.stmt = Box::new(stmt);
+//     }
+// }
+
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Struct {
+//     pub name: Box<Ident>,
+//     pub items: Vec<Ident>,
+// }
+
+// impl Struct {
+//     pub fn new(name: Ident, item_vec: Vec<Ident>) -> Self {
+//         Struct {
+//             name: Box::new(name),
+//             items: item_vec,
+//         }
+//     }
+//     pub fn place_holder() -> Self {
+//         Struct {
+//             name: Box::new(Ident::place_holder()),
+//             items: vec![],
+//         }
+//     }
+
+//     pub fn add_name(&mut self, name: Ident) {
+//         self.name = Box::new(name)
+//     }
+//     pub fn add_item(&mut self, item: Ident) {
+//         self.items.push(item)
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
@@ -718,6 +918,116 @@ impl MatchAction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Return {
+    pub target: Box<Expr>,
+}
+
+impl Return {
+    pub fn new(return_target: Expr) -> Self {
+        Return {
+            target: Box::new(return_target),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Return {
+            target: Box::new(Expr::place_holder()),
+        }
+    }
+    pub fn add_target(&mut self, target: Expr) {
+        self.target = Box::new(target);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Send {
+    pub fn_call: Box<FnCall>,
+    // This could be limited more
+    pub expr: Box<Expr>,
+}
+
+impl Send {
+    pub fn new(fn_call: FnCall, expr: Expr) -> Self {
+        Send {
+            fn_call: Box::new(fn_call),
+            expr: Box::new(expr),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Send {
+            fn_call: Box::new(FnCall::place_holder()),
+            expr: Box::new(Expr::place_holder()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FnCall {
+    pub func_name: Box<Ident>,
+    // If this is just a repeater call, true
+    pub repeater_call: bool,
+    pub arguments: Vec<FnCallArgs>,
+}
+
+impl FnCall {
+    pub fn new(name: Ident, repeater_call: bool, arguments: Vec<FnCallArgs>) -> Self {
+        FnCall {
+            func_name: Box::new(name),
+            repeater_call: repeater_call,
+            arguments: arguments,
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        FnCall {
+            func_name: Box::new(Ident::place_holder()),
+            repeater_call: false,
+            arguments: vec![],
+        }
+    }
+
+    pub fn add_name(&mut self, name: Ident) {
+        self.func_name = Box::new(name);
+    }
+    pub fn update_repeater_call(&mut self) {
+        self.repeater_call = true;
+    }
+    pub fn add_argument(&mut self, arg: FnCallArgs) {
+        self.arguments.push(arg);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FnCallArgs {
+    FnCall(FnCall),
+    VariableCall(VariableCallExpr),
+    Lit(Lit),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuleCall {
+    pub rule_name: Box<Ident>,
+    pub repeater_arg: Box<Expr>,
+    pub argument: Vec<FnCallArgs>,
+}
+
+impl RuleCall {
+    pub fn new(rule_name: Ident, repeater_arg: Expr, arguments: Vec<FnCallArgs>) -> Self {
+        RuleCall {
+            rule_name: Box::new(rule_name),
+            repeater_arg: Box::new(repeater_arg),
+            argument: arguments,
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        RuleCall {
+            rule_name: Box::new(Ident::place_holder()),
+            repeater_arg: Box::new(Expr::place_holder()),
+            argument: vec![],
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
 pub struct Comp {
     pub lhs: Box<Expr>, // comparable expression (should be traited later)
     pub comp_op: Box<CompOpKind>,
@@ -749,235 +1059,49 @@ impl Comp {
         self.comp_op = Box::new(op)
     }
 }
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct RuleSetExpr {
-    pub name: Box<Ident>,
-    pub config: Box<Option<Ident>>,
-    pub default: Box<Option<FnCall>>,
-    // RuleIdentifier could just be an identifier or some let statement that can pass the return value from one rule to other rule
-    pub rules: Vec<RuleIdentifier>,
+pub struct Term {
+    pub lhs: Box<Terms>,
+    pub op: Box<TermOps>,
+    pub rhs: Box<Terms>,
 }
 
-impl RuleSetExpr {
-    pub fn new(
-        name: Ident,
-        config: Option<Ident>,
-        default: Option<FnCall>,
-        rules: Vec<RuleIdentifier>,
-    ) -> Self {
-        RuleSetExpr {
-            name: Box::new(name),
-            config: Box::new(config),
-            default: Box::new(default),
-            rules: rules,
+impl Term {
+    pub fn new(lhs: Terms, op: TermOps, rhs: Terms) -> Self {
+        Term {
+            lhs: Box::new(lhs),
+            op: Box::new(op),
+            rhs: Box::new(rhs),
         }
     }
+
     pub fn place_holder() -> Self {
-        RuleSetExpr {
-            name: Box::new(Ident::place_holder()),
-            config: Box::new(None),
-            default: Box::new(None),
-            rules: vec![],
+        Term {
+            lhs: Box::new(Terms::PlaceHolder),
+            op: Box::new(TermOps::PlaceHolder),
+            rhs: Box::new(Terms::PlaceHolder),
         }
-    }
-    pub fn add_name(&mut self, name: Ident) {
-        self.name = Box::new(name);
-    }
-    pub fn add_config_name(&mut self, name: Option<Ident>) {
-        self.config = Box::new(name);
-    }
-    pub fn add_default(&mut self, default: Option<FnCall>) {
-        self.default = Box::new(default);
-    }
-    pub fn add_rule(&mut self, rules: RuleIdentifier) {
-        self.rules.push(rules);
-    }
-}
-
-// This could be more specified
-#[derive(Debug, Clone, PartialEq)]
-pub enum RuleIdentifier {
-    FnCall(FnCall),
-    Let(Let),
-}
-
-// rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
-#[derive(Debug, Clone, PartialEq)]
-pub struct RuleExpr {
-    pub name: Box<Ident>,
-    pub interface: HashSet<Ident>,
-    pub args: Vec<Ident>,
-    pub rule_content: Box<RuleContentExpr>,
-}
-
-impl RuleExpr {
-    pub fn new(
-        name: Ident,
-        interfaces: HashSet<Ident>,
-        arg_vec: Vec<Ident>,
-        rule_content: RuleContentExpr,
-    ) -> Self {
-        RuleExpr {
-            name: Box::new(name),
-            interface: interfaces,
-            args: arg_vec,
-            rule_content: Box::new(rule_content),
-        }
-    }
-    pub fn place_holder() -> Self {
-        RuleExpr {
-            name: Box::new(Ident::place_holder()),
-            interface: HashSet::new(),
-            args: vec![],
-            rule_content: Box::new(RuleContentExpr::place_holder()),
-        }
-    }
-    pub fn add_name(&mut self, name: Ident) {
-        self.name = Box::new(name);
-    }
-    pub fn add_interface(&mut self, interface_name: Ident) -> IResult<()> {
-        // If there is the same interface name, this will return error
-        if self.interface.contains(&interface_name) {
-            // Can we avoid error call here?
-            return Err(RuLaError::InterfaceDuplicationError);
-        }
-        self.interface.insert(interface_name);
-        Ok(())
-    }
-
-    pub fn add_arg(&mut self, arg: Ident) {
-        self.args.push(arg);
-    }
-    pub fn add_rule_content(&mut self, rule_content: RuleContentExpr) {
-        self.rule_content = Box::new(rule_content)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct RuleContentExpr {
-    pub condition_expr: Box<CondExpr>,
-    pub action_expr: Box<ActExpr>,
-    pub post_processing: Vec<Stmt>,
-}
-
-impl RuleContentExpr {
-    pub fn new(condition_expr: CondExpr, action_expr: ActExpr, post_processing: Vec<Stmt>) -> Self {
-        RuleContentExpr {
-            condition_expr: Box::new(condition_expr),
-            action_expr: Box::new(action_expr),
-            post_processing: post_processing,
-        }
-    }
-    pub fn place_holder() -> Self {
-        RuleContentExpr {
-            condition_expr: Box::new(CondExpr::place_holder()),
-            action_expr: Box::new(ActExpr::place_holder()),
-            post_processing: vec![],
-        }
-    }
-    // pub fn add_monitor_expr(&mut self, monitor_expr: Option<WatchExpr>) {
-    //     self.watch_expr = Box::new(monitor_expr);
-    // }
-    pub fn add_condition_expr(&mut self, condition_expr: CondExpr) {
-        self.condition_expr = Box::new(condition_expr);
-    }
-    pub fn add_action_expr(&mut self, action_expr: ActExpr) {
-        self.action_expr = Box::new(action_expr);
-    }
-    pub fn add_post_stmt(&mut self, stmt: Stmt) {
-        self.post_processing.push(stmt);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct WatchExpr {
-    pub watched_values: Vec<Let>,
-}
-
-impl WatchExpr {
-    pub fn new(watched_values: Vec<Let>) -> Self {
-        WatchExpr {
-            watched_values: watched_values,
-        }
-    }
-    pub fn place_holder() -> Self {
-        WatchExpr {
-            watched_values: vec![],
-        }
-    }
-    pub fn add_watch_value(&mut self, watched_value: Let) {
-        self.watched_values.push(watched_value);
-    }
-}
-#[derive(Debug, Clone, PartialEq)]
-pub struct CondExpr {
-    pub name: Box<Option<Ident>>,
-    pub watch_expr: Box<Option<WatchExpr>>,
-    pub clauses: Vec<Awaitable>,
-}
-
-impl CondExpr {
-    pub fn new(
-        name: Option<Ident>,
-        watched_values: Option<WatchExpr>,
-        awaitables: Vec<Awaitable>,
-    ) -> Self {
-        CondExpr {
-            name: Box::new(name),
-            watch_expr: Box::new(watched_values),
-            clauses: awaitables,
-        }
-    }
-    pub fn place_holder() -> Self {
-        CondExpr {
-            name: Box::new(None),
-            watch_expr: Box::new(None),
-            clauses: vec![],
-        }
-    }
-    pub fn add_name(&mut self, name: Option<Ident>) {
-        self.name = Box::new(name);
-    }
-    pub fn add_watch_expr(&mut self, watch_expr: Option<WatchExpr>) {
-        self.watch_expr = Box::new(watch_expr);
-    }
-    pub fn add_awaitable(&mut self, awaitable: Awaitable) {
-        self.clauses.push(awaitable);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Awaitable {
-    FnCall(FnCall),
+pub enum Terms {
     VariableCallExpr(VariableCallExpr),
-    Comp(Comp),
+    FnCall(FnCall),
+    Lit(Lit),
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ActExpr {
-    pub name: Box<Option<Ident>>,
-    pub operatable: Vec<Stmt>,
-}
-
-impl ActExpr {
-    pub fn new(name: Option<Ident>, operatable: Vec<Stmt>) -> Self {
-        ActExpr {
-            name: Box::new(name),
-            operatable: operatable,
-        }
-    }
-    pub fn place_holder() -> Self {
-        ActExpr {
-            name: Box::new(None),
-            operatable: vec![],
-        }
-    }
-    pub fn add_name(&mut self, name: Option<Ident>) {
-        self.name = Box::new(name);
-    }
-    pub fn add_operatable(&mut self, stmt: Stmt) {
-        self.operatable.push(stmt);
-    }
+pub enum TermOps {
+    Plus,
+    Minus,
+    Asterisk,
+    Slash,
+    Percent,
+    Caret,
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1097,6 +1221,11 @@ impl NumberLit {
     pub fn new(val: &str) -> Self {
         NumberLit {
             value: Box::new(Ident::new(val, None, IdentType::Other)),
+        }
+    }
+    pub fn place_holder() -> Self {
+        NumberLit {
+            value: Box::new(Ident::place_holder()),
         }
     }
 }

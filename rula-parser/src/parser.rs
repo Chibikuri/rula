@@ -15,13 +15,13 @@ use pest::prec_climber::{Assoc, Operator, PrecClimber};
 // Custome error interface for rula
 pub type IResult<T> = std::result::Result<T, RuLaError>;
 
-static PREC_CLIMBER: Lazy<PrecClimber<Rule>> = Lazy::new(|| {
-    PrecClimber::new(vec![
-        Operator::new(Rule::plus, Assoc::Left) | Operator::new(Rule::minus, Assoc::Left),
-        Operator::new(Rule::asterisk, Assoc::Left) | Operator::new(Rule::slash, Assoc::Left),
-        Operator::new(Rule::caret, Assoc::Right),
-    ])
-});
+// static PREC_CLIMBER: Lazy<PrecClimber<Rule>> = Lazy::new(|| {
+//     PrecClimber::new(vec![
+//         Operator::new(Rule::plus, Assoc::Left) | Operator::new(Rule::minus, Assoc::Left),
+//         Operator::new(Rule::asterisk, Assoc::Left) | Operator::new(Rule::slash, Assoc::Left),
+//         Operator::new(Rule::caret, Assoc::Right),
+//     ])
+// });
 
 /**
  * parse rula system and if it matches program, going to `build_ast_from_program`.
@@ -38,7 +38,7 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
                 )));
             }
         }
-        Rule::EOI => Ok(RuLa::aoi()),
+        Rule::EOI => Ok(RuLa::eoi()),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -57,38 +57,15 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
     Ok(program)
 }
 
-fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
-    let mut interface = Interface::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::ident_list => {
-                // interface list
-                for interface_name in block.into_inner() {
-                    let interface_ident = build_ast_from_ident(interface_name).unwrap();
-                    interface.add_interface(interface_ident);
-                }
-            }
-            Rule::ident => {
-                // group name
-                let interface_group = build_ast_from_ident(block).unwrap();
-                interface.add_name(Some(interface_group));
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-
-    Ok(interface)
-}
-
 // Parse statement <--> {Let statement | expression}
 fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
-        Rule::config_def => Ok(Stmt::new(StmtKind::Config(
-            build_ast_from_config_def(pair).unwrap(),
-        ))),
-        Rule::interface_def => Ok(Stmt::new(StmtKind::Interface(
-            build_ast_from_interface(pair).unwrap(),
-        ))),
+        // Rule::config_def => Ok(Stmt::new(StmtKind::Config(
+        //     build_ast_from_config_def(pair).unwrap(),
+        // ))),
+        // Rule::interface_def => Ok(Stmt::new(StmtKind::Interface(
+        //     build_ast_from_interface(pair).unwrap(),
+        // ))),
         Rule::let_stmt => Ok(Stmt::new(StmtKind::Let(
             build_ast_from_let_stmt(pair).unwrap(),
         ))),
@@ -99,42 +76,6 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     }
 }
 
-fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
-    let mut config_def = Config::place_holder();
-    for config_block in pair.into_inner() {
-        match config_block.as_rule() {
-            Rule::int => {
-                config_def.update_num_node(config_block.as_str());
-            }
-            Rule::config_item => {
-                config_def.add_value(build_ast_from_config_item(config_block).unwrap());
-            }
-            Rule::ident => {
-                config_def.update_config_name(build_ast_from_ident(config_block).unwrap());
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(config_def)
-}
-
-fn build_ast_from_config_item(pair: Pair<Rule>) -> IResult<ConfigItem> {
-    let mut config_item = ConfigItem::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::ident => {
-                config_item.update_name(build_ast_from_ident(block).unwrap());
-            }
-            Rule::typedef_lit => {
-                config_item.add_type_def(
-                    build_ast_from_typedef_lit(block.into_inner().next().unwrap()).unwrap(),
-                );
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(config_item)
-}
 // Parse Let statement (semi endpoint)
 fn build_ast_from_let_stmt(pair: Pair<Rule>) -> IResult<Let> {
     let mut let_stmt = Let::place_holder();
@@ -194,132 +135,213 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::import_expr => Ok(Expr::new(ExprKind::Import(
             build_ast_from_import_expr(pair).unwrap(),
         ))),
-        // fn(hello:i32){expression;};
-        Rule::fn_def_expr => Ok(Expr::new(ExprKind::FnDef(
-            build_ast_from_fn_def_expr(pair).unwrap(),
-        ))),
-        // if(block){expression;};
-        Rule::if_expr => Ok(Expr::new(ExprKind::If(
-            build_ast_from_if_expr(pair).unwrap(),
-        ))),
-        Rule::for_expr => Ok(Expr::new(ExprKind::For(
-            build_ast_from_for_expr(pair).unwrap(),
-        ))),
-        Rule::while_expr => Ok(Expr::new(ExprKind::While(
-            build_ast_from_while_expr(pair).unwrap(),
-        ))),
-        Rule::struct_expr => Ok(Expr::new(ExprKind::Struct(
-            buil_ast_from_struct_expr(pair).unwrap(),
-        ))),
-        Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
-            build_ast_from_comp_expr(pair).unwrap(),
-        ))),
-        Rule::return_expr => Ok(Expr::new(ExprKind::Return(
-            build_ast_from_return_expr(pair).unwrap(),
-        ))),
-        Rule::match_expr => Ok(Expr::new(ExprKind::Match(
-            build_ast_from_match_expr(pair).unwrap(),
-        ))),
         Rule::ruleset_expr => Ok(Expr::new(ExprKind::RuleSetExpr(
             build_ast_from_ruleset_expr(pair).unwrap(),
         ))),
         Rule::rule_expr => Ok(Expr::new(ExprKind::RuleExpr(
             build_ast_from_rule_expr(pair).unwrap(),
         ))),
-        Rule::cond_expr => Ok(Expr::new(ExprKind::CondExpr(
-            build_ast_from_cond_expr(pair).unwrap(),
+        Rule::if_expr => Ok(Expr::new(ExprKind::If(
+            build_ast_from_if_expr(pair).unwrap(),
         ))),
-        Rule::act_expr => Ok(Expr::new(ExprKind::ActExpr(
-            build_ast_from_act_expr(pair).unwrap(),
+        Rule::for_expr => Ok(Expr::new(ExprKind::For(
+            build_ast_from_for_expr(pair).unwrap(),
+        ))),
+        Rule::match_expr => Ok(Expr::new(ExprKind::Match(
+            build_ast_from_match_expr(pair).unwrap(),
+        ))),
+        Rule::return_expr => Ok(Expr::new(ExprKind::Return(
+            build_ast_from_return_expr(pair).unwrap(),
+        ))),
+        Rule::send_expr => Ok(Expr::new(ExprKind::Send(
+            build_ast_from_send_expr(pair).unwrap(),
         ))),
         Rule::fn_call_expr => Ok(Expr::new(ExprKind::FnCall(
             build_ast_from_fn_call_expr(pair).unwrap(),
         ))),
+        Rule::rule_call_expr => Ok(Expr::new(ExprKind::RuleCall(
+            build_ast_from_rule_call_expr(pair).unwrap(),
+        ))),
+        Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
+            build_ast_from_comp_expr(pair).unwrap(),
+        ))),
+        Rule::term_expr => Ok(Expr::new(ExprKind::Term(
+            build_ast_from_term_expr(pair).unwrap(),
+        ))),
         Rule::variable_call_expr => Ok(Expr::new(ExprKind::VariableCallExpr(
             build_ast_from_variable_call_expr(pair).unwrap(),
         ))),
-        Rule::braket_expr => Ok(Expr::new(ExprKind::Array(
-            build_ast_from_braket_expr(pair).unwrap(),
-        ))),
-        // 1+10, (1+18)*20
-        // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
-        Rule::term_expr => Ok(Expr::new(ExprKind::Term(eval_prec(pair)))),
-        // true, false, "words"
         Rule::literal_expr => Ok(Expr::new(ExprKind::Lit(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
         ))),
+        // Rule::fn_def_expr => Ok(Expr::new(ExprKind::FnDef(
+        //     build_ast_from_fn_def_expr(pair).unwrap(),
+        // ))),
+        // Rule::while_expr => Ok(Expr::new(ExprKind::While(
+        //     build_ast_from_while_expr(pair).unwrap(),
+        // ))),
+        // Rule::struct_expr => Ok(Expr::new(ExprKind::Struct(
+        //     buil_ast_from_struct_expr(pair).unwrap(),
+        // ))),
+        // Rule::cond_expr => Ok(Expr::new(ExprKind::CondExpr(
+        //     build_ast_from_cond_expr(pair).unwrap(),
+        // ))),
+        // Rule::act_expr => Ok(Expr::new(ExprKind::ActExpr(
+        //     build_ast_from_act_expr(pair).unwrap(),
+        // ))),
+        // Rule::braket_expr => Ok(Expr::new(ExprKind::Array(
+        //     build_ast_from_braket_expr(pair).unwrap(),
+        // ))),
+        // 1+10, (1+18)*20
+        // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
 
-fn build_ast_from_variable_call_expr(pair: Pair<Rule>) -> IResult<VariableCallExpr> {
-    let mut variable_call = VariableCallExpr::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::callable => {
-                variable_call.add_variable(
-                    build_ast_from_callable(block.into_inner().next().unwrap()).unwrap(),
-                );
+fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
+    let mut path_list: Vec<PathBuf> = vec![];
+    let mut end_paths: Vec<&str> = vec![];
+    // ::{a, b} expression must be single not two of them
+    // e.g. not allowed ::{a, b}::{c, d}
+    // This can be rejected by level of grammar
+    let mut path = PathBuf::new();
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::ident => path.push(inner_pair.as_str()),
+            Rule::ident_list => {
+                for inner_inner_pair in inner_pair.into_inner() {
+                    end_paths.push(inner_inner_pair.as_str());
+                }
+                // Path must be completed once this is called.
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(variable_call)
-}
-
-fn build_ast_from_callable(pair: Pair<Rule>) -> IResult<Callable> {
-    match pair.as_rule() {
-        Rule::ident => Ok(Callable::Ident(build_ast_from_ident(pair).unwrap())),
-        Rule::fn_call_expr => Ok(Callable::FnCall(build_ast_from_fn_call_expr(pair).unwrap())),
-        _ => Err(RuLaError::RuLaSyntaxError),
+    // No end component such as `hello::{a, b}`
+    // then just add `hello` as a path
+    if end_paths.len() == 0 {
+        path_list.push(path)
+    } else {
+        for t_path in end_paths {
+            let mut cloned_path = path.clone();
+            cloned_path.push(t_path);
+            path_list.push(cloned_path);
+        }
     }
+
+    Ok(Import::new(PathKind::from(path_list)))
 }
 
-// Don't want to evaluate anything at this moment.
-fn eval_prec(pair: Pair<Rule>) -> f64 {
-    // primary closure taking pair and throw it to consume function.
-    let primary = |pair| eval_prec(pair);
-    let infix = |lhs: f64, op: Pair<Rule>, rhs: f64| match op.as_rule() {
-        Rule::plus => lhs + rhs,
-        Rule::minus => lhs - rhs,
-        Rule::asterisk => lhs * rhs,
-        Rule::slash => lhs / rhs,
-        Rule::caret => lhs.powf(rhs),
-        _ => unreachable!("operation unreachable, {:#?}", &op),
-    };
-
-    match pair.as_rule() {
-        Rule::term_expr => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
-        Rule::number => pair.as_str().parse().unwrap(),
-        _ => unreachable!("unreachable{:#?}", &pair),
-    }
-}
-
-// Parse Literals <--> {string literal | boolean literal}
-fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
-    match pair.as_rule() {
-        // identifier
-        Rule::ident => Ok(Lit::new(LitKind::Ident(
-            build_ast_from_ident(pair).unwrap(),
-        ))),
-        Rule::raw_string => Ok(Lit::new(LitKind::StringLit(StringLit::new(pair.as_str())))),
-        Rule::number => Ok(Lit::new(LitKind::NumberLit(NumberLit::new(pair.as_str())))),
-        Rule::binary => Ok(Lit::new(LitKind::BinaryLit(BinaryLit::new(
-            pair.into_inner().next().unwrap().as_str(),
-        )))),
-        Rule::hex => Ok(Lit::new(LitKind::HexLit(HexLit::new(
-            pair.into_inner().next().unwrap().as_str(),
-        )))),
-        Rule::unicord => Ok(Lit::new(LitKind::UnicordLit(UnicordLit::new(
-            pair.into_inner().next().unwrap().as_str(),
-        )))),
-        Rule::bool => match pair.as_str() {
-            "true" => Ok(Lit::new(LitKind::BooleanLit(true))),
-            "false" => Ok(Lit::new(LitKind::BooleanLit(false))),
+fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
+    let mut ruleset_expr = RuleSetExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::stmt => {
+                ruleset_expr
+                    .add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
+            }
             _ => unreachable!(),
-        },
-        _ => Err(RuLaError::RuLaSyntaxError),
+        }
     }
+    Ok(ruleset_expr)
+}
+
+fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
+    let mut rule_expr = RuleExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                // rule_name
+                rule_expr.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::repeater_ident => {
+                // TODO: Should this be vector?
+                rule_expr.add_repeater_ident(build_ast_from_ident(block).unwrap());
+            }
+            Rule::argument_def => {
+                for arg in block.into_inner() {
+                    match arg.as_rule() {
+                        Rule::ident_typed => {
+                            rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                        }
+                        Rule::ident => rule_expr.add_arg(build_ast_from_ident(arg).unwrap()),
+                        _ => return Err(RuLaError::RuLaSyntaxError),
+                    }
+                }
+            }
+            Rule::ret_type_annotation => rule_expr.add_return_type_annotation(Some(
+                build_ast_from_return_type_annotation(block).unwrap(),
+            )),
+            Rule::rule_contents => {
+                rule_expr.add_rule_content(build_ast_from_rule_contents(block).unwrap())
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(rule_expr)
+}
+
+fn build_ast_from_return_type_annotation(pair: Pair<Rule>) -> IResult<ReturnTypeAnnotation> {
+    let mut ret_type_annotation = ReturnTypeAnnotation::place_holder();
+    Ok(ret_type_annotation)
+}
+
+fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
+    let mut rule_content_expr = RuleContentExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::cond_expr => {
+                rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
+            }
+            Rule::act_expr => {
+                rule_content_expr.add_action_expr(build_ast_from_act_expr(block).unwrap())
+            }
+            Rule::stmt => rule_content_expr
+                .add_post_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(rule_content_expr)
+}
+
+fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
+    let mut cond_expr = CondExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
+            // Rule::watch_expr => {
+            //     cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
+            // }
+            Rule::let_stmt => cond_expr
+                .add_condition_clause(CondClauses::Let(build_ast_from_let_stmt(block).unwrap())),
+            Rule::fn_call_expr => cond_expr.add_condition_clause(CondClauses::FnCall(
+                build_ast_from_fn_call_expr(block).unwrap(),
+            )),
+            Rule::variable_call_expr => cond_expr.add_condition_clause(
+                CondClauses::VariableCallExpr(build_ast_from_variable_call_expr(block).unwrap()),
+            ),
+            Rule::comp_expr => cond_expr
+                .add_condition_clause(CondClauses::Comp(build_ast_from_comp_expr(block).unwrap())),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(cond_expr)
+}
+
+fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr> {
+    let mut act_expr = ActExpr::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => act_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
+            Rule::stmt => act_expr
+                .add_operatable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(act_expr)
 }
 
 // Parse If expr <--> {paren_expr | brace_stmt | else_if | else} semi endpoint
@@ -364,45 +386,26 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
 fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
     let mut for_expr = For::place_holder();
     // for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ generator ~ brace_stmt }
-    for blocks in pair.into_inner() {
-        match blocks.as_rule() {
+    for block in pair.into_inner() {
+        match block.as_rule() {
             Rule::ident_list => {
                 // omitted (patterns)
                 // for identifier lists (ident, ident2, ...)
-                for ident in blocks.into_inner() {
+                for ident in block.into_inner() {
                     // get ident
                     for_expr.add_ident(build_ast_from_ident(ident).unwrap());
                 }
             }
-            Rule::generator => {
-                // generator can get three expressions right now.
-                let gen_expression = blocks.into_inner().next().unwrap();
-                let expr = match gen_expression.as_rule() {
-                    // { braket_expr | fn_call_expr | literal_expr }
-                    Rule::braket_expr => Expr::new(ExprKind::Array(
-                        build_ast_from_braket_expr(gen_expression.into_inner().next().unwrap())
-                            .unwrap(),
-                    )),
-                    Rule::fn_call_expr => {
-                        // fn call e.g. hello_world()
-                        Expr::new(ExprKind::FnCall(
-                            build_ast_from_fn_call_expr(gen_expression).unwrap(),
-                        ))
-                    }
-                    Rule::literal_expr => {
-                        // Only identifier can go here
-                        Expr::new(ExprKind::Lit(
-                            build_ast_from_literals(gen_expression.into_inner().next().unwrap())
-                                .unwrap(),
-                        ))
-                    }
-                    _ => unreachable!(),
-                };
-                for_expr.add_expr(expr);
+            Rule::series => {
+                for_expr.add_generator(ForGenerator::Series(
+                    build_ast_from_series_expr(block).unwrap(),
+                ));
+            }
+            Rule::expr => {
+                for_expr.add_generator(ForGenerator::Expr(build_ast_from_expr(block).unwrap()))
             }
             Rule::stmt => {
-                for_expr
-                    .add_stmt(build_ast_from_stmt(blocks.into_inner().next().unwrap()).unwrap());
+                for_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
@@ -410,54 +413,10 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
     Ok(for_expr)
 }
 
-fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
-    let mut while_expr = While::place_holder();
-    for blocks in pair.into_inner() {
-        match blocks.as_rule() {
-            Rule::expr => while_expr
-                .add_block(build_ast_from_expr(blocks.into_inner().next().unwrap()).unwrap()),
-            Rule::stmt => while_expr
-                .add_stmt(build_ast_from_stmt(blocks.into_inner().next().unwrap()).unwrap()),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(while_expr)
-}
+fn build_ast_from_series_expr(pair: Pair<Rule>) -> IResult<Series> {
+    let mut series_expr = Series::place_holder();
 
-fn buil_ast_from_struct_expr(pair: Pair<Rule>) -> IResult<Struct> {
-    let mut struct_expr = Struct::place_holder();
-    for st in pair.into_inner() {
-        match st.as_rule() {
-            Rule::struct_name => {
-                struct_expr.add_name(build_ast_from_ident(st.into_inner().next().unwrap()).unwrap())
-            }
-            Rule::ident_typed => struct_expr.add_item(build_ast_from_ident_typed(st).unwrap()),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(struct_expr)
-}
-
-fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
-    let mut return_expr = Return::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::variable_call_expr => return_expr.add_target(Expr::new(
-                ExprKind::VariableCallExpr(build_ast_from_variable_call_expr(block).unwrap()),
-            )),
-            Rule::fn_call_expr => return_expr.add_target(Expr::new(ExprKind::FnCall(
-                build_ast_from_fn_call_expr(block).unwrap(),
-            ))),
-            Rule::tuple => {
-                todo!("Tuple return is under construction")
-            }
-            Rule::ident => return_expr.add_target(Expr::new(ExprKind::Lit(Lit::new(
-                LitKind::Ident(build_ast_from_ident(block).unwrap()),
-            )))),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(return_expr)
+    Ok(series_expr)
 }
 
 fn build_ast_from_match_expr(pair: Pair<Rule>) -> IResult<Match> {
@@ -527,6 +486,78 @@ fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
     Ok(match_action)
 }
 
+fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
+    let mut return_expr = Return::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::expr => return_expr.add_target(build_ast_from_expr(block).unwrap()),
+            // Rule::variable_call_expr => return_expr.add_target(Expr::new(
+            //     ExprKind::VariableCallExpr(build_ast_from_variable_call_expr(block).unwrap()),
+            // )),
+            // Rule::fn_call_expr => return_expr.add_target(Expr::new(ExprKind::FnCall(
+            //     build_ast_from_fn_call_expr(block).unwrap(),
+            // ))),
+            // Rule::tuple => {
+            //     todo!("Tuple return is under construction")
+            // }
+            // Rule::ident => return_expr.add_target(Expr::new(ExprKind::Lit(Lit::new(
+            //     LitKind::Ident(build_ast_from_ident(block).unwrap()),
+            // )))),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(return_expr)
+}
+
+fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
+    let mut send_expr = Send::place_holder();
+
+    Ok(send_expr)
+}
+
+fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
+    let mut fnc_call = FnCall::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                fnc_call.add_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::repeater_ident => {
+                fnc_call.add_name(build_ast_from_ident(block).unwrap());
+                // This is repeater call
+                fnc_call.update_repeater_call();
+            }
+            Rule::fn_call_expr => {
+                for arg in block.into_inner() {
+                    fnc_call.add_argument(FnCallArgs::FnCall(
+                        build_ast_from_fn_call_expr(arg).unwrap(),
+                    ));
+                }
+            }
+            Rule::variable_call_expr => {
+                for arg in block.into_inner() {
+                    fnc_call.add_argument(FnCallArgs::VariableCall(
+                        build_ast_from_variable_call_expr(arg).unwrap(),
+                    ))
+                }
+            }
+            Rule::literal_expr => {
+                for arg in block.into_inner() {
+                    fnc_call.add_argument(FnCallArgs::Lit(build_ast_from_literals(arg).unwrap()))
+                }
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(fnc_call)
+}
+
+fn build_ast_from_rule_call_expr(pair: Pair<Rule>) -> IResult<RuleCall> {
+    let mut rule_call_expr = RuleCall::place_holder();
+
+    Ok(rule_call_expr)
+}
+
 fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     let mut comp_op = CompOpKind::PlaceHolder;
     let mut comp_expr = Comp::place_holder();
@@ -558,223 +589,80 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     Ok(comp_expr)
 }
 
-fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
-    let mut ruleset_expr = RuleSetExpr::place_holder();
+fn build_ast_from_term_expr(pair: Pair<Rule>) -> IResult<Term> {
+    let mut term_expr = Term::place_holder();
+
+    Ok(term_expr)
+}
+
+fn build_ast_from_variable_call_expr(pair: Pair<Rule>) -> IResult<VariableCallExpr> {
+    let mut variable_call = VariableCallExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ruleset_config => {
-                ruleset_expr.add_config_name(Some(
-                    build_ast_from_ident(block.into_inner().next().unwrap()).unwrap(),
-                ));
-            }
-            Rule::ident => {
-                ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
-            }
-            Rule::fn_call_expr => {
-                ruleset_expr.add_default(Some(build_ast_from_fn_call_expr(block).unwrap()));
-            }
-            Rule::rule_idents => {
-                ruleset_expr.add_rule(
-                    build_ast_from_rule_idents(block.into_inner().next().unwrap()).unwrap(),
+            Rule::callable => {
+                variable_call.add_variable(
+                    build_ast_from_callable(block.into_inner().next().unwrap()).unwrap(),
                 );
             }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(variable_call)
+}
+
+fn build_ast_from_callable(pair: Pair<Rule>) -> IResult<Callable> {
+    match pair.as_rule() {
+        Rule::ident => Ok(Callable::Ident(build_ast_from_ident(pair).unwrap())),
+        Rule::fn_call_expr => Ok(Callable::FnCall(build_ast_from_fn_call_expr(pair).unwrap())),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
+// Don't want to evaluate anything at this moment.
+// fn eval_prec(pair: Pair<Rule>) -> f64 {
+//     // primary closure taking pair and throw it to consume function.
+//     let primary = |pair| eval_prec(pair);
+//     let infix = |lhs: f64, op: Pair<Rule>, rhs: f64| match op.as_rule() {
+//         Rule::plus => lhs + rhs,
+//         Rule::minus => lhs - rhs,
+//         Rule::asterisk => lhs * rhs,
+//         Rule::slash => lhs / rhs,
+//         Rule::caret => lhs.powf(rhs),
+//         _ => unreachable!("operation unreachable, {:#?}", &op),
+//     };
+
+//     match pair.as_rule() {
+//         Rule::term_expr => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
+//         Rule::number => pair.as_str().parse().unwrap(),
+//         _ => unreachable!("unreachable{:#?}", &pair),
+//     }
+// }
+
+// Parse Literals <--> {string literal | boolean literal}
+fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
+    match pair.as_rule() {
+        // identifier
+        Rule::ident => Ok(Lit::new(LitKind::Ident(
+            build_ast_from_ident(pair).unwrap(),
+        ))),
+        Rule::raw_string => Ok(Lit::new(LitKind::StringLit(StringLit::new(pair.as_str())))),
+        Rule::number => Ok(Lit::new(LitKind::NumberLit(NumberLit::new(pair.as_str())))),
+        Rule::binary => Ok(Lit::new(LitKind::BinaryLit(BinaryLit::new(
+            pair.into_inner().next().unwrap().as_str(),
+        )))),
+        Rule::hex => Ok(Lit::new(LitKind::HexLit(HexLit::new(
+            pair.into_inner().next().unwrap().as_str(),
+        )))),
+        Rule::unicord => Ok(Lit::new(LitKind::UnicordLit(UnicordLit::new(
+            pair.into_inner().next().unwrap().as_str(),
+        )))),
+        Rule::bool => match pair.as_str() {
+            "true" => Ok(Lit::new(LitKind::BooleanLit(true))),
+            "false" => Ok(Lit::new(LitKind::BooleanLit(false))),
             _ => unreachable!(),
-        }
+        },
+        _ => Err(RuLaError::RuLaSyntaxError),
     }
-    Ok(ruleset_expr)
-}
-
-fn build_ast_from_rule_idents(pair: Pair<Rule>) -> IResult<RuleIdentifier> {
-    match pair.as_rule() {
-        Rule::fn_call_expr => Ok(RuleIdentifier::FnCall(
-            build_ast_from_fn_call_expr(pair).unwrap(),
-        )),
-        Rule::let_stmt => Ok(RuleIdentifier::Let(build_ast_from_let_stmt(pair).unwrap())),
-        _ => unreachable!(),
-    }
-}
-
-fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
-    let mut rule_expr = RuleExpr::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::ident => {
-                // rule_name
-                rule_expr.add_name(build_ast_from_ident(block).unwrap());
-            }
-            Rule::ident_list => {
-                for interface in block.into_inner() {
-                    let interface_ident = build_ast_from_ident(interface).unwrap();
-                    // Interface names
-                    rule_expr.add_interface(interface_ident).unwrap();
-                }
-            }
-            Rule::argument_def => {
-                for arg in block.into_inner() {
-                    match arg.as_rule() {
-                        Rule::ident_typed => {
-                            rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
-                        }
-                        Rule::ident => rule_expr.add_arg(build_ast_from_ident(arg).unwrap()),
-                        _ => return Err(RuLaError::RuLaSyntaxError),
-                    }
-                }
-            }
-            Rule::rule_contents => {
-                rule_expr.add_rule_content(build_ast_from_rule_contents(block).unwrap())
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(rule_expr)
-}
-
-fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
-    let mut rule_content_expr = RuleContentExpr::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::cond_expr => {
-                rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
-            }
-            Rule::act_expr => {
-                rule_content_expr.add_action_expr(build_ast_from_act_expr(block).unwrap())
-            }
-            Rule::stmt => rule_content_expr
-                .add_post_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(rule_content_expr)
-}
-
-fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
-    let mut monitor_expr = WatchExpr::place_holder();
-    for let_stmt in pair.into_inner() {
-        let watched = build_ast_from_let_stmt(let_stmt).unwrap();
-        monitor_expr.add_watch_value(watched);
-    }
-    Ok(Some(monitor_expr))
-}
-
-fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
-    let mut cond_expr = CondExpr::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            Rule::watch_expr => {
-                cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
-            }
-            Rule::awaitable => cond_expr.add_awaitable(
-                build_ast_from_awaitable_expr(block.into_inner().next().unwrap()).unwrap(),
-            ),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(cond_expr)
-}
-
-fn build_ast_from_awaitable_expr(pair: Pair<Rule>) -> IResult<Awaitable> {
-    match pair.as_rule() {
-        Rule::fn_call_expr => Ok(Awaitable::FnCall(
-            build_ast_from_fn_call_expr(pair).unwrap(),
-        )),
-        Rule::variable_call_expr => Ok(Awaitable::VariableCallExpr(
-            build_ast_from_variable_call_expr(pair).unwrap(),
-        )),
-        Rule::comp_expr => Ok(Awaitable::Comp(build_ast_from_comp_expr(pair).unwrap())),
-        _ => unreachable!("No more awaitable conditions allowed"),
-    }
-}
-
-fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr> {
-    let mut act_expr = ActExpr::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::ident => act_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            Rule::stmt => act_expr
-                .add_operatable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(act_expr)
-}
-fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
-    let mut path_list: Vec<PathBuf> = vec![];
-    let mut end_paths: Vec<&str> = vec![];
-    // ::{a, b} expression must be single not two of them
-    // e.g. not allowed ::{a, b}::{c, d}
-    // This can be rejected by level of grammar
-    let mut path = PathBuf::new();
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => path.push(inner_pair.as_str()),
-            Rule::ident_list => {
-                for inner_inner_pair in inner_pair.into_inner() {
-                    end_paths.push(inner_inner_pair.as_str());
-                }
-                // Path must be completed once this is called.
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    // No end component such as `hello::{a, b}`
-    // then just add `hello` as a path
-    if end_paths.len() == 0 {
-        path_list.push(path)
-    } else {
-        for t_path in end_paths {
-            let mut cloned_path = path.clone();
-            cloned_path.push(t_path);
-            path_list.push(cloned_path);
-        }
-    }
-
-    Ok(Import::new(PathKind::from(path_list)))
-}
-
-fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
-    let mut fnc_def = FnDef::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::argument_def => {
-                // loop over all arguments
-                for arg in block.into_inner() {
-                    fnc_def.add_arg(build_ast_from_ident_typed(arg).unwrap());
-                }
-            }
-            Rule::stmt => {
-                fnc_def.add_expr(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(fnc_def)
-}
-
-fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
-    let mut fnc_call = FnCall::place_holder();
-    for block in pair.into_inner() {
-        match block.as_rule() {
-            Rule::ident => {
-                fnc_call.add_name(build_ast_from_ident(block).unwrap());
-            }
-            Rule::expr => {
-                for arg in block.into_inner() {
-                    fnc_call.add_argument(build_ast_from_expr(arg).unwrap());
-                }
-            }
-            _ => return Err(RuLaError::RuLaSyntaxError),
-        }
-    }
-    Ok(fnc_call)
-}
-
-fn build_ast_from_braket_expr(pair: Pair<Rule>) -> IResult<Array> {
-    let mut array = Array::place_holder();
-    for lit in pair.into_inner() {
-        array.add_item(build_ast_from_literals(lit.into_inner().next().unwrap()).unwrap())
-    }
-    Ok(array)
 }
 
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
@@ -822,3 +710,150 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
         _ => todo!("Should be unknown type {:#?} error here", pair),
     }
 }
+
+// fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
+//     let mut interface = Interface::place_holder();
+//     for block in pair.into_inner() {
+//         match block.as_rule() {
+//             Rule::ident_list => {
+//                 // interface list
+//                 for interface_name in block.into_inner() {
+//                     let interface_ident = build_ast_from_ident(interface_name).unwrap();
+//                     interface.add_interface(interface_ident);
+//                 }
+//             }
+//             Rule::ident => {
+//                 // group name
+//                 let interface_group = build_ast_from_ident(block).unwrap();
+//                 interface.add_name(Some(interface_group));
+//             }
+//             _ => return Err(RuLaError::RuLaSyntaxError),
+//         }
+//     }
+
+//     Ok(interface)
+// }
+
+// fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
+//     let mut config_def = Config::place_holder();
+//     for config_block in pair.into_inner() {
+//         match config_block.as_rule() {
+//             Rule::int => {
+//                 config_def.update_num_node(config_block.as_str());
+//             }
+//             Rule::config_item => {
+//                 config_def.add_value(build_ast_from_config_item(config_block).unwrap());
+//             }
+//             Rule::ident => {
+//                 config_def.update_config_name(build_ast_from_ident(config_block).unwrap());
+//             }
+//             _ => return Err(RuLaError::RuLaSyntaxError),
+//         }
+//     }
+//     Ok(config_def)
+// }
+
+// fn build_ast_from_config_item(pair: Pair<Rule>) -> IResult<ConfigItem> {
+//     let mut config_item = ConfigItem::place_holder();
+//     for block in pair.into_inner() {
+//         match block.as_rule() {
+//             Rule::ident => {
+//                 config_item.update_name(build_ast_from_ident(block).unwrap());
+//             }
+//             Rule::typedef_lit => {
+//                 config_item.add_type_def(
+//                     build_ast_from_typedef_lit(block.into_inner().next().unwrap()).unwrap(),
+//                 );
+//             }
+//             _ => return Err(RuLaError::RuLaSyntaxError),
+//         }
+//     }
+//     Ok(config_item)
+// }
+
+// fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
+//     let mut while_expr = While::place_holder();
+//     for blocks in pair.into_inner() {
+//         match blocks.as_rule() {
+//             Rule::expr => while_expr
+//                 .add_block(build_ast_from_expr(blocks.into_inner().next().unwrap()).unwrap()),
+//             Rule::stmt => while_expr
+//                 .add_stmt(build_ast_from_stmt(blocks.into_inner().next().unwrap()).unwrap()),
+//             _ => return Err(RuLaError::RuLaSyntaxError),
+//         }
+//     }
+//     Ok(while_expr)
+// }
+
+// fn buil_ast_from_struct_expr(pair: Pair<Rule>) -> IResult<Struct> {
+//     let mut struct_expr = Struct::place_holder();
+//     for st in pair.into_inner() {
+//         match st.as_rule() {
+//             Rule::struct_name => {
+//                 struct_expr.add_name(build_ast_from_ident(st.into_inner().next().unwrap()).unwrap())
+//             }
+//             Rule::ident_typed => struct_expr.add_item(build_ast_from_ident_typed(st).unwrap()),
+//             _ => return Err(RuLaError::RuLaSyntaxError),
+//         }
+//     }
+//     Ok(struct_expr)
+// }
+
+// fn build_ast_from_rule_idents(pair: Pair<Rule>) -> IResult<RuleIdentifier> {
+//     match pair.as_rule() {
+//         Rule::fn_call_expr => Ok(RuleIdentifier::FnCall(
+//             build_ast_from_fn_call_expr(pair).unwrap(),
+//         )),
+//         Rule::let_stmt => Ok(RuleIdentifier::Let(build_ast_from_let_stmt(pair).unwrap())),
+//         _ => unreachable!(),
+//     }
+// }
+
+// fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
+//     let mut monitor_expr = WatchExpr::place_holder();
+//     for let_stmt in pair.into_inner() {
+//         let watched = build_ast_from_let_stmt(let_stmt).unwrap();
+//         monitor_expr.add_watch_value(watched);
+//     }
+//     Ok(Some(monitor_expr))
+// }
+
+// fn build_ast_from_awaitable_expr(pair: Pair<Rule>) -> IResult<Awaitable> {
+//     match pair.as_rule() {
+//         Rule::fn_call_expr => Ok(Awaitable::FnCall(
+//             build_ast_from_fn_call_expr(pair).unwrap(),
+//         )),
+//         Rule::variable_call_expr => Ok(Awaitable::VariableCallExpr(
+//             build_ast_from_variable_call_expr(pair).unwrap(),
+//         )),
+//         Rule::comp_expr => Ok(Awaitable::Comp(build_ast_from_comp_expr(pair).unwrap())),
+//         _ => unreachable!("No more awaitable conditions allowed"),
+//     }
+// }
+
+// fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
+//     let mut fnc_def = FnDef::place_holder();
+//     for block in pair.into_inner() {
+//         match block.as_rule() {
+//             Rule::argument_def => {
+//                 // loop over all arguments
+//                 for arg in block.into_inner() {
+//                     fnc_def.add_arg(build_ast_from_ident_typed(arg).unwrap());
+//                 }
+//             }
+//             Rule::stmt => {
+//                 fnc_def.add_expr(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
+//             }
+//             _ => return Err(RuLaError::RuLaSyntaxError),
+//         }
+//     }
+//     Ok(fnc_def)
+// }
+
+// fn build_ast_from_braket_expr(pair: Pair<Rule>) -> IResult<Array> {
+//     let mut array = Array::place_holder();
+//     for lit in pair.into_inner() {
+//         array.add_item(build_ast_from_literals(lit.into_inner().next().unwrap()).unwrap())
+//     }
+//     Ok(array)
+// }

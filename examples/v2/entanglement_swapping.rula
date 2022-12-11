@@ -1,0 +1,40 @@
+// Abstraction for repeater nodes
+#repeaters: vec[Repeater]
+
+import std::operations::{z, x, bsm}
+
+rule swapping<#rep>(distance: u_int){
+    let left_partner = #rep.hop(distance)
+    let right_partner = #rep.hop(-distance)
+    cond {
+        res(1, 0.8, left_partner)
+        res(1, 0.8, right_partner)
+    } => act {
+        let result = bsm(q1, q2)
+        match result{
+            "00" => {},
+            "01" => {update(q1, z()) -> left_partner},
+            "10" => {update(q2, x()) -> right_partner},
+            "11" => {update(q1, z()) -> left_partner,
+                     update(q2, x()) -> right_partner},
+            otherwise => {
+                // swapping faild
+                free(q1) -> left_partner,
+                free(q2) -> right_partner,
+                return
+            }
+        }
+        // swapping success
+        transfer(q1) -> left_partner
+        transfer(q2) -> right_partner
+    }
+}
+
+
+ruleset entanglement_swapping{
+    for (i) in 1..#repeaters.max()-1{
+        if (i % 2 == 1){
+            swapping<#repeaters(i)>(1)
+        }
+    }
+}

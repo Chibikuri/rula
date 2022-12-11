@@ -14,7 +14,21 @@ pub mod codegen {
     pub mod test_generator;
 
     use error::RuLaCompileError;
-    pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
+    type IResult<T> = std::result::Result<T, RuLaCompileError>;
+}
+
+// Generator of ruleset
+pub mod ruleset_gen {
+    #[cfg(not(tarpaulin_include))]
+    mod error;
+
+    pub mod action;
+    pub mod condition;
+    pub mod ruleset;
+    pub mod ruleset_generator;
+
+    use error::RuleSetGenerationError;
+    type IResult<T> = std::result::Result<T, RuleSetGenerationError>;
 }
 
 pub mod utils {}

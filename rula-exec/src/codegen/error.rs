@@ -13,6 +13,7 @@ pub enum RuLaCompileError {
     NoTypeFoundError,
     NoConfigFound,
     VariableError,
+    ComparisonWithDifferentKind,
     UnknownError,
 }
 
