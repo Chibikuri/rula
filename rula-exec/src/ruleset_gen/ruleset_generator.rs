@@ -182,7 +182,6 @@ pub(super) fn generate_rule_content(
     tracker: &mut Tracker,
     scope: &Scope,
 ) -> IResult<Closure<Repeater, Arguments, Stage>> {
-    
     // 0. Pre processing (local variable assignment)
     // Variables should be registered in this process
     for let_stmt in &rule_content_expr.pre_processing {
@@ -347,6 +346,7 @@ pub(super) fn generate_fn_call(fn_call_expr: &FnCall, tracker: &mut Tracker) -> 
 pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &mut Tracker) -> IResult<()> {
     // 0. check the rule name if the definition exists
     let rule_name = &*rule_call_expr.rule_name.name;
+    println!("{:#?}", rule_name);
     if !tracker.check_rule_name_exist(rule_name) {
         return Err(RuleSetGenError::NoRuleFoundError);
     }
@@ -354,8 +354,8 @@ pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &mut Tracke
     let scope = rule_name;
     // At this point, repeater argument and ordinary argument should be resolved
     // Currently the number of repater for one rule is limited to 1
-    let repeater_arg = generate_expr(&*rule_call_expr.repeater_arg, tracker, scope).unwrap();
-    let arguments = &*rule_call_expr.argument;
+    // let repeater_arg = generate_expr(&*rule_call_expr.repeater_arg, tracker, scope).unwrap();
+    // let arguments = &*rule_call_expr.argument;
 
     // Check argument types, argument numbers, values
     // tracker.eval_rule(rule_name, repeater_arg, arguments);

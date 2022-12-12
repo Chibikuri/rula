@@ -87,10 +87,11 @@ act_expr = { ^"act" ~ "{" ~ (stmt)* ~ "}"}
 variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
 callable = { fn_call_expr | repeater_ident | ident }
 
-rule_call_expr = { ident ~ "<" ~ expr ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
+rule_call_expr = { ident ~ "<" ~ repeater_call ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
+repeater_call = {"#repeaters" ~ "(" ~ (term_expr | ident | number ) ~ ")"}
 
 fn_call_expr = { (repeater_ident | ident) ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
-fn_call_args = _{ fn_call_expr | variable_call_expr | term_expr | literal_expr }
+fn_call_args = { fn_call_expr | variable_call_expr | term_expr | literal_expr }
 
 repeater_ident = { "#" ~ ident}
 

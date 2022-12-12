@@ -978,17 +978,22 @@ pub enum FnCallArgs {
     FnCall(FnCall),
     VariableCall(VariableCallExpr),
     Lit(Lit),
+    Term(Term),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleCall {
     pub rule_name: Box<Ident>,
-    pub repeater_arg: Box<Expr>,
+    pub repeater_arg: Box<RepeaterCallArg>,
     pub argument: Vec<FnCallArgs>,
 }
 
 impl RuleCall {
-    pub fn new(rule_name: Ident, repeater_arg: Expr, arguments: Vec<FnCallArgs>) -> Self {
+    pub fn new(
+        rule_name: Ident,
+        repeater_arg: RepeaterCallArg,
+        arguments: Vec<FnCallArgs>,
+    ) -> Self {
         RuleCall {
             rule_name: Box::new(rule_name),
             repeater_arg: Box::new(repeater_arg),
@@ -999,10 +1004,30 @@ impl RuleCall {
     pub fn place_holder() -> Self {
         RuleCall {
             rule_name: Box::new(Ident::place_holder()),
-            repeater_arg: Box::new(Expr::place_holder()),
+            repeater_arg: Box::new(RepeaterCallArg::PlaceHolder),
             argument: vec![],
         }
     }
+
+    pub fn update_rule_name(&mut self, new_name: Ident) {
+        self.rule_name = Box::new(new_name);
+    }
+
+    pub fn add_repeater_arg(&mut self, repeater_arg: RepeaterCallArg) {
+        self.repeater_arg = Box::new(repeater_arg);
+    }
+
+    pub fn add_arg(&mut self, arg: FnCallArgs) {
+        self.argument.push(arg);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RepeaterCallArg {
+    Term(Term),
+    Ident(Ident),
+    NumberLit(NumberLit),
+    PlaceHolder,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comp {

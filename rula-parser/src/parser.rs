@@ -525,35 +525,59 @@ fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
                 // This is repeater call
                 fnc_call.update_repeater_call();
             }
-            Rule::fn_call_expr => {
-                for arg in block.into_inner() {
-                    fnc_call.add_argument(FnCallArgs::FnCall(
-                        build_ast_from_fn_call_expr(arg).unwrap(),
-                    ));
-                }
-            }
-            Rule::variable_call_expr => {
-                for arg in block.into_inner() {
-                    fnc_call.add_argument(FnCallArgs::VariableCall(
-                        build_ast_from_variable_call_expr(arg).unwrap(),
-                    ))
-                }
-            }
-            Rule::literal_expr => {
-                for arg in block.into_inner() {
-                    fnc_call.add_argument(FnCallArgs::Lit(build_ast_from_literals(arg).unwrap()))
-                }
-            }
+            Rule::fn_call_args => {}
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(fnc_call)
 }
 
+fn build_ast_from_fn_call_args(pair: Pair<Rule>) -> IResult<FnCallArgs> {
+    match pair.as_rule() {
+        Rule::fn_call_expr => Ok(FnCallArgs::FnCall(
+            build_ast_from_fn_call_expr(pair).unwrap(),
+        )),
+        Rule::variable_call_expr => Ok(FnCallArgs::VariableCall(
+            build_ast_from_variable_call_expr(pair).unwrap(),
+        )),
+        Rule::term_expr => Ok(FnCallArgs::Term(build_ast_from_term_expr(pair).unwrap())),
+        Rule::literal_expr => Ok(FnCallArgs::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
+}
+
 fn build_ast_from_rule_call_expr(pair: Pair<Rule>) -> IResult<RuleCall> {
     let mut rule_call_expr = RuleCall::place_holder();
-
+    for block in pair.into_inner() {
+        // rule_call_expr.
+        match block.as_rule() {
+            // rule name
+            Rule::ident => rule_call_expr.update_rule_name(build_ast_from_ident(block).unwrap()),
+            Rule::repeater_call => rule_call_expr.add_repeater_arg(
+                build_ast_from_repeater_arg(block.into_inner().next().unwrap()).unwrap(),
+            ),
+            Rule::fn_call_args => {
+                rule_call_expr.add_arg(
+                    build_ast_from_fn_call_args(block.into_inner().next().unwrap()).unwrap(),
+                );
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
     Ok(rule_call_expr)
+}
+
+fn build_ast_from_repeater_arg(pair: Pair<Rule>) -> IResult<RepeaterCallArg> {
+    match pair.as_rule() {
+        Rule::term_expr => Ok(RepeaterCallArg::Term(
+            build_ast_from_term_expr(pair).unwrap(),
+        )),
+        Rule::ident => Ok(RepeaterCallArg::Ident(build_ast_from_ident(pair).unwrap())),
+        Rule::number => Ok(RepeaterCallArg::NumberLit(NumberLit::new(pair.as_str()))),
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
 }
 
 fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
@@ -1316,6 +1340,44 @@ mod tests {
                 Callable::FnCall(FnCall::new(Ident::new("hello", None), false, vec![])),
             ]);
             assert_eq!(target_ast_nodes, var_call_ast);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_rule_call_expr {
+        use super::*;
+        #[test]
+        fn test_simple_rule_call() {
+            let rule_call = pair_generator("rulename<#repeaters(0)>()", Rule::rule_call_expr);
+            let rule_call_ast = build_ast_from_rule_call_expr(rule_call).unwrap();
+            let target_ast_nodes = RuleCall::new(
+                // rule_name
+                Ident::new("rulename", None),
+                RepeaterCallArg::NumberLit(NumberLit::new("0")),
+                vec![],
+            );
+            assert_eq!(rule_call_ast, target_ast_nodes);
+        }
+        #[test]
+        fn test_rule_call_with_args() {
+            let rule_call = pair_generator(
+                "rulename<#repeaters(0)>(i, a.k(), k())",
+                Rule::rule_call_expr,
+            );
+            let rule_call_ast = build_ast_from_rule_call_expr(rule_call).unwrap();
+            let target_ast_nodes = RuleCall::new(
+                Ident::new("rulename", None),
+                RepeaterCallArg::NumberLit(NumberLit::new("0")),
+                vec![
+                    FnCallArgs::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
+                    FnCallArgs::VariableCall(VariableCallExpr::new(vec![
+                        Callable::Ident(Ident::new("a", None)),
+                        Callable::FnCall(FnCall::new(Ident::new("k", None), false, vec![])),
+                    ])),
+                    FnCallArgs::FnCall(FnCall::new(Ident::new("k", None), false, vec![])),
+                ],
+            );
+            assert_eq!(rule_call_ast, target_ast_nodes);
         }
     }
 }
