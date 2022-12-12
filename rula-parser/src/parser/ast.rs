@@ -1104,6 +1104,7 @@ impl VariableCallExpr {
 pub enum Callable {
     FnCall(FnCall),
     Ident(Ident),
+    RepeaterIdent(Ident),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1282,10 +1283,11 @@ impl Ident {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
+    Repeater,
+    Message,
     Integer,
     UnsignedInteger,
     Float,
-    // Complex,
     Boolean,
     Str,
     Qubit,

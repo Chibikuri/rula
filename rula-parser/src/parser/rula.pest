@@ -1,17 +1,18 @@
 rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 
-// Function definition could also be in this list
-// Program is composed of higher level expressions (import, rule, ruleset)
 program = { repeaters? ~ ( import_expr | rule_expr | ruleset_expr )* }
 
 stmt = { let_stmt | expr }
 
 repeaters = {"#repeaters: vec[Repeater]"}
 
-let_stmt = { ^"let" ~ ( ident_typed | ident ) ~ "=" ~ expr}
+let_stmt = { ^"let" ~ ( ident_typed | "(" ~ ident_typed ~ ("," ~ ident_typed)* ~ ")" ) ~ "=" ~ expr}
 
 expr = {
   // named
+  import_expr |
+  ruleset_expr |
+  rule_expr |
   if_expr | 
   for_expr|
   match_expr | 
@@ -86,10 +87,10 @@ act_expr = { ^"act" ~ "{" ~ (stmt)* ~ "}"}
 variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
 callable = { fn_call_expr | repeater_ident | ident }
 
-rule_call_expr = { ident ~ "<" ~ expr ~ ">" ~ "(" ~ fn_call_args ~ ")"}
+rule_call_expr = { ident ~ "<" ~ expr ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
 
 fn_call_expr = { (repeater_ident | ident) ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
-fn_call_args = _{ fn_call_expr | variable_call_expr | literal_expr }
+fn_call_args = _{ fn_call_expr | variable_call_expr | term_expr | literal_expr }
 
 repeater_ident = { "#" ~ ident}
 
@@ -136,6 +137,8 @@ typedef_lit = { ( vector_type
                   | boolean_type
                   | string_type
                   | qubit_type
+                  | repeater_type
+                  | message_type
 ) }
 
 vector_type = {"vec" ~ "[" ~ typedef_lit ~ "]"}
@@ -145,6 +148,8 @@ float_type = { "float" }
 boolean_type = { "bool" }
 string_type = { "str" }
 qubit_type = { "qubit" }
+repeater_type = { "Repeater" }
+message_type = { "Message" }
 
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" | "\t") }

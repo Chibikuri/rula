@@ -6,7 +6,6 @@ use super::action::ActionClauses;
 use super::action::*;
 use super::condition::ConditionClauses;
 use super::condition::*;
-// use crate::qnic::QnicType;
 
 fn generate_id() -> u128 {
     if cfg!(test) {
@@ -187,8 +186,6 @@ impl Rule {
 
 #[cfg(test)]
 pub mod tests {
-    use super::super::action::Action;
-    use super::super::action::ActionClauses;
     use super::*;
 
     #[test]

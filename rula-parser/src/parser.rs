@@ -298,6 +298,9 @@ fn build_ast_from_rule_contents(pair: Pair<Rule>) -> IResult<RuleContentExpr> {
     let mut rule_content_expr = RuleContentExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
+            Rule::let_stmt => {
+                rule_content_expr.add_pre_let_stmt(build_ast_from_let_stmt(block).unwrap())
+            }
             Rule::cond_expr => {
                 rule_content_expr.add_condition_expr(build_ast_from_cond_expr(block).unwrap())
             }
@@ -608,6 +611,9 @@ fn build_ast_from_variable_call_expr(pair: Pair<Rule>) -> IResult<VariableCallEx
 fn build_ast_from_callable(pair: Pair<Rule>) -> IResult<Callable> {
     match pair.as_rule() {
         Rule::ident => Ok(Callable::Ident(build_ast_from_ident(pair).unwrap())),
+        Rule::repeater_ident => Ok(Callable::RepeaterIdent(
+            build_ast_from_ident(pair.into_inner().next().unwrap()).unwrap(),
+        )),
         Rule::fn_call_expr => Ok(Callable::FnCall(build_ast_from_fn_call_expr(pair).unwrap())),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
@@ -684,6 +690,14 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
         },
         Rule::qubit_type => match pair.as_str() {
             "qubit" => return Ok(TypeDef::Qubit),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::repeater_type => match pair.as_str() {
+            "Repeater" => return Ok(TypeDef::Repeater),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::message_type => match pair.as_str() {
+            "Message" => return Ok(TypeDef::Message),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::vector_type => Ok(TypeDef::Vector(Box::new(
@@ -891,10 +905,10 @@ mod tests {
 
         #[test]
         fn test_let_with_if_expr() {
-            let let_stmt = pair_generator("let hello = if(block){expression}", Rule::let_stmt);
+            let let_stmt = pair_generator("let hello: str = if(block){expression}", Rule::let_stmt);
             let let_if_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", None),
+                Ident::new("hello", Some(TypeDef::Str)),
                 Expr::new(ExprKind::If(If::new(
                     // (block)
                     Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(

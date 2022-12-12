@@ -4,13 +4,13 @@
 import std::operations::{z, x, bsm}
 
 rule swapping<#rep>(distance: u_int){
-    let left_partner = #rep.hop(distance)
-    let right_partner = #rep.hop(-distance)
+    let left_partner: Repeater = #rep.hop(distance)
+    let right_partner: Repeater = #rep.hop(-distance)
     cond {
         res(1, 0.8, left_partner)
         res(1, 0.8, right_partner)
     } => act {
-        let result = bsm(q1, q2)
+        let result: str = bsm(q1, q2)
         match result{
             "00" => {},
             "01" => {update(q1, z()) -> left_partner},
@@ -32,9 +32,9 @@ rule swapping<#rep>(distance: u_int){
 
 
 ruleset entanglement_swapping{
-    for (i) in 1..#repeaters.max()-1{
-        if (i % 2 == 1){
-            swapping<#repeaters(i)>(1)
-        }
-    }
+    //for (i) in 1..#repeaters.max()-1{
+    //    if (i % 2 == 1){
+    swapping<#repeaters(i)>(1)
+    //    }
+    //}
 }

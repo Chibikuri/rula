@@ -24,9 +24,11 @@ pub mod ruleset_gen {
     pub mod action;
     pub mod condition;
     pub mod conf_parser;
+    pub mod repeater;
     pub mod ruleset;
     pub mod ruleset_generator;
     pub mod tracker;
+    pub mod types;
 
     use error::RuleSetGenError;
     type IResult<T> = std::result::Result<T, RuleSetGenError>;
