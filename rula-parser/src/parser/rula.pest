@@ -18,12 +18,12 @@ expr = {
   match_expr | 
   return_expr | 
   // non-named
+  term_expr | 
   send_expr |
   fn_call_expr |
   rule_call_expr| 
-  // comparison must be higher precedence
   comp_expr |
-  term_expr | 
+  // comparison must be higher precedence
   variable_call_expr |
   literal_expr
 }
@@ -57,7 +57,7 @@ term_expr = { terms ~ op ~ terms }
 terms = { variable_call_expr | fn_call_expr | literal_expr }
 
 // A set of arithmetic operations for tems
-op = _{ ( plus | minus | asterisk | slash | percent | caret ) }
+op = { ( plus | minus | asterisk | slash | percent | caret ) }
 plus = { "+" }
 minus = { "-" }
 asterisk = { "*" }
@@ -88,7 +88,7 @@ variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
 callable = { fn_call_expr | repeater_ident | ident }
 
 rule_call_expr = { ident ~ "<" ~ repeater_call ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
-repeater_call = {"#repeaters" ~ "(" ~ (term_expr | ident | number ) ~ ")"}
+repeater_call = {"#repeaters" ~ "(" ~ (term_expr | ident | int ) ~ ")"}
 
 fn_call_expr = { (repeater_ident | ident) ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
 fn_call_args = { fn_call_expr | variable_call_expr | term_expr | literal_expr }

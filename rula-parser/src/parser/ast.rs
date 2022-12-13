@@ -700,6 +700,13 @@ impl Series {
             end: Box::new(Expr::place_holder()),
         }
     }
+
+    pub fn add_start(&mut self, start: NumberLit) {
+        self.start = Box::new(start);
+    }
+    pub fn add_end(&mut self, end: Expr) {
+        self.end = Box::new(end);
+    }
 }
 
 // #[derive(Debug, Clone, PartialEq)]
@@ -1084,6 +1091,15 @@ impl Term {
             op: Box::new(TermOps::PlaceHolder),
             rhs: Box::new(Terms::PlaceHolder),
         }
+    }
+    pub fn add_lhs(&mut self, lhs: Terms) {
+        self.lhs = Box::new(lhs);
+    }
+    pub fn add_op(&mut self, op: TermOps) {
+        self.op = Box::new(op);
+    }
+    pub fn add_rhs(&mut self, rhs: Terms) {
+        self.rhs = Box::new(rhs);
     }
 }
 

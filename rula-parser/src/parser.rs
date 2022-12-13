@@ -425,7 +425,14 @@ fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
 
 fn build_ast_from_series_expr(pair: Pair<Rule>) -> IResult<Series> {
     let mut series_expr = Series::place_holder();
-
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::int => series_expr.add_start(NumberLit::new(block.as_str())),
+            Rule::expr => series_expr
+                .add_end(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
     Ok(series_expr)
 }
 
@@ -563,7 +570,7 @@ fn build_ast_from_rule_call_expr(pair: Pair<Rule>) -> IResult<RuleCall> {
                     build_ast_from_fn_call_args(block.into_inner().next().unwrap()).unwrap(),
                 );
             }
-            _ => return Err(RuLaError::RuLaSyntaxError),
+            _ => todo!("here?{:#?}", block), // _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(rule_call_expr)
@@ -575,7 +582,7 @@ fn build_ast_from_repeater_arg(pair: Pair<Rule>) -> IResult<RepeaterCallArg> {
             build_ast_from_term_expr(pair).unwrap(),
         )),
         Rule::ident => Ok(RepeaterCallArg::Ident(build_ast_from_ident(pair).unwrap())),
-        Rule::number => Ok(RepeaterCallArg::NumberLit(NumberLit::new(pair.as_str()))),
+        Rule::int => Ok(RepeaterCallArg::NumberLit(NumberLit::new(pair.as_str()))),
         _ => return Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -613,8 +620,57 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
 
 fn build_ast_from_term_expr(pair: Pair<Rule>) -> IResult<Term> {
     let mut term_expr = Term::place_holder();
-
+    let mut is_left = true;
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::terms => {
+                if is_left {
+                    term_expr
+                        .add_lhs(build_ast_from_terms(block.into_inner().next().unwrap()).unwrap());
+                    is_left = false;
+                } else {
+                    term_expr
+                        .add_rhs(build_ast_from_terms(block.into_inner().next().unwrap()).unwrap());
+                }
+            }
+            Rule::op => match block.as_str() {
+                "+" => {
+                    term_expr.add_op(TermOps::Plus);
+                }
+                "-" => {
+                    term_expr.add_op(TermOps::Minus);
+                }
+                "*" => {
+                    term_expr.add_op(TermOps::Asterisk);
+                }
+                "/" => {
+                    term_expr.add_op(TermOps::Slash);
+                }
+                "%" => {
+                    term_expr.add_op(TermOps::Percent);
+                }
+                "^" => {
+                    term_expr.add_op(TermOps::Caret);
+                }
+                _ => return Err(RuLaError::RuLaSyntaxError),
+            },
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
     Ok(term_expr)
+}
+
+fn build_ast_from_terms(pair: Pair<Rule>) -> IResult<Terms> {
+    match pair.as_rule() {
+        Rule::variable_call_expr => Ok(Terms::VariableCallExpr(
+            build_ast_from_variable_call_expr(pair).unwrap(),
+        )),
+        Rule::fn_call_expr => Ok(Terms::FnCall(build_ast_from_fn_call_expr(pair).unwrap())),
+        Rule::literal_expr => Ok(Terms::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
 }
 
 fn build_ast_from_variable_call_expr(pair: Pair<Rule>) -> IResult<VariableCallExpr> {
@@ -1378,6 +1434,71 @@ mod tests {
                 ],
             );
             assert_eq!(rule_call_ast, target_ast_nodes);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_term_expr {
+        use super::*;
+
+        #[test]
+        fn test_simple_term_expr() {
+            let term_expr = pair_generator("i+1", Rule::term_expr);
+            let term_ast = build_ast_from_term_expr(term_expr).unwrap();
+            let target_ast = Term::new(
+                Terms::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
+                TermOps::Plus,
+                Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new("1")))),
+            );
+            assert_eq!(term_ast, target_ast);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_series_expr {
+        use super::*;
+
+        #[test]
+        fn test_simple_series_expr() {
+            let series_expr = pair_generator("0..10", Rule::series);
+            let series_ast = build_ast_from_series_expr(series_expr).unwrap();
+            let target_ast = Series::new(
+                NumberLit::new("0"),
+                Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    "10",
+                ))))),
+            );
+            assert_eq!(series_ast, target_ast);
+        }
+
+        #[test]
+        fn test_series_with_fn_call() {
+            let series_expr = pair_generator("0..fin()", Rule::series);
+            let series_ast = build_ast_from_series_expr(series_expr).unwrap();
+            let target_ast = Series::new(
+                NumberLit::new("0"),
+                Expr::new(ExprKind::FnCall(FnCall::new(
+                    Ident::new("fin", None),
+                    false,
+                    vec![],
+                ))),
+            );
+            assert_eq!(series_ast, target_ast);
+        }
+
+        #[test]
+        fn test_series_with_term_fn_call() {
+            let series_expr = pair_generator("0..fin()-1 ", Rule::series);
+            let series_ast = build_ast_from_series_expr(series_expr).unwrap();
+            let target_ast = Series::new(
+                NumberLit::new("0"),
+                Expr::new(ExprKind::Term(Term::new(
+                    Terms::FnCall(FnCall::new(Ident::new("fin", None), false, vec![])),
+                    TermOps::Minus,
+                    Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new("1")))),
+                ))),
+            );
+            assert_eq!(series_ast, target_ast);
         }
     }
 }

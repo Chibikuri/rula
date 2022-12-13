@@ -5,24 +5,21 @@ use super::ruleset_generator::{Scope, ValueTracker};
 use super::types::{Repeater, RuLaValue, Types};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 type NodeNumber = usize;
 type RuleName = String;
 
-pub type RuleGen = Box<dyn Fn(Repeater, Arguments, &ValueTracker, &Scope) -> Stage>;
-pub type RuleSetGen = Box<dyn Fn(&ValueTracker, &Scope) -> Vec<RuleSet>>;
 // Track all global state in generation
 // #[derive(Debug)]
 pub struct Tracker {
     pub rulesets: RefCell<HashMap<NodeNumber, RuleSet>>,
     pub ruleset_name: String,
-    pub ruleset_generator: RuleSetGen,
     pub rule_names: HashSet<String>,
-    pub rule_generators: HashMap<RuleName, RuleGen>,
     pub internal_repeater_name: HashMap<RuleName, String>,
     pub internal_argument_names: HashMap<RuleName, Vec<String>>,
     pub return_type_annotation: HashMap<RuleName, RetTypeAnnotation>,
-    pub repeaters: Vec<Repeater>,
+    pub num_repeater: u32,
 }
 
 impl Tracker {
@@ -30,13 +27,11 @@ impl Tracker {
         Tracker {
             rulesets: RefCell::new(HashMap::new()),
             ruleset_name: String::from(""),
-            ruleset_generator: Box::new(|_, _| vec![]),
             rule_names: HashSet::new(),
-            rule_generators: HashMap::new(),
             internal_repeater_name: HashMap::new(),
             internal_argument_names: HashMap::new(),
             return_type_annotation: HashMap::new(),
-            repeaters: vec![],
+            num_repeater: 0,
         }
     }
 
@@ -49,21 +44,6 @@ impl Tracker {
         self.ruleset_name = new_name.to_string();
         for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
             ruleset.update_name(new_name);
-        }
-    }
-
-    pub fn register_ruleset_generator(&mut self, ruleset_generator: RuleSetGen) {
-        self.ruleset_generator = ruleset_generator;
-    }
-
-    pub fn generate_ruleset(&self, tracker: &ValueTracker) {
-        let ruleset_generator = &self.ruleset_generator;
-        let generated_rulesets = ruleset_generator(tracker, &self.ruleset_name);
-        // update ruleset with generated new
-        for (node_number, ruleset) in generated_rulesets.iter().enumerate() {
-            self.rulesets
-                .borrow_mut()
-                .insert(node_number, ruleset.clone());
         }
     }
 
@@ -94,13 +74,6 @@ impl Tracker {
         }
     }
 
-    pub fn add_ruleset_generator(&mut self, rule_name: &str, rule: RuleGen) {
-        if !self.check_rule_name_exist(rule_name) {
-            panic!("No rule name registered {}", rule_name);
-        }
-        self.rule_generators.insert(rule_name.to_string(), rule);
-    }
-
     pub fn add_internal_repeater_name(&mut self, rule_name: &RuleName, repeater_arg_name: &String) {
         self.internal_repeater_name
             .insert(rule_name.to_string(), repeater_arg_name.to_string());
@@ -128,21 +101,6 @@ impl Tracker {
             .expect("Failed to get argument names")
     }
 
-    pub fn eval_rule(
-        &self,
-        rule_name: &str,
-        repeater: &Repeater,
-        arguments: &Arguments,
-        tracker: &ValueTracker,
-        scope: &Scope,
-    ) -> Stage {
-        self.rule_generators
-            .get(rule_name)
-            .expect("unable to find the rule")(
-            repeater.clone(), arguments.clone(), tracker, scope
-        )
-    }
-
     pub fn add_return_type_annotation(
         &mut self,
         rule_name: &RuleName,
@@ -150,6 +108,10 @@ impl Tracker {
     ) {
         self.return_type_annotation
             .insert(rule_name.to_string(), ret_type_annotation);
+    }
+
+    pub fn update_num_node(&mut self, num_node: u32) {
+        self.num_repeater = num_node;
     }
 }
 

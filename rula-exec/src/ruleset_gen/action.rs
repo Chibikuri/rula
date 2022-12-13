@@ -42,6 +42,8 @@ pub enum ActionClauses {
     SetTimer(SetTimer),
     /// Send classical message from one place to another
     Send(ProtocolMessages),
+    /// Just Wait
+    Wait,
 }
 
 // In the future, to identify
