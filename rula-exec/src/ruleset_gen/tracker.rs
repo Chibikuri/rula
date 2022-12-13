@@ -1,57 +1,63 @@
 use super::ruleset::{Rule, RuleSet, Stage};
+use super::ruleset_generator::Closure;
 use super::types::{ArgVals, Repeater, Types};
-
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
-type NodeNumber = u32;
+type NodeNumber = usize;
 type RuleName = String;
 // Track all global state in generation
 // #[derive(Debug)]
 pub struct Tracker {
-    pub rulesets: HashMap<NodeNumber, RuleSet>,
-    pub stages: HashMap<u32, Stage>,
+    pub rulesets: RefCell<HashMap<NodeNumber, RuleSet>>,
     pub rule_names: HashSet<String>,
-    pub unresolved_rules: HashMap<RuleName, Box<dyn Fn(&Repeater, &Arguments) -> Stage>>,
+    pub unresolved_rules: HashMap<RuleName, Closure<Repeater, Arguments, Stage>>,
 
     pub repeaters: Vec<Repeater>,
     // Variables with scope
     pub local_variable: RefCell<HashMap<String, Variable>>,
     pub return_type_annotation: RefCell<HashMap<u32, RetTypeAnnotation>>,
-    stage_id: u32,
     index: u32,
 }
 
 impl Tracker {
     pub fn new() -> Self {
         Tracker {
-            rulesets: HashMap::new(),
-            stages: HashMap::new(),
+            rulesets: RefCell::new(HashMap::new()),
             rule_names: HashSet::new(),
             unresolved_rules: HashMap::new(),
             repeaters: vec![],
             local_variable: RefCell::new(HashMap::new()),
             return_type_annotation: RefCell::new(HashMap::new()),
-            stage_id: 0,
             index: 0,
         }
     }
 
     // Functions for RuleSet
-    pub fn add_ruleset(&mut self, number: NodeNumber, ruleset: RuleSet) {
-        self.rulesets.insert(number, ruleset);
+    pub fn add_ruleset(&self, number: NodeNumber, ruleset: RuleSet) {
+        self.rulesets.borrow_mut().insert(number, ruleset);
     }
 
-    pub fn update_ruleset_name(&mut self, new_name: &str) {
-        for (_, ruleset) in &mut self.rulesets {
+    pub fn update_ruleset_name(&self, new_name: &str) {
+        for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
             ruleset.update_name(new_name);
         }
     }
 
-    // Functions for Stage
-    pub fn add_stage(&mut self, stage: Stage) {
-        self.stages.insert(self.stage_id, stage);
-        self.stage_id += 1;
+    pub fn add_stage(&self, repeater_index: usize, stage: Stage) {
+        self.rulesets
+            .borrow_mut()
+            .get_mut(&repeater_index)
+            .expect("Failed to get ruelset")
+            .add_stage(stage);
+    }
+
+    pub fn return_rulesets(&self) -> Vec<RuleSet> {
+        let mut rulesets = vec![];
+        for (_, rs) in self.rulesets.borrow().iter() {
+            rulesets.push(rs.clone())
+        }
+        rulesets
     }
 
     // Functions for Rules
@@ -65,15 +71,23 @@ impl Tracker {
         }
     }
 
-    pub fn eval_rule(
+    pub fn add_unresolved_rule<F>(
         &mut self,
         rule_name: &str,
-        repeater: &Repeater,
-        arguments: &Arguments,
-    ) -> Stage {
+        rule: Closure<Repeater, Arguments, Stage>,
+    ) where
+        F: Fn(Repeater, Arguments) -> Stage + 'static,
+    {
+        if !self.check_rule_name_exist(rule_name) {
+            panic!("No rule name registered {}", rule_name);
+        }
+        self.unresolved_rules.insert(rule_name.to_string(), rule);
+    }
+
+    pub fn eval_rule(&self, rule_name: &str, repeater: &Repeater, arguments: &Arguments) -> Stage {
         self.unresolved_rules
             .get(rule_name)
-            .expect("unable to find the rule")(repeater, arguments)
+            .expect("unable to find the rule")(repeater.clone(), arguments.clone())
     }
 
     // Functions for local variables

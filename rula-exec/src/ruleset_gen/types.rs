@@ -40,6 +40,7 @@ pub enum ArgVals {
 // Repeater type
 #[derive(Debug, Clone, PartialEq)]
 pub struct Repeater {
+    pub name: String,
     // repeater chains
     // (initiators) left_repeaters < -- > self (0) < -- > right_repeaters (responder)
     pub left_repeaters: Vec<Box<Repeater>>,
@@ -47,6 +48,13 @@ pub struct Repeater {
 }
 
 impl Repeater {
+    pub fn new(name: &str) -> Self {
+        Repeater {
+            name: name.to_string(),
+            left_repeaters: vec![],
+            right_repeaters: vec![],
+        }
+    }
     pub fn hop(&self, distance: i32) -> &Repeater {
         if distance == 0 {
             return self;
@@ -54,13 +62,21 @@ impl Repeater {
             if distance as usize > self.right_repeaters.len() {
                 panic!("No more repeaters at responder side");
             }
-            &*self.right_repeaters[distance as usize]
+            &*self.right_repeaters[(distance - 1) as usize]
         } else {
             if distance as usize > self.left_repeaters.len() {
                 panic!("No more repeaters at initiator side");
             }
-            &*self.left_repeaters[-distance as usize]
+            &*self.left_repeaters[(-distance - 1) as usize]
         }
+    }
+
+    pub fn add_left_repeater(&mut self, rep: &Repeater) {
+        self.left_repeaters.push(Box::new(rep.clone()));
+    }
+
+    pub fn add_right_repeater(&mut self, rep: &Repeater) {
+        self.right_repeaters.push(Box::new(rep.clone()));
     }
 }
 

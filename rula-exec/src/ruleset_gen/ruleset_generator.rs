@@ -19,21 +19,22 @@ use syn::{LitFloat, LitStr};
 
 type Scope = String;
 type SingleClosure<T, U> = Box<dyn Fn(T) -> U>;
-type Closure<T, U, V> = Box<dyn Fn(T, U) -> V>;
-type ValueTracker = RefCell<Tracker>;
+pub type Closure<T, U, V> = Box<dyn Fn(T, U) -> V>;
+pub type ValueTracker = RefCell<Tracker>;
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
 /// Arguments:
 ///     ast_tree
 pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<Vec<RuleSet>> {
     // RuLa should know how many repeaters inconfig at this moment
-    // TODO: Just mock here
-    let num_nodes = parse_config(config_path);
 
     // Initialize tracker to track global state over the functions
     let tracker = RefCell::new(Tracker::new());
+
+    parse_config(config_path, &tracker);
+    let num_node = tracker.borrow().repeaters.len();
     // Add empty RuleSets
-    for i in 0..num_nodes {
+    for i in 0..num_node {
         tracker.borrow_mut().add_ruleset(i, RuleSet::new("empty"));
     }
     // Generated rula program
@@ -43,10 +44,7 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<Vec<RuleSet
         AstNode::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
     // return generated rulesets
-    let mut rulesets = vec![];
-    for (_i, ruleset) in &tracker.borrow().rulesets {
-        rulesets.push(ruleset.clone())
-    }
+    let rulesets = tracker.borrow().return_rulesets();
     Ok(rulesets)
 }
 
@@ -176,6 +174,9 @@ pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &ValueTracker) -
     // This has to be evaluated when the rule is called.
     // As long as the arguments are given, this rule can be executed
     let rule_generator = generate_rule_content(&rule_expr.rule_content, tracker, scope).unwrap();
+    tracker
+        .borrow_mut()
+        .add_unresolved_rule::<Closure<Repeater, Arguments, Stage>>(rule_name, rule_generator);
 
     // 5. Release all the scope within this Rule
     tracker.borrow_mut().clean_scope(scope);
@@ -380,9 +381,14 @@ pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &ValueTrack
     }
 
     // Check argument types, argument numbers, values
-    tracker
-        .borrow_mut()
+    // let stage = rule_evaluator(rule_name, repeater_arg, &arguments, tracker).unwrap();
+    let stage = tracker
+        .borrow()
         .eval_rule(rule_name, repeater_arg, &arguments);
+
+    // Add stage to the ruleset
+    // At this moment, repeater index must be corresponding to where this rule is added
+    tracker.borrow().add_stage(repeater_index, stage);
 
     // Add rule to stage inside the RuleSet
     Ok(())
