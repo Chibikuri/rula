@@ -1,24 +1,28 @@
-use super::ruleset::{Rule, RuleSet, Stage};
-use super::ruleset_generator::{Closure, Scope, ValueTracker};
+use serde_json::Value;
+
+use super::ruleset::{RuleSet, Stage};
+use super::ruleset_generator::{Scope, ValueTracker};
 use super::types::{Repeater, RuLaValue, Types};
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 type NodeNumber = usize;
 type RuleName = String;
 
-pub type RuleGen = Box<dyn Fn(Repeater, Arguments, &ValueTracker, Scope) -> Stage>;
+pub type RuleGen = Box<dyn Fn(Repeater, Arguments, &ValueTracker, &Scope) -> Stage>;
+pub type RuleSetGen = Box<dyn Fn(&ValueTracker, &Scope) -> Vec<RuleSet>>;
 // Track all global state in generation
 // #[derive(Debug)]
 pub struct Tracker {
     pub rulesets: RefCell<HashMap<NodeNumber, RuleSet>>,
     pub ruleset_name: String,
+    pub ruleset_generator: RuleSetGen,
     pub rule_names: HashSet<String>,
     pub rule_generators: HashMap<RuleName, RuleGen>,
+    pub internal_repeater_name: HashMap<RuleName, String>,
+    pub internal_argument_names: HashMap<RuleName, Vec<String>>,
+    pub return_type_annotation: HashMap<RuleName, RetTypeAnnotation>,
     pub repeaters: Vec<Repeater>,
-    pub return_type_annotation: RefCell<HashMap<u32, RetTypeAnnotation>>,
-    index: u32,
 }
 
 impl Tracker {
@@ -26,11 +30,13 @@ impl Tracker {
         Tracker {
             rulesets: RefCell::new(HashMap::new()),
             ruleset_name: String::from(""),
+            ruleset_generator: Box::new(|_, _| vec![]),
             rule_names: HashSet::new(),
             rule_generators: HashMap::new(),
+            internal_repeater_name: HashMap::new(),
+            internal_argument_names: HashMap::new(),
+            return_type_annotation: HashMap::new(),
             repeaters: vec![],
-            return_type_annotation: RefCell::new(HashMap::new()),
-            index: 0,
         }
     }
 
@@ -46,11 +52,26 @@ impl Tracker {
         }
     }
 
+    pub fn register_ruleset_generator(&mut self, ruleset_generator: RuleSetGen) {
+        self.ruleset_generator = ruleset_generator;
+    }
+
+    pub fn generate_ruleset(&self, tracker: &ValueTracker) {
+        let ruleset_generator = &self.ruleset_generator;
+        let generated_rulesets = ruleset_generator(tracker, &self.ruleset_name);
+        // update ruleset with generated new
+        for (node_number, ruleset) in generated_rulesets.iter().enumerate() {
+            self.rulesets
+                .borrow_mut()
+                .insert(node_number, ruleset.clone());
+        }
+    }
+
     pub fn add_stage(&self, repeater_index: usize, stage: Stage) {
         self.rulesets
             .borrow_mut()
             .get_mut(&repeater_index)
-            .expect("Failed to get ruelset")
+            .expect("Failed to find a ruelset")
             .add_stage(stage);
     }
 
@@ -80,6 +101,33 @@ impl Tracker {
         self.rule_generators.insert(rule_name.to_string(), rule);
     }
 
+    pub fn add_internal_repeater_name(&mut self, rule_name: &RuleName, repeater_arg_name: &String) {
+        self.internal_repeater_name
+            .insert(rule_name.to_string(), repeater_arg_name.to_string());
+    }
+
+    pub fn get_internal_repeater_name(&self, rule_name: &RuleName) -> String {
+        self.internal_repeater_name
+            .get(rule_name)
+            .expect("Unable to find the rule name")
+            .to_string()
+    }
+
+    pub fn add_internal_argument_names(
+        &mut self,
+        rule_name: &RuleName,
+        argument_names: Vec<String>,
+    ) {
+        self.internal_argument_names
+            .insert(rule_name.to_string(), argument_names);
+    }
+
+    pub fn get_internal_argument_names(&self, rule_name: &RuleName) -> &Vec<String> {
+        self.internal_argument_names
+            .get(rule_name)
+            .expect("Failed to get argument names")
+    }
+
     pub fn eval_rule(
         &self,
         rule_name: &str,
@@ -91,34 +139,18 @@ impl Tracker {
         self.rule_generators
             .get(rule_name)
             .expect("unable to find the rule")(
-            repeater.clone(),
-            arguments.clone(),
-            tracker,
-            scope.clone(),
+            repeater.clone(), arguments.clone(), tracker, scope
         )
     }
 
-    pub fn register_return_type_annotation(&mut self, ret_type_annotation: RetTypeAnnotation) {
+    pub fn add_return_type_annotation(
+        &mut self,
+        rule_name: &RuleName,
+        ret_type_annotation: RetTypeAnnotation,
+    ) {
         self.return_type_annotation
-            .borrow_mut()
-            .insert(self.index, ret_type_annotation);
-        self.index += 1;
+            .insert(rule_name.to_string(), ret_type_annotation);
     }
-
-    pub fn clean_scope(&mut self, scope_name: &str) {
-        self.clean_ret_annotation(scope_name);
-    }
-
-    fn clean_ret_annotation(&mut self, scope_name: &str) {
-        let ret_annos = self.return_type_annotation.borrow().clone();
-        for (i, anno) in ret_annos.iter() {
-            if anno.get_scope() == scope_name {
-                self.return_type_annotation.borrow_mut().remove(i);
-            }
-        }
-    }
-
-    pub fn eval_repeater(&mut self, repeater: Repeater) {}
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -182,12 +214,13 @@ impl RetTypeAnnotation {
 type ArgName = String;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Arguments {
-    vals: HashMap<String, RuLaValue>,
-    scope: String,
+    // Order is important here
+    pub vals: Vec<RuLaValue>,
+    pub scope: String,
 }
 
 impl Arguments {
-    pub fn new(vals: HashMap<String, RuLaValue>, scope: String) -> Self {
+    pub fn new(vals: Vec<RuLaValue>, scope: String) -> Self {
         Arguments {
             vals: vals,
             scope: scope,
@@ -195,15 +228,15 @@ impl Arguments {
     }
     pub fn place_holder() -> Self {
         Arguments {
-            vals: HashMap::new(),
+            vals: vec![],
             scope: String::from(""),
         }
     }
     pub fn get_scope(&self) -> &String {
         &self.scope
     }
-    pub fn add_val(&mut self, name: &str, arg: RuLaValue) {
-        self.vals.insert(name.to_string(), arg);
+    pub fn add_val(&mut self, arg: RuLaValue) {
+        self.vals.push(arg);
     }
     pub fn update_scope(&mut self, new_scope: &str) {
         self.scope = new_scope.to_string();
@@ -222,19 +255,11 @@ impl LocalVariableTracker {
             values: RefCell::new(HashMap::new()),
         }
     }
-    pub fn register(&self, name: &str, val: RuLaValue) {
-        self.values.borrow_mut().insert(name.to_string(), val);
+    pub fn register(&self, name: &str, val: &RuLaValue) {
+        self.values
+            .borrow_mut()
+            .insert(name.to_string(), val.clone());
     }
-    // This doesn't live longer than closure.
-    // fn clean_local_var(&mut self, scope_name: &str) {
-    //     // Copy the current local variable map and remove all the scoped values (Better way?)
-    //     let local_vars = self.values.borrow().clone();
-    //     for (name, var) in local_vars.iter() {
-    //         if var.get_scope() == scope_name {
-    //             self.local_variable.borrow_mut().remove(name);
-    //         }
-    //     }
-    // }
 }
 
 #[cfg(test)]
