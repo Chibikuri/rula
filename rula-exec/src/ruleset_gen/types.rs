@@ -24,8 +24,8 @@ impl Types {
     }
 }
 #[derive(Debug, Clone, PartialEq)]
-pub enum ArgVals {
-    // Repeater cannot be taken as ordinary argument
+pub enum RuLaValue {
+    Repeater(Repeater),
     Message(Message),
     Qubit(Qubit),
     Str(String),

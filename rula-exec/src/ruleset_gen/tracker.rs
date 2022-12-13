@@ -1,21 +1,22 @@
 use super::ruleset::{Rule, RuleSet, Stage};
-use super::ruleset_generator::Closure;
-use super::types::{ArgVals, Repeater, Types};
+use super::ruleset_generator::{Closure, Scope, ValueTracker};
+use super::types::{Repeater, RuLaValue, Types};
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 type NodeNumber = usize;
 type RuleName = String;
+
+pub type RuleGen = Box<dyn Fn(Repeater, Arguments, &ValueTracker, Scope) -> Stage>;
 // Track all global state in generation
 // #[derive(Debug)]
 pub struct Tracker {
     pub rulesets: RefCell<HashMap<NodeNumber, RuleSet>>,
+    pub ruleset_name: String,
     pub rule_names: HashSet<String>,
-    pub unresolved_rules: HashMap<RuleName, Closure<Repeater, Arguments, Stage>>,
-
+    pub rule_generators: HashMap<RuleName, RuleGen>,
     pub repeaters: Vec<Repeater>,
-    // Variables with scope
-    pub local_variable: RefCell<HashMap<String, Variable>>,
     pub return_type_annotation: RefCell<HashMap<u32, RetTypeAnnotation>>,
     index: u32,
 }
@@ -24,10 +25,10 @@ impl Tracker {
     pub fn new() -> Self {
         Tracker {
             rulesets: RefCell::new(HashMap::new()),
+            ruleset_name: String::from(""),
             rule_names: HashSet::new(),
-            unresolved_rules: HashMap::new(),
+            rule_generators: HashMap::new(),
             repeaters: vec![],
-            local_variable: RefCell::new(HashMap::new()),
             return_type_annotation: RefCell::new(HashMap::new()),
             index: 0,
         }
@@ -38,7 +39,8 @@ impl Tracker {
         self.rulesets.borrow_mut().insert(number, ruleset);
     }
 
-    pub fn update_ruleset_name(&self, new_name: &str) {
+    pub fn update_ruleset_name(&mut self, new_name: &str) {
+        self.ruleset_name = new_name.to_string();
         for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
             ruleset.update_name(new_name);
         }
@@ -71,30 +73,29 @@ impl Tracker {
         }
     }
 
-    pub fn add_unresolved_rule<F>(
-        &mut self,
-        rule_name: &str,
-        rule: Closure<Repeater, Arguments, Stage>,
-    ) where
-        F: Fn(Repeater, Arguments) -> Stage + 'static,
-    {
+    pub fn add_ruleset_generator(&mut self, rule_name: &str, rule: RuleGen) {
         if !self.check_rule_name_exist(rule_name) {
             panic!("No rule name registered {}", rule_name);
         }
-        self.unresolved_rules.insert(rule_name.to_string(), rule);
+        self.rule_generators.insert(rule_name.to_string(), rule);
     }
 
-    pub fn eval_rule(&self, rule_name: &str, repeater: &Repeater, arguments: &Arguments) -> Stage {
-        self.unresolved_rules
+    pub fn eval_rule(
+        &self,
+        rule_name: &str,
+        repeater: &Repeater,
+        arguments: &Arguments,
+        tracker: &ValueTracker,
+        scope: &Scope,
+    ) -> Stage {
+        self.rule_generators
             .get(rule_name)
-            .expect("unable to find the rule")(repeater.clone(), arguments.clone())
-    }
-
-    // Functions for local variables
-    pub fn register_local_variable(&self, name: &str, variable: Variable) {
-        self.local_variable
-            .borrow_mut()
-            .insert(name.to_string(), variable);
+            .expect("unable to find the rule")(
+            repeater.clone(),
+            arguments.clone(),
+            tracker,
+            scope.clone(),
+        )
     }
 
     pub fn register_return_type_annotation(&mut self, ret_type_annotation: RetTypeAnnotation) {
@@ -105,18 +106,7 @@ impl Tracker {
     }
 
     pub fn clean_scope(&mut self, scope_name: &str) {
-        self.clean_local_var(scope_name);
         self.clean_ret_annotation(scope_name);
-    }
-
-    fn clean_local_var(&mut self, scope_name: &str) {
-        // Copy the current local variable map and remove all the scoped values (Better way?)
-        let local_vars = self.local_variable.borrow().clone();
-        for (name, var) in local_vars.iter() {
-            if var.get_scope() == scope_name {
-                self.local_variable.borrow_mut().remove(name);
-            }
-        }
     }
 
     fn clean_ret_annotation(&mut self, scope_name: &str) {
@@ -192,12 +182,12 @@ impl RetTypeAnnotation {
 type ArgName = String;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Arguments {
-    vals: HashMap<String, ArgVals>,
+    vals: HashMap<String, RuLaValue>,
     scope: String,
 }
 
 impl Arguments {
-    pub fn new(vals: HashMap<String, ArgVals>, scope: String) -> Self {
+    pub fn new(vals: HashMap<String, RuLaValue>, scope: String) -> Self {
         Arguments {
             vals: vals,
             scope: scope,
@@ -212,12 +202,39 @@ impl Arguments {
     pub fn get_scope(&self) -> &String {
         &self.scope
     }
-    pub fn add_val(&mut self, name: &str, arg: ArgVals) {
+    pub fn add_val(&mut self, name: &str, arg: RuLaValue) {
         self.vals.insert(name.to_string(), arg);
     }
     pub fn update_scope(&mut self, new_scope: &str) {
         self.scope = new_scope.to_string();
     }
+}
+
+// Used to track inside the rule closure
+#[derive(Debug, Clone, PartialEq)]
+pub struct LocalVariableTracker {
+    pub values: RefCell<HashMap<String, RuLaValue>>,
+}
+
+impl LocalVariableTracker {
+    pub fn new() -> Self {
+        LocalVariableTracker {
+            values: RefCell::new(HashMap::new()),
+        }
+    }
+    pub fn register(&self, name: &str, val: RuLaValue) {
+        self.values.borrow_mut().insert(name.to_string(), val);
+    }
+    // This doesn't live longer than closure.
+    // fn clean_local_var(&mut self, scope_name: &str) {
+    //     // Copy the current local variable map and remove all the scoped values (Better way?)
+    //     let local_vars = self.values.borrow().clone();
+    //     for (name, var) in local_vars.iter() {
+    //         if var.get_scope() == scope_name {
+    //             self.local_variable.borrow_mut().remove(name);
+    //         }
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -226,14 +243,14 @@ mod tests {
 
     #[test]
     fn test_clean_scope() {
-        let mut tracker = Tracker::new();
-        // Create variables for two scopes
-        let var_1 = Variable::new("variable", "rule1", VarKind::Argument, Types::Unknown);
-        let var_2 = Variable::new("variable2", "rule2", VarKind::Argument, Types::Unknown);
-        tracker.register_local_variable("variable", var_1);
-        tracker.register_local_variable("variable", var_2);
-        // clean variables in rule1
-        tracker.clean_scope("rule1");
-        assert_eq!(tracker.local_variable.borrow().len(), 1);
+        // let mut tracker = Tracker::new();
+        // // Create variables for two scopes
+        // let var_1 = Variable::new("variable", "rule1", VarKind::Argument, Types::Unknown);
+        // let var_2 = Variable::new("variable2", "rule2", VarKind::Argument, Types::Unknown);
+        // tracker.register_local_variable("variable", var_1);
+        // tracker.register_local_variable("variable", var_2);
+        // // clean variables in rule1
+        // tracker.clean_scope("rule1");
+        // assert_eq!(tracker.local_variable.borrow().len(), 1);
     }
 }

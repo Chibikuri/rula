@@ -34,7 +34,7 @@ rule swapping<#rep>(distance: u_int){
 ruleset entanglement_swapping{
     //for (i) in 1..#repeaters.max()-1{
     //    if (i % 2 == 1){
-    swapping<#repeaters(i)>(1)
+    swapping<#repeaters(0)>(1)
     //    }
     //}
 }

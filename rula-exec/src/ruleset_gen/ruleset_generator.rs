@@ -4,23 +4,31 @@ use super::condition::Condition;
 use super::conf_parser::parse_config;
 use super::error::RuleSetGenError;
 use super::ruleset::{Rule, RuleSet, Stage};
-use super::tracker::{Arguments, RetTypeAnnotation, Tracker, VarKind, Variable};
+use super::tracker::{
+    Arguments, LocalVariableTracker, RetTypeAnnotation, RuleGen, Tracker, VarKind, Variable,
+};
 use super::types::*;
 use super::IResult;
 use rula_parser::parser::ast::*;
+use serde_json::Value;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use proc_macro2::{Span, TokenStream};
 use syn::Lit as SynLit;
 use syn::{LitFloat, LitStr};
 
-type Scope = String;
 type SingleClosure<T, U> = Box<dyn Fn(T) -> U>;
+type RuleVec = Rc<RefCell<Vec<Rule>>>;
+type LocalValTrack = Rc<RefCell<LocalVariableTracker>>;
+
+pub type Scope = String;
 pub type Closure<T, U, V> = Box<dyn Fn(T, U) -> V>;
 pub type ValueTracker = RefCell<Tracker>;
+
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
 /// Arguments:
@@ -128,36 +136,24 @@ pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &ValueTracker) -
     // e.g. <#rep> This can be refered as repeater value
     // Now the number of repeater is limited to 1
     let repeater_identifier = &*rule_expr.repeater_ident.name;
-    // In the rulecall, this argument must be properly resolved.
-    // Prepare the closure for repeaters to be called later and store it in tracker.
-    tracker.borrow_mut().register_local_variable(
-        repeater_identifier,
-        Variable::new(
-            repeater_identifier,
-            scope,
-            VarKind::RepeaterArgument,
-            Types::Repeater,
-        ),
-    );
-
     // 2. Register given arguments to be used in this RuleExpr
     // e.g.
-    for arg in &rule_expr.args {
-        match &*arg.type_hint {
-            Some(hint) => {
-                tracker.borrow_mut().register_local_variable(
-                    &arg.name,
-                    Variable::new(
-                        &arg.name,
-                        scope,
-                        VarKind::Argument,
-                        generate_type_hint(hint).unwrap(),
-                    ),
-                );
-            }
-            None => return Err(RuleSetGenError::NoTypeAnnotationError),
-        }
-    }
+    // for arg in &rule_expr.args {
+    //     match &*arg.type_hint {
+    //         Some(hint) => {
+    //             tracker.borrow_mut().register_local_variable(
+    //                 &arg.name,
+    //                 Variable::new(
+    //                     &arg.name,
+    //                     scope,
+    //                     VarKind::Argument,
+    //                     generate_type_hint(hint).unwrap(),
+    //                 ),
+    //             );
+    //         }
+    //         None => return Err(RuleSetGenError::NoTypeAnnotationError),
+    //     }
+    // }
 
     // 3. Check if there is a type annotation for return value or not
     let mut return_types = RetTypeAnnotation::new(scope);
@@ -174,12 +170,28 @@ pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &ValueTracker) -
     // This has to be evaluated when the rule is called.
     // As long as the arguments are given, this rule can be executed
     let rule_generator = generate_rule_content(&rule_expr.rule_content, tracker, scope).unwrap();
+
+    let rule_generator =
+        move |repeater: Repeater, arguments: Arguments, tracker: &ValueTracker, scope: Scope| {
+            let local_tracker = Rc::new(RefCell::new(LocalVariableTracker::new()));
+            // Currently only one repeater can be inside this
+            local_tracker
+                .borrow_mut()
+                .register("#repeater", RuLaValue::Repeater(repeater));
+            // let rules = Rc::new(RefCell::new(vec![Rule::new(scope)]));
+            // let generated_rules = rule_generator(Rc::clone(&rules), Rc::clone(&local_tracker));
+            let mut stage = Stage::new();
+            // for rl in &*generated_rules.borrow() {
+            //     stage.add_rule(rl.clone());
+            // }
+            stage
+        };
     tracker
         .borrow_mut()
-        .add_unresolved_rule::<Closure<Repeater, Arguments, Stage>>(rule_name, rule_generator);
+        .add_ruleset_generator(rule_name, Box::new(rule_generator));
 
     // 5. Release all the scope within this Rule
-    tracker.borrow_mut().clean_scope(scope);
+    // tracker.borrow_mut().clean_scope(scope);
     Ok(())
 }
 
@@ -187,7 +199,7 @@ pub(super) fn generate_rule_content(
     rule_content_expr: &RuleContentExpr,
     tracker: &ValueTracker,
     scope: &Scope,
-) -> IResult<Closure<Repeater, Arguments, Stage>> {
+) -> IResult<Closure<RuleVec, LocalValTrack, RuleVec>> {
     // 0. Pre processing (local variable assignment)
     // Variables should be registered in this process
     for let_stmt in &rule_content_expr.pre_processing {
@@ -203,33 +215,32 @@ pub(super) fn generate_rule_content(
     let act_generator = generate_act(&*rule_content_expr.action_expr, tracker, scope).unwrap();
 
     // 3. Post processing
-    let rule_generator = move |repeater: Repeater, arguments: Arguments| {
-        let mut stage = Stage::new();
-        let mut rule = Rule::new("");
+    let rule_content_generator = move |rules: RuleVec, local_val_tracker: LocalValTrack| {
+        // Prepare local value tracker to track the local varibale
+        // 0. value assignment with current tracker
         // Right now, all arguments are cloned but this should be cleaned with Rc and RefCell in the future
-        rule.set_condition(condition_generator(repeater.clone(), arguments.clone()));
-        rule.set_action(act_generator(repeater.clone(), arguments.clone()));
-        stage.add_rule(rule);
-        stage
+        condition_generator(Rc::clone(&rules), Rc::clone(&local_val_tracker));
+        act_generator(Rc::clone(&rules), Rc::clone(&local_val_tracker));
+        rules
     };
 
-    Ok(Box::new(rule_generator))
+    Ok(Box::new(rule_content_generator))
 }
 
 pub(super) fn generate_cond(
     cond_expr: &CondExpr,
     tracker: &ValueTracker,
     scope: &Scope,
-) -> IResult<Closure<Repeater, Arguments, Condition>> {
-    Ok(Box::new(|repeater, arguments| Condition::new(None)))
+) -> IResult<Closure<RuleVec, LocalValTrack, RuleVec>> {
+    Ok(Box::new(|rules, local_tracker| rules))
 }
 
 pub(super) fn generate_act(
     act_expr: &ActExpr,
     tracker: &ValueTracker,
     scope: &Scope,
-) -> IResult<Closure<Repeater, Arguments, Action>> {
-    Ok(Box::new(|repeater, arguments| Action::new(None)))
+) -> IResult<Closure<RuleVec, LocalValTrack, RuleVec>> {
+    Ok(Box::new(|rules, var_tracker| rules))
 }
 
 // Generate stmt expression
@@ -251,26 +262,30 @@ pub(super) fn generate_stmt(stmt: &Stmt, tracker: &ValueTracker, scope: &Scope) 
 }
 
 /// Create a new variable that can be used inside the rule
-/// Store the variable in the tracker
-pub(super) fn generate_let(let_stmt: &Let, tracker: &ValueTracker, scope: &Scope) -> IResult<()> {
+/// Let statement doesn't affect rules. Just update local trackers
+pub(super) fn generate_let(
+    let_stmt: &Let,
+    tracker: &ValueTracker,
+    scope: &Scope,
+) -> IResult<Closure<(), LocalVariableTracker, ()>> {
     // Register a variable to the tracker within the ruleset or rule
     let variable_name = &*let_stmt.ident.name;
     match &*let_stmt.ident.type_hint {
         Some(hint) => {
-            tracker.borrow_mut().register_local_variable(
-                variable_name,
-                Variable::new(
-                    variable_name,
-                    scope,
-                    VarKind::LetAssignment,
-                    generate_type_hint(hint).unwrap(),
-                ),
-            );
+            // tracker.borrow_mut().register_local_variable(
+            //     variable_name,
+            //     Variable::new(
+            //         variable_name,
+            //         scope,
+            //         VarKind::LetAssignment,
+            //         generate_type_hint(hint).unwrap(),
+            //     ),
+            // );
             let value = generate_expr(&*let_stmt.expr, tracker, scope).unwrap();
         }
         None => return Err(RuleSetGenError::NoTypeAnnotationError),
     }
-    Ok(())
+    Ok(Box::new(|_, tracker| { /* update tracker here*/ }))
 }
 
 pub(super) fn generate_expr(expr: &Expr, tracker: &ValueTracker, scope: &Scope) -> IResult<()> {
@@ -353,8 +368,8 @@ pub(super) fn generate_fn_call_arg(
     fn_call_arg: &FnCallArgs,
     tracker: &ValueTracker,
     scope: &Scope,
-) -> IResult<ArgVals> {
-    Ok(ArgVals::Str(String::from("")))
+) -> IResult<RuLaValue> {
+    Ok(RuLaValue::Str(String::from("")))
 }
 
 pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &ValueTracker) -> IResult<()> {
@@ -382,9 +397,10 @@ pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &ValueTrack
 
     // Check argument types, argument numbers, values
     // let stage = rule_evaluator(rule_name, repeater_arg, &arguments, tracker).unwrap();
+
     let stage = tracker
         .borrow()
-        .eval_rule(rule_name, repeater_arg, &arguments);
+        .eval_rule(rule_name, repeater_arg, &arguments, tracker, scope);
 
     // Add stage to the ruleset
     // At this moment, repeater index must be corresponding to where this rule is added
