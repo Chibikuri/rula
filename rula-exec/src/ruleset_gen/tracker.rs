@@ -12,7 +12,9 @@ pub struct Tracker {
     pub rulesets: HashMap<NodeNumber, RuleSet>,
     pub stages: HashMap<u32, Stage>,
     pub rule_names: HashSet<String>,
-    pub unresolved_rules: HashMap<RuleName, Box<dyn Fn(Repeater, Arguments) -> Stage>>,
+    pub unresolved_rules: HashMap<RuleName, Box<dyn Fn(&Repeater, &Arguments) -> Stage>>,
+
+    pub repeaters: Vec<Repeater>,
     // Variables with scope
     pub local_variable: RefCell<HashMap<String, Variable>>,
     pub return_type_annotation: RefCell<HashMap<u32, RetTypeAnnotation>>,
@@ -27,6 +29,7 @@ impl Tracker {
             stages: HashMap::new(),
             rule_names: HashSet::new(),
             unresolved_rules: HashMap::new(),
+            repeaters: vec![],
             local_variable: RefCell::new(HashMap::new()),
             return_type_annotation: RefCell::new(HashMap::new()),
             stage_id: 0,
@@ -65,8 +68,8 @@ impl Tracker {
     pub fn eval_rule(
         &mut self,
         rule_name: &str,
-        repeater: Repeater,
-        arguments: Arguments,
+        repeater: &Repeater,
+        arguments: &Arguments,
     ) -> Stage {
         self.unresolved_rules
             .get(rule_name)
@@ -172,10 +175,35 @@ impl RetTypeAnnotation {
     }
 }
 
+type ArgName = String;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Arguments {
-    vals: Vec<ArgVals>,
+    vals: HashMap<String, ArgVals>,
     scope: String,
+}
+
+impl Arguments {
+    pub fn new(vals: HashMap<String, ArgVals>, scope: String) -> Self {
+        Arguments {
+            vals: vals,
+            scope: scope,
+        }
+    }
+    pub fn place_holder() -> Self {
+        Arguments {
+            vals: HashMap::new(),
+            scope: String::from(""),
+        }
+    }
+    pub fn get_scope(&self) -> &String {
+        &self.scope
+    }
+    pub fn add_val(&mut self, name: &str, arg: ArgVals) {
+        self.vals.insert(name.to_string(), arg);
+    }
+    pub fn update_scope(&mut self, new_scope: &str) {
+        self.scope = new_scope.to_string();
+    }
 }
 
 #[cfg(test)]

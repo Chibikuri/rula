@@ -9,6 +9,7 @@ use super::types::*;
 use super::IResult;
 use rula_parser::parser::ast::*;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -19,33 +20,38 @@ use syn::{LitFloat, LitStr};
 type Scope = String;
 type SingleClosure<T, U> = Box<dyn Fn(T) -> U>;
 type Closure<T, U, V> = Box<dyn Fn(T, U) -> V>;
+type ValueTracker = RefCell<Tracker>;
 /// Generate corresponding rust code from ast
 /// Every nested generators returns a piece of TokenStream
 /// Arguments:
 ///     ast_tree
-pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<HashMap<u32, RuleSet>> {
+pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<Vec<RuleSet>> {
     // RuLa should know how many repeaters inconfig at this moment
     // TODO: Just mock here
     let num_nodes = parse_config(config_path);
 
     // Initialize tracker to track global state over the functions
-    let mut tracker = Tracker::new();
+    let tracker = RefCell::new(Tracker::new());
     // Add empty RuleSets
     for i in 0..num_nodes {
-        tracker.add_ruleset(i, RuleSet::new("empty"));
+        tracker.borrow_mut().add_ruleset(i, RuleSet::new("empty"));
     }
     // Generated rula program
     match ast_tree {
         // All RuLa AST starts RuLa Node
-        AstNode::RuLa(rula) => generate_rula(rula, &mut tracker).unwrap(),
+        AstNode::RuLa(rula) => generate_rula(rula, &tracker).unwrap(),
         AstNode::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
     // return generated rulesets
-    Ok(tracker.rulesets.clone())
+    let mut rulesets = vec![];
+    for (_i, ruleset) in &tracker.borrow().rulesets {
+        rulesets.push(ruleset.clone())
+    }
+    Ok(rulesets)
 }
 
 // Generate entire rula program
-pub(super) fn generate_rula(rula: &RuLa, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_rula(rula: &RuLa, tracker: &ValueTracker) -> IResult<()> {
     match &*rula.rula {
         RuLaKind::Program(program) => {
             generate_program(program, tracker).unwrap();
@@ -59,7 +65,7 @@ pub(super) fn generate_rula(rula: &RuLa, tracker: &mut Tracker) -> IResult<()> {
 
 // Generate progra
 // program: Program AST that contains a vector of Stmt
-pub(super) fn generate_program(program: &Program, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_program(program: &Program, tracker: &ValueTracker) -> IResult<()> {
     // A vector to store a set of generated stmts
     for program_kind in &program.programs {
         // Right now, a program can takes a stmt
@@ -81,23 +87,23 @@ pub(super) fn generate_program(program: &Program, tracker: &mut Tracker) -> IRes
     Ok(())
 }
 
-pub(super) fn generate_import(import_expr: &Import, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_import(import_expr: &Import, tracker: &ValueTracker) -> IResult<()> {
     // How to get the other rules?
     Ok(())
 }
 
 pub(super) fn generate_ruleset_expr(
     ruleset_expr: &RuleSetExpr,
-    tracker: &mut Tracker,
+    tracker: &ValueTracker,
 ) -> IResult<()> {
     // 0. Get the ruleset name and update the ruleset names
     let ruleset_name = &*ruleset_expr.name.name;
-    if tracker.check_rule_name_exist(ruleset_name) {
+    if tracker.borrow().check_rule_name_exist(ruleset_name) {
         return Err(RuleSetGenError::SameNameExistInRuleError);
     }
     // Register ruleset name no to be used by other rule as well
-    tracker.register_rule_name(&ruleset_name);
-    tracker.update_ruleset_name(ruleset_name);
+    tracker.borrow_mut().register_rule_name(&ruleset_name);
+    tracker.borrow_mut().update_ruleset_name(ruleset_name);
 
     // 1. Introduce ruleset scope
     let scope = ruleset_name;
@@ -109,14 +115,13 @@ pub(super) fn generate_ruleset_expr(
     Ok(())
 }
 
-pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &ValueTracker) -> IResult<()> {
     // 0. Get the rule name and register it to the tracker
     let rule_name = &*rule_expr.name.name;
-    if tracker.check_rule_name_exist(rule_name) {
+    if tracker.borrow().check_rule_name_exist(rule_name) {
         return Err(RuleSetGenError::RuleNameDuplicationError);
-    } else {
-        tracker.register_rule_name(&rule_name);
     }
+    tracker.borrow_mut().register_rule_name(&rule_name);
 
     // Introduce scope here
     let scope = rule_name;
@@ -127,7 +132,7 @@ pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &mut Tracker) ->
     let repeater_identifier = &*rule_expr.repeater_ident.name;
     // In the rulecall, this argument must be properly resolved.
     // Prepare the closure for repeaters to be called later and store it in tracker.
-    tracker.register_local_variable(
+    tracker.borrow_mut().register_local_variable(
         repeater_identifier,
         Variable::new(
             repeater_identifier,
@@ -142,7 +147,7 @@ pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &mut Tracker) ->
     for arg in &rule_expr.args {
         match &*arg.type_hint {
             Some(hint) => {
-                tracker.register_local_variable(
+                tracker.borrow_mut().register_local_variable(
                     &arg.name,
                     Variable::new(
                         &arg.name,
@@ -173,13 +178,13 @@ pub(super) fn generate_rule_expr(rule_expr: &RuleExpr, tracker: &mut Tracker) ->
     let rule_generator = generate_rule_content(&rule_expr.rule_content, tracker, scope).unwrap();
 
     // 5. Release all the scope within this Rule
-    tracker.clean_scope(scope);
+    tracker.borrow_mut().clean_scope(scope);
     Ok(())
 }
 
 pub(super) fn generate_rule_content(
     rule_content_expr: &RuleContentExpr,
-    tracker: &mut Tracker,
+    tracker: &ValueTracker,
     scope: &Scope,
 ) -> IResult<Closure<Repeater, Arguments, Stage>> {
     // 0. Pre processing (local variable assignment)
@@ -212,7 +217,7 @@ pub(super) fn generate_rule_content(
 
 pub(super) fn generate_cond(
     cond_expr: &CondExpr,
-    tracker: &mut Tracker,
+    tracker: &ValueTracker,
     scope: &Scope,
 ) -> IResult<Closure<Repeater, Arguments, Condition>> {
     Ok(Box::new(|repeater, arguments| Condition::new(None)))
@@ -220,7 +225,7 @@ pub(super) fn generate_cond(
 
 pub(super) fn generate_act(
     act_expr: &ActExpr,
-    tracker: &mut Tracker,
+    tracker: &ValueTracker,
     scope: &Scope,
 ) -> IResult<Closure<Repeater, Arguments, Action>> {
     Ok(Box::new(|repeater, arguments| Action::new(None)))
@@ -231,7 +236,7 @@ pub(super) fn generate_act(
 //  stmt: Stmt AST
 //  rule_name: Option<String> a name of corresponding Rule
 //  ident_tracker: List of identifiers that need to be tracked
-pub(super) fn generate_stmt(stmt: &Stmt, tracker: &mut Tracker, scope: &Scope) -> IResult<()> {
+pub(super) fn generate_stmt(stmt: &Stmt, tracker: &ValueTracker, scope: &Scope) -> IResult<()> {
     match &*stmt.kind {
         StmtKind::Let(let_stmt) => {
             generate_let(let_stmt, tracker, scope).unwrap();
@@ -246,12 +251,12 @@ pub(super) fn generate_stmt(stmt: &Stmt, tracker: &mut Tracker, scope: &Scope) -
 
 /// Create a new variable that can be used inside the rule
 /// Store the variable in the tracker
-pub(super) fn generate_let(let_stmt: &Let, tracker: &mut Tracker, scope: &Scope) -> IResult<()> {
+pub(super) fn generate_let(let_stmt: &Let, tracker: &ValueTracker, scope: &Scope) -> IResult<()> {
     // Register a variable to the tracker within the ruleset or rule
     let variable_name = &*let_stmt.ident.name;
     match &*let_stmt.ident.type_hint {
         Some(hint) => {
-            tracker.register_local_variable(
+            tracker.borrow_mut().register_local_variable(
                 variable_name,
                 Variable::new(
                     variable_name,
@@ -267,7 +272,7 @@ pub(super) fn generate_let(let_stmt: &Let, tracker: &mut Tracker, scope: &Scope)
     Ok(())
 }
 
-pub(super) fn generate_expr(expr: &Expr, tracker: &mut Tracker, scope: &Scope) -> IResult<()> {
+pub(super) fn generate_expr(expr: &Expr, tracker: &ValueTracker, scope: &Scope) -> IResult<()> {
     match &*expr.kind {
         ExprKind::If(if_expr) => {
             generate_if(if_expr, tracker).unwrap();
@@ -297,7 +302,7 @@ pub(super) fn generate_expr(expr: &Expr, tracker: &mut Tracker, scope: &Scope) -
     Ok(())
 }
 
-pub(super) fn generate_if(if_expr: &If, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_if(if_expr: &If, tracker: &ValueTracker) -> IResult<()> {
     // if (block) {expression}
     // // (block)
     // let first_condition = generate_expr(
@@ -334,52 +339,89 @@ pub(super) fn generate_if(if_expr: &If, tracker: &mut Tracker) -> IResult<()> {
     Ok(())
 }
 
-pub(super) fn generate_for(for_expr: &For, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_for(for_expr: &For, tracker: &ValueTracker) -> IResult<()> {
     Ok(())
 }
 
-pub(super) fn generate_fn_call(fn_call_expr: &FnCall, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_fn_call(fn_call_expr: &FnCall, tracker: &ValueTracker) -> IResult<()> {
     // Before generating functions, check function table to check whether it's properly defined or not
     Ok(())
 }
 
-pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_fn_call_arg(
+    fn_call_arg: &FnCallArgs,
+    tracker: &ValueTracker,
+    scope: &Scope,
+) -> IResult<ArgVals> {
+    Ok(ArgVals::Str(String::from("")))
+}
+
+pub(super) fn generate_rule_call(rule_call_expr: &RuleCall, tracker: &ValueTracker) -> IResult<()> {
     // 0. check the rule name if the definition exists
     let rule_name = &*rule_call_expr.rule_name.name;
-    println!("{:#?}", rule_name);
-    if !tracker.check_rule_name_exist(rule_name) {
+    if !tracker.borrow().check_rule_name_exist(rule_name) {
         return Err(RuleSetGenError::NoRuleFoundError);
     }
 
     let scope = rule_name;
     // At this point, repeater argument and ordinary argument should be resolved
     // Currently the number of repater for one rule is limited to 1
-    // let repeater_arg = generate_expr(&*rule_call_expr.repeater_arg, tracker, scope).unwrap();
-    // let arguments = &*rule_call_expr.argument;
+    let repeater_index =
+        generate_rep_call_arg(&*rule_call_expr.repeater_arg, tracker, scope).unwrap();
+    let repeater_arg = &tracker.borrow().repeaters[repeater_index];
+    let mut arguments = Arguments::place_holder();
+    arguments.update_scope(scope);
+    for (i, arg) in rule_call_expr.argument.iter().enumerate() {
+        let arg_pos = format!("#{}", i);
+        arguments.add_val(
+            &arg_pos,
+            generate_fn_call_arg(arg, tracker, scope).unwrap().clone(),
+        );
+    }
 
     // Check argument types, argument numbers, values
-    // tracker.eval_rule(rule_name, repeater_arg, arguments);
+    tracker
+        .borrow_mut()
+        .eval_rule(rule_name, repeater_arg, &arguments);
 
     // Add rule to stage inside the RuleSet
     Ok(())
 }
 
+// Repeater call must be casted to usize to
+pub(super) fn generate_rep_call_arg(
+    repeater_call_arg: &RepeaterCallArg,
+    tracker: &ValueTracker,
+    scope: &Scope,
+) -> IResult<usize> {
+    let index: usize = match repeater_call_arg {
+        RepeaterCallArg::Term(term) => 0,
+        RepeaterCallArg::Ident(ident) => 0,
+        RepeaterCallArg::NumberLit(number_lit) => {
+            let val = &*number_lit.value.name.clone();
+            val.parse::<usize>().unwrap()
+        }
+        RepeaterCallArg::PlaceHolder => return Err(RuleSetGenError::InitializationError),
+    };
+    Ok(index as usize)
+}
+
 // Promote resources to the next stage
-pub(super) fn generate_return(return_expr: &Return, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_return(return_expr: &Return, tracker: &ValueTracker) -> IResult<()> {
     Ok(())
 }
 
-pub(super) fn generate_send(send_expr: &Send, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_send(send_expr: &Send, tracker: &ValueTracker) -> IResult<()> {
     Ok(())
 }
 
 // Generate Match expression to achieve match action
 // In the case of static generation, this expand Rules to the stages
-pub(super) fn generate_match(match_expr: &Match, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_match(match_expr: &Match, tracker: &ValueTracker) -> IResult<()> {
     Ok(())
 }
 
-pub(super) fn generate_match_arm(match_arm: &MatchArm, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_match_arm(match_arm: &MatchArm, tracker: &ValueTracker) -> IResult<()> {
     // let generated_match_condition =
     //     generate_match_condition(&mut *match_arm.condition, ident_tracker).unwrap();
     // let generated_match_action =
@@ -390,7 +432,7 @@ pub(super) fn generate_match_arm(match_arm: &MatchArm, tracker: &mut Tracker) ->
 
 pub(super) fn generate_match_condition(
     match_condition: &MatchCondition,
-    tracker: &mut Tracker,
+    tracker: &ValueTracker,
 ) -> IResult<()> {
     // Right now, satisfiable can only take literals, but in the future, this should be more flexible
     match &*match_condition.satisfiable {
@@ -401,7 +443,7 @@ pub(super) fn generate_match_condition(
 
 pub(super) fn generate_match_action(
     match_action: &MatchAction,
-    ident_tracker: &mut Tracker,
+    ident_tracker: &ValueTracker,
 ) -> IResult<()> {
     // let mut actionables = vec![];
     // for actionable in &mut *match_action.actionable {
@@ -424,7 +466,11 @@ pub(super) fn generate_match_action(
     Ok(())
 }
 
-pub(super) fn generate_comp(comp_expr: &Comp, tracker: &mut Tracker, scope: &Scope) -> IResult<()> {
+pub(super) fn generate_comp(
+    comp_expr: &Comp,
+    tracker: &ValueTracker,
+    scope: &Scope,
+) -> IResult<()> {
     let lhs = generate_expr(&comp_expr.lhs, tracker, scope).unwrap();
     let rhs = generate_expr(&comp_expr.rhs, tracker, scope).unwrap();
     let (op, cmp_op) = match *comp_expr.comp_op {
@@ -441,7 +487,7 @@ pub(super) fn generate_comp(comp_expr: &Comp, tracker: &mut Tracker, scope: &Sco
 
 // pub(super) fn generate_awaitable(
 //     awaitable_expr: &Awaitable,
-//     tracker: &mut Tracker,
+//     tracker: &ValueTracker,
 // ) -> IResult<()> {
 //     Ok(())
 //     // Condition clauses should be awaited to be met
@@ -503,12 +549,12 @@ pub(super) fn generate_comp(comp_expr: &Comp, tracker: &mut Tracker, scope: &Sco
 
 pub(super) fn generate_variable_call(
     variable_call_expr: &VariableCallExpr,
-    tracker: &mut Tracker,
+    tracker: &ValueTracker,
 ) -> IResult<()> {
     Ok(())
 }
 
-pub(super) fn generate_lit(lit: &Lit, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_lit(lit: &Lit, tracker: &ValueTracker) -> IResult<()> {
     match &*lit.kind {
         LitKind::Ident(ident_lit) => generate_ident(ident_lit, tracker).unwrap(),
         LitKind::NumberLit(number_lit) => {
@@ -522,7 +568,7 @@ pub(super) fn generate_lit(lit: &Lit, tracker: &mut Tracker) -> IResult<()> {
     Ok(())
 }
 
-pub(super) fn generate_term(term_expr: &Term, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_term(term_expr: &Term, tracker: &ValueTracker) -> IResult<()> {
     // We could make Term struct instead of direct calc
     // For now, this function just returns calc result as f64
     // let val = LitFloat::new(&term_expr.to_string(), Span::call_site());
@@ -531,7 +577,7 @@ pub(super) fn generate_term(term_expr: &Term, tracker: &mut Tracker) -> IResult<
 }
 
 // Generate identifier token from Ident ast
-pub(super) fn generate_ident(ident: &Ident, tracker: &mut Tracker) -> IResult<()> {
+pub(super) fn generate_ident(ident: &Ident, tracker: &ValueTracker) -> IResult<()> {
     Ok(())
 }
 
