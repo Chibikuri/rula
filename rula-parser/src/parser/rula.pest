@@ -108,11 +108,12 @@ false_lit = @{ "false" }
 
 // number literal (int, float)
 // "-some_number" is also fine
-number = @{ ("+" | "-")? ~ ( int | ident ) ~ ( "." ~ ASCII_DIGIT* )? ~ ( ^"e" ~ int )? }
+number = { (plus | minus)? ~ ( float| int | ident ) ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? }
 
 // Integer literal (10, 1000, 10e10, -10, -10e-10 etc)
 // This will allow white space between digits (FIXME)
-int = { "-"? ~ ASCII_DIGIT+ ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? ~!( ASCII_ALPHA ) } 
+int = @{ ASCII_DIGIT+ ~ !ASCII_ALPHA} 
+float = {int ~ "." ~ int}
 // Binary literals (e.g. b101100)
 binary = { "0b" ~ bin_num}
 bin_num = {( "0" | "1" )*}

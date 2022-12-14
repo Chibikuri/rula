@@ -1234,18 +1234,39 @@ impl StringLit {
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLit {
     pub value: Box<Ident>, // At this point, number type cannot be determined
+    pub castable: bool,    // If the value is identifier, false
+    pub negative: bool,    // If this is a negative value, true
+    pub float: bool,
 }
 
 impl NumberLit {
-    pub fn new(val: &str) -> Self {
+    pub fn new(val: &str, castable: bool, negative: bool, float: bool) -> Self {
         NumberLit {
             value: Box::new(Ident::new(val, None)),
+            castable: castable,
+            negative: negative,
+            float: float,
         }
     }
     pub fn place_holder() -> Self {
         NumberLit {
             value: Box::new(Ident::place_holder()),
+            castable: false,
+            negative: false,
+            float: false,
         }
+    }
+    pub fn update_val(&mut self, val: &str) {
+        self.value = Box::new(Ident::new(val, None));
+    }
+    pub fn castable(&mut self) {
+        self.castable = true
+    }
+    pub fn negative(&mut self) {
+        self.negative = true
+    }
+    pub fn float(&mut self) {
+        self.float = true
     }
 }
 

@@ -37,6 +37,57 @@ pub enum RuLaValue {
     // Vec(Box<Types>),
 }
 
+impl RuLaValue {
+    pub fn eval_as_repeater(&self) -> &Repeater {
+        match self {
+            RuLaValue::Repeater(repeater) => repeater,
+            _ => panic!("This value cannot evaluated as repeater"),
+        }
+    }
+    pub fn eval_as_message(&self) -> &Message {
+        match self {
+            RuLaValue::Message(message) => message,
+            _ => panic!("This value cannot evaluated as message"),
+        }
+    }
+    pub fn eval_as_qubit(&self) -> &Qubit {
+        match self {
+            RuLaValue::Qubit(qubit) => qubit,
+            _ => panic!("This value cannot evaluated as Qubit"),
+        }
+    }
+    pub fn eval_as_str(&self) -> &String {
+        match self {
+            RuLaValue::Str(string) => string,
+            _ => panic!("This value cannot evaluated as Str"),
+        }
+    }
+    pub fn eval_as_uint(&self) -> u64 {
+        match self {
+            RuLaValue::UInt(uint) => uint.clone(),
+            _ => panic!("This value cannot evaluated as UInt"),
+        }
+    }
+    pub fn eval_as_int(&self) -> i64 {
+        match self {
+            RuLaValue::Int(integer) => integer.clone(),
+            _ => panic!("This value cannot evaluated as Int"),
+        }
+    }
+    pub fn eval_as_float(&self) -> f64 {
+        match self {
+            RuLaValue::Float(float) => float.clone(),
+            _ => panic!("This value cannot evaluated as float"),
+        }
+    }
+    pub fn eval_as_bool(&self) -> bool {
+        match self {
+            RuLaValue::Boolean(boolean) => boolean.clone(),
+            _ => panic!("This value cannot evaluated as bool"),
+        }
+    }
+}
+
 // Repeater type
 #[derive(Debug, Clone, PartialEq)]
 pub struct Repeater {
@@ -55,7 +106,7 @@ impl Repeater {
             right_repeaters: vec![],
         }
     }
-    pub fn hop(&self, distance: i32) -> &Repeater {
+    pub fn hop(&self, distance: i64) -> &Repeater {
         if distance == 0 {
             return self;
         } else if distance > 0 {

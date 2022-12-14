@@ -17,7 +17,7 @@ pub struct Tracker {
     pub ruleset_name: String,
     pub rule_names: HashSet<String>,
     pub internal_repeater_name: HashMap<RuleName, String>,
-    pub internal_argument_names: HashMap<RuleName, Vec<String>>,
+    pub rule_argument_names: HashMap<RuleName, Vec<(String, Types)>>,
     pub return_type_annotation: HashMap<RuleName, RetTypeAnnotation>,
     pub num_repeater: u32,
 }
@@ -29,7 +29,7 @@ impl Tracker {
             ruleset_name: String::from(""),
             rule_names: HashSet::new(),
             internal_repeater_name: HashMap::new(),
-            internal_argument_names: HashMap::new(),
+            rule_argument_names: HashMap::new(),
             return_type_annotation: HashMap::new(),
             num_repeater: 0,
         }
@@ -86,19 +86,32 @@ impl Tracker {
             .to_string()
     }
 
-    pub fn add_internal_argument_names(
+    pub fn add_rule_arguments(
         &mut self,
         rule_name: &RuleName,
-        argument_names: Vec<String>,
+        argument_names: Vec<(String, Types)>,
     ) {
-        self.internal_argument_names
+        self.rule_argument_names
             .insert(rule_name.to_string(), argument_names);
     }
 
-    pub fn get_internal_argument_names(&self, rule_name: &RuleName) -> &Vec<String> {
-        self.internal_argument_names
+    pub fn get_rule_arguments(&self, rule_name: &RuleName) -> &Vec<(String, Types)> {
+        self.rule_argument_names
             .get(rule_name)
             .expect("Failed to get argument names")
+    }
+
+    pub fn check_rule_arguments(&self, rule_name: &RuleName, arg_name: &String) -> (bool, Types) {
+        if !self.check_rule_name_exist(rule_name) {
+            return (false, Types::Unknown);
+        } else {
+            for (name, type_def) in self.get_rule_arguments(rule_name) {
+                if name == arg_name {
+                    return (true, type_def.clone());
+                }
+            }
+            (false, Types::Unknown)
+        }
     }
 
     pub fn add_return_type_annotation(

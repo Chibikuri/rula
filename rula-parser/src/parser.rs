@@ -5,6 +5,7 @@ mod util;
 use crate::Rule;
 // RuLa
 use ast::*;
+use core::num;
 use error::RuLaError;
 use std::path::PathBuf;
 
@@ -164,26 +165,6 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::literal_expr => Ok(Expr::new(ExprKind::Lit(
             build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
         ))),
-        // Rule::fn_def_expr => Ok(Expr::new(ExprKind::FnDef(
-        //     build_ast_from_fn_def_expr(pair).unwrap(),
-        // ))),
-        // Rule::while_expr => Ok(Expr::new(ExprKind::While(
-        //     build_ast_from_while_expr(pair).unwrap(),
-        // ))),
-        // Rule::struct_expr => Ok(Expr::new(ExprKind::Struct(
-        //     buil_ast_from_struct_expr(pair).unwrap(),
-        // ))),
-        // Rule::cond_expr => Ok(Expr::new(ExprKind::CondExpr(
-        //     build_ast_from_cond_expr(pair).unwrap(),
-        // ))),
-        // Rule::act_expr => Ok(Expr::new(ExprKind::ActExpr(
-        //     build_ast_from_act_expr(pair).unwrap(),
-        // ))),
-        // Rule::braket_expr => Ok(Expr::new(ExprKind::Array(
-        //     build_ast_from_braket_expr(pair).unwrap(),
-        // ))),
-        // 1+10, (1+18)*20
-        // Rule::term => Ok(Expr::new(ExprKind::Term(eval_term(pair.into_inner())))),
         _ => Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -427,7 +408,7 @@ fn build_ast_from_series_expr(pair: Pair<Rule>) -> IResult<Series> {
     let mut series_expr = Series::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::int => series_expr.add_start(NumberLit::new(block.as_str())),
+            Rule::int => series_expr.add_start(NumberLit::new(block.as_str(), true, false, false)),
             Rule::expr => series_expr
                 .add_end(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -532,7 +513,11 @@ fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
                 // This is repeater call
                 fnc_call.update_repeater_call();
             }
-            Rule::fn_call_args => {}
+            Rule::fn_call_args => {
+                fnc_call.add_argument(
+                    build_ast_from_fn_call_args(block.into_inner().next().unwrap()).unwrap(),
+                );
+            }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
@@ -582,7 +567,12 @@ fn build_ast_from_repeater_arg(pair: Pair<Rule>) -> IResult<RepeaterCallArg> {
             build_ast_from_term_expr(pair).unwrap(),
         )),
         Rule::ident => Ok(RepeaterCallArg::Ident(build_ast_from_ident(pair).unwrap())),
-        Rule::int => Ok(RepeaterCallArg::NumberLit(NumberLit::new(pair.as_str()))),
+        Rule::int => Ok(RepeaterCallArg::NumberLit(NumberLit::new(
+            pair.as_str(),
+            true,
+            false,
+            false,
+        ))),
         _ => return Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -727,7 +717,10 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
             build_ast_from_ident(pair).unwrap(),
         ))),
         Rule::raw_string => Ok(Lit::new(LitKind::StringLit(StringLit::new(pair.as_str())))),
-        Rule::number => Ok(Lit::new(LitKind::NumberLit(NumberLit::new(pair.as_str())))),
+        Rule::number => {
+            let num_lit = build_ast_from_num_lit(pair).unwrap();
+            Ok(Lit::new(LitKind::NumberLit(num_lit)))
+        }
         Rule::binary => Ok(Lit::new(LitKind::BinaryLit(BinaryLit::new(
             pair.into_inner().next().unwrap().as_str(),
         )))),
@@ -746,6 +739,27 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
     }
 }
 
+fn build_ast_from_num_lit(pair: Pair<Rule>) -> IResult<NumberLit> {
+    println!("{:#?}", pair);
+    let mut num_lit = NumberLit::new(pair.as_str(), false, false, false);
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::minus => num_lit.negative(),
+            Rule::int => {
+                num_lit.castable();
+                num_lit.update_val(block.as_str());
+            }
+            Rule::float => {
+                num_lit.castable();
+                num_lit.float();
+                num_lit.update_val(block.as_str());
+            }
+            Rule::ident => {}
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(num_lit)
+}
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
     match pair.as_rule() {
         Rule::integer_type => match pair.as_str() {
@@ -972,12 +986,12 @@ mod tests {
 
         #[test]
         fn test_simple_let_stmt_int() {
-            let let_stmt = pair_generator(r#"let hello:int = 123"#, Rule::let_stmt);
+            let let_stmt = pair_generator(r#"let hello:int = -123"#, Rule::let_stmt);
             let let_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
                 Ident::new("hello", Some(TypeDef::Integer)),
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
-                    "123",
+                    "123", true, true, false,
                 ))))),
             );
             assert_eq!(let_ast_nodes, target_ast_nodes);
@@ -1196,7 +1210,7 @@ mod tests {
                 vec![
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("00"),
+                            NumberLit::new("00", true, false, false),
                         )))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("something", None),
@@ -1206,7 +1220,7 @@ mod tests {
                     ),
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("11"),
+                            NumberLit::new("11", true, false, false),
                         )))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("otherthing", None),
@@ -1238,7 +1252,7 @@ mod tests {
                 vec![
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("00"),
+                            NumberLit::new("00", true, false, false),
                         )))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("something", None),
@@ -1248,7 +1262,7 @@ mod tests {
                     ),
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("11"),
+                            NumberLit::new("11", true, false, false),
                         )))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("otherthing", None),
@@ -1409,7 +1423,7 @@ mod tests {
             let target_ast_nodes = RuleCall::new(
                 // rule_name
                 Ident::new("rulename", None),
-                RepeaterCallArg::NumberLit(NumberLit::new("0")),
+                RepeaterCallArg::NumberLit(NumberLit::new("0", true, false, false)),
                 vec![],
             );
             assert_eq!(rule_call_ast, target_ast_nodes);
@@ -1423,7 +1437,7 @@ mod tests {
             let rule_call_ast = build_ast_from_rule_call_expr(rule_call).unwrap();
             let target_ast_nodes = RuleCall::new(
                 Ident::new("rulename", None),
-                RepeaterCallArg::NumberLit(NumberLit::new("0")),
+                RepeaterCallArg::NumberLit(NumberLit::new("0", true, false, false)),
                 vec![
                     FnCallArgs::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
                     FnCallArgs::VariableCall(VariableCallExpr::new(vec![
@@ -1448,7 +1462,9 @@ mod tests {
             let target_ast = Term::new(
                 Terms::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
                 TermOps::Plus,
-                Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new("1")))),
+                Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    "1", true, false, false,
+                )))),
             );
             assert_eq!(term_ast, target_ast);
         }
@@ -1463,9 +1479,9 @@ mod tests {
             let series_expr = pair_generator("0..10", Rule::series);
             let series_ast = build_ast_from_series_expr(series_expr).unwrap();
             let target_ast = Series::new(
-                NumberLit::new("0"),
+                NumberLit::new("0", true, false, false),
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
-                    "10",
+                    "10", true, false, false,
                 ))))),
             );
             assert_eq!(series_ast, target_ast);
@@ -1476,7 +1492,7 @@ mod tests {
             let series_expr = pair_generator("0..fin()", Rule::series);
             let series_ast = build_ast_from_series_expr(series_expr).unwrap();
             let target_ast = Series::new(
-                NumberLit::new("0"),
+                NumberLit::new("0", true, false, false),
                 Expr::new(ExprKind::FnCall(FnCall::new(
                     Ident::new("fin", None),
                     false,
@@ -1491,11 +1507,13 @@ mod tests {
             let series_expr = pair_generator("0..fin()-1 ", Rule::series);
             let series_ast = build_ast_from_series_expr(series_expr).unwrap();
             let target_ast = Series::new(
-                NumberLit::new("0"),
+                NumberLit::new("0", true, false, false),
                 Expr::new(ExprKind::Term(Term::new(
                     Terms::FnCall(FnCall::new(Ident::new("fin", None), false, vec![])),
                     TermOps::Minus,
-                    Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new("1")))),
+                    Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                        "1", true, false, false,
+                    )))),
                 ))),
             );
             assert_eq!(series_ast, target_ast);

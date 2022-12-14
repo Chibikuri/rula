@@ -5,4 +5,5 @@ pub enum RuleSetGenError {
     SameNameExistInRuleError,
     NoTypeAnnotationError,
     NoRuleFoundError,
+    UnknownTypeError,
 }
