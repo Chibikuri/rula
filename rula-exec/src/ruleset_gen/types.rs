@@ -120,15 +120,25 @@ impl Repeater {
         if distance == 0 {
             return self;
         } else if distance > 0 {
-            if distance as usize > self.right_repeaters.len() {
-                panic!("No more repeaters at responder side");
+            let index = distance - 1;
+            if index as usize > self.right_repeaters.len() {
+                panic!(
+                    "No more repeaters at responder side index: {}, num_right: {}",
+                    (distance - 1),
+                    self.right_repeaters.len()
+                );
             }
             &*self.right_repeaters[(distance - 1) as usize]
         } else {
-            if distance as usize > self.left_repeaters.len() {
-                panic!("No more repeaters at initiator side");
+            let index = (-distance - 1) as usize;
+            if index > self.left_repeaters.len() {
+                panic!(
+                    "No more repeaters at initiator side: index: {}, num_left: {}",
+                    (-distance - 1),
+                    self.left_repeaters.len()
+                );
             }
-            &*self.left_repeaters[(-distance - 1) as usize]
+            &*self.left_repeaters[index]
         }
     }
 

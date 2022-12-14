@@ -54,11 +54,15 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                     rule_name_idents.push(quote!(#rname (#rname)));
                 }
                 let mut rule_gen_idents = vec![];
+                let mut arg_gen = vec![];
                 for name in &tracker.borrow().rule_names {
                     let rname = format_ident!("__{}", name);
                     rule_gen_idents.push(quote!(
                         RuleGenerators::#rname(_rule) => {_rule.gen_rules(_repeater, _arguments)}
-                    ))
+                    ));
+                    arg_gen.push(quote!(
+                        RuleGenerators::#rname(_rule) => {_rule.get_rule_args()}
+                    ));
                 }
                 quote!(
                         #[derive(Debug, Clone, PartialEq)]
@@ -76,6 +80,9 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                             pub fn get(&self, arg_name: &str) -> &RuLaValue{
                                 self.args.get(arg_name).expect("Failed to find the argument")
                             }
+                            pub fn set(&mut self, arg_name: &str, value: RuLaValue){
+                                self.args.insert(arg_name.to_string(), value);
+                            }
                         }
                         #[derive(Debug, Clone, PartialEq)]
                         pub enum RuleGenerators{
@@ -88,9 +95,23 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                                     #(#rule_gen_idents),*
                                 }
                             }
+                            pub fn get_rule_args(&self) -> Vec<String>{
+                                match self{
+                                    #(#arg_gen),*
+                                }
+                            }
                         }
                 )
             };
+
+            let mut rule_adder = vec![];
+            for name in &tracker.borrow().rule_names {
+                let rname = format_ident!("__{}", name);
+                rule_adder.push(quote!(
+                    let __rule = rula::#rname::new();
+                    ruleset_factory.add_rule_generator(#name, rula::RuleGenerators::#rname(__rule));
+                ))
+            }
             quote!(
                 use rula_lib as rula_std;
                 use rula_exec::ruleset_gen::ruleset::{RuleSet, Rule, Stage};
@@ -102,6 +123,8 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
 
                 use std::rc::Rc;
                 use std::cell::RefCell;
+                use std::fs::File;
+                use std::io::Write;
                 use rula_std::prelude::*;
                 use std::collections::HashMap;
                 #[allow(unused)]
@@ -116,18 +139,35 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                     #ruleset_factory
                     #generated
                 }
-
-                pub fn main(){
+                // cargo test --package tests-rulesetgen --test ruleset_generator
+                pub fn generate_ruleset(){
                     // parse config here
                     let repeaters = conf_parser::parse_config(#conf_path.into()).unwrap();
-                    let rulesets = rula::ruleset_gen(rula::RuleSetFactory::from(repeaters));
+                    // Register rules
+                    let mut ruleset_factory = rula::RuleSetFactory::from(repeaters);
+                    #(#rule_adder)*
+                    let rulesets = rula::generate_ruleset(ruleset_factory);
+                    for (i, ruleset) in rulesets.iter().enumerate(){
+                        let output_file_path = format!("tests/generated/test_{}.json", i);
+                        let mut file = File::create(output_file_path).expect("Failed to create a new file");
+                        let json_ruleset = serde_json::to_string(ruleset).unwrap();
+                        write!(&file, "{}", json_ruleset).unwrap();
+                        file.flush().expect("Failed to write");
+                        println!("{}", json_ruleset);
+                    }
+                }
+
+                fn main(){
+                    generate_ruleset()
                 }
 
                 #[cfg(test)]
                 mod tests{
+                    use super::*;
                     #[test]
                     fn test_rule_generate(){
-                        assert_eq!(1, 1);
+                        generate_ruleset();
+                        assert_eq!(1, 2);
                     }
                 }
 
@@ -251,11 +291,11 @@ pub(super) fn generate_ruleset_expr(
 
     // RuleSet Generator closure
     let ruleset_generator = quote!(
-        pub fn ruleset_gen(mut __factory: RuleSetFactory) -> Vec<RuleSet> {
+        pub fn generate_ruleset(mut __factory: RuleSetFactory) -> Vec<RuleSet> {
             // order corresponds to repeater number
             let mut rulesets = vec![];
             for i in 0..#num_repeaters{
-                rulesets.insert(i, RuleSet::new("empty"));
+                rulesets.insert(i, RuleSet::new(#ruleset_name));
             }
             #(#generated)*
             rulesets
@@ -287,13 +327,16 @@ pub(super) fn generate_rule_expr(
         .add_internal_repeater_name(rule_name, repeater_identifier);
     // 2. Register given arguments to be used in this RuleExpr
     // e.g.
+    let mut arg_names = vec![];
     let argument_identifiers = {
         let mut argument_names = vec![];
         for arg in &*rule_expr.args {
+            let arg_name = arg.name.to_string();
+            arg_names.push(quote!(#arg_name.to_string()));
             match &*arg.type_hint {
                 Some(hint) => {
                     let (type_hint, _) = generate_type_hint(hint).unwrap();
-                    argument_names.push((arg.name.to_string(), type_hint));
+                    argument_names.push((arg_name, type_hint));
                 }
                 None => return Err(RuleSetGenError::NoTypeAnnotationError),
             }
@@ -324,14 +367,19 @@ pub(super) fn generate_rule_expr(
 
     Ok(quote!(
         #[derive(Debug, Clone, PartialEq)]
-        struct #rule_name_structure_name{
-            pub repeater: Repeater,
+        pub struct #rule_name_structure_name{
+            // Order is the same as the def
+            pub rule_args: Vec<String>,
         }
         impl #rule_name_structure_name{
+            pub fn new() -> Self{
+                #rule_name_structure_name{
+                    rule_args: vec![#(#arg_names),*]
+                }
+            }
             pub fn gen_rules(&mut self, repeater: &Repeater, arguments: &RuleArgs)-> Stage{
-                self.repeater = repeater.clone();
-                let initial_rules = Rc::new(RefCell::new(vec![]));
-                let generated = self._generate(initial_rules, repeater, arguments);
+                let initial_rules = Rc::new(RefCell::new(vec![RefCell::new(Rule::new(#rule_name))]));
+                let generated = self._generate(Rc::clone(&initial_rules), repeater, arguments);
                 let mut stage = Stage::new();
                 for rule in generated.borrow().iter(){
                     stage.add_rule(rule.borrow().clone())
@@ -343,6 +391,10 @@ pub(super) fn generate_rule_expr(
                 #rule_generator
 
                 rules
+            }
+
+            pub fn get_rule_args(&self) -> Vec<String>{
+                self.rule_args.clone()
             }
 
             fn _type_check(){
@@ -593,6 +645,7 @@ pub(super) fn generate_if(
             #generated_elses
         ))
     } else {
+        todo!("under construct : using if expression inside the rule");
         // let block
         Ok(quote!())
     }
@@ -703,31 +756,67 @@ pub(super) fn generate_rule_call(
         return Err(RuleSetGenError::NoRuleFoundError);
     }
 
-    let rule_call_name = format_ident!("__{}", rule_name);
-
     // At this point, repeater argument and ordinary argument should be resolved
     // Currently the number of repater for one rule is limited to 1
     let (repeater_val, repeater_index) =
         generate_rep_call_arg(&*rule_call_expr.repeater_arg, tracker, scope, false).unwrap();
-    // arguments.update_scope(scope);
-    // for arg in &rule_call_expr.argument {
-    //     arguments.add_val(generate_fn_call_arg(arg, tracker, scope).unwrap().clone());
-    // }
 
-    // // Check argument types, argument numbers, values
-    // // let stage = rule_evaluator(rule_name, repeater_arg, &arguments, tracker).unwrap();
+    // 0. get argument identifiers
+    let mut arguments = vec![];
+    for arg in &rule_call_expr.argument {
+        arguments.push(generate_fn_call_arg(arg, tracker, scope, false).unwrap());
+    }
+    // 1. get argument types to wrap with Types enum (type error should be caught at this moment)
+    // Check (supposed) argument types
+    let supposed_arguments = tracker.borrow().get_rule_arguments(rule_name).clone();
 
-    // let stage = tracker
-    //     .borrow()
-    //     .eval_rule(rule_name, repeater_arg, &arguments, tracker, scope);
+    // Check the number of arguments does match
+    if arguments.len() != supposed_arguments.len() {
+        return Err(RuleSetGenError::ArgumentNumberError);
+    }
 
-    // // Add stage to the ruleset
-    // // At this moment, repeater index must be corresponding to where this rule is added
-    // tracker.borrow().add_stage(repeater_index, stage);
-
+    // 2. register arguments to rules (rule_name, arguments)
+    let mut argument_register = vec![];
+    for (gen_arg, (_, type_val)) in arguments.iter().zip(supposed_arguments.iter()) {
+        let generated_type = match type_val {
+            Types::Boolean => {
+                quote!(RuLaValue::Boolean(#gen_arg))
+            }
+            Types::Int => {
+                quote!(RuLaValue::Int(#gen_arg))
+            }
+            Types::UInt => {
+                quote!(RuLaValue::UInt(#gen_arg))
+            }
+            Types::Float => {
+                quote!(RuLaValue::UInt(#gen_arg))
+            }
+            Types::Str => {
+                quote!(RuLaValue::Str(#gen_arg))
+            }
+            Types::Result => {
+                quote!(RuLaValue::Result(#gen_arg))
+            }
+            Types::Qubit => {
+                quote!(RuLaValue::Qubit(#gen_arg))
+            }
+            Types::Message => {
+                quote!(RuLaValue::Message(#gen_arg))
+            }
+            _ => todo!("Is this supposed to be error?"),
+        };
+        argument_register.push(generated_type)
+    }
+    // 3. resolve arguments with internal name
+    // 4. flush the arguments
     // Add rule to stage inside the RuleSet
     Ok(quote!(
-        let _stage = __factory.gen_rule(#rule_name, #repeater_index);
+        // register current argument
+        __factory.register_args(#rule_name, vec![#(#argument_register),*]);
+        __factory.resolve_args(#rule_name);
+        // Register arguments
+        let _stage = __factory.genenerate_stage(#rule_name, #repeater_index);
+        // Flush Arguments
         &rulesets[#repeater_index as usize].add_stage(_stage);
     ))
 }
@@ -757,7 +846,9 @@ pub(super) fn generate_return(
     return_expr: &Return,
     tracker: &ValueTracker,
 ) -> IResult<TokenStream> {
+    todo!();
     Ok(quote!())
+    // Ok(quote!(return rules))
 }
 
 pub(super) fn generate_send(

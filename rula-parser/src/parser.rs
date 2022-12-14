@@ -5,7 +5,6 @@ mod util;
 use crate::Rule;
 // RuLa
 use ast::*;
-use core::num;
 use error::RuLaError;
 use std::path::PathBuf;
 
