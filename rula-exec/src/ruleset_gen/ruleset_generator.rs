@@ -117,8 +117,7 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                     #generated
                 }
 
-                #[allow(unused)]
-                pub fn generate_ruleset(){
+                pub fn main(){
                     // parse config here
                     let repeaters = conf_parser::parse_config(#conf_path.into()).unwrap();
                     let rulesets = rula::ruleset_gen(rula::RuleSetFactory::from(repeaters));
@@ -521,7 +520,7 @@ pub(super) fn generate_expr(
     in_match: bool,
 ) -> IResult<TokenStream> {
     match &*expr.kind {
-        ExprKind::If(if_expr) => Ok(generate_if(if_expr, tracker).unwrap()),
+        ExprKind::If(if_expr) => Ok(generate_if(if_expr, tracker, scope, in_ruledef).unwrap()),
         ExprKind::For(for_expr) => Ok(generate_for(for_expr, tracker, scope, in_ruledef).unwrap()),
         ExprKind::Match(match_expr) => {
             Ok(generate_match(match_expr, tracker, scope, in_ruledef).unwrap())
@@ -552,8 +551,51 @@ pub(super) fn generate_expr(
     }
 }
 
-pub(super) fn generate_if(if_expr: &If, tracker: &ValueTracker) -> IResult<TokenStream> {
-    Ok(quote!())
+pub(super) fn generate_if(
+    if_expr: &If,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    // If this is not the rule definition, this becomes just an ordinary if expression
+    if !in_ruledef {
+        // RuleSet def
+        let block = generate_expr(&*if_expr.block, tracker, scope, in_ruledef, false).unwrap();
+        let mut stmts = vec![];
+        for st in &if_expr.stmts {
+            stmts.push(generate_stmt(st, tracker, scope, in_ruledef).unwrap())
+        }
+        let mut elifs = vec![];
+        for elif in &if_expr.elif {
+            let generated = generate_if(elif, tracker, scope, in_ruledef).unwrap();
+            elifs.push(quote!(
+                else #generated
+            ));
+        }
+        let mut elses = vec![];
+        for els in &*if_expr.els {
+            elses.push(generate_stmt(els, tracker, scope, in_ruledef).unwrap())
+        }
+        let generated_elses = if elses.len() > 0 {
+            quote!(
+                else{
+                    #(#elses)*
+                }
+            )
+        } else {
+            quote!()
+        };
+        Ok(quote!(
+            if #block {
+                #(#stmts)*
+            }
+            #(#elifs)*
+            #generated_elses
+        ))
+    } else {
+        // let block
+        Ok(quote!())
+    }
 }
 
 pub(super) fn generate_for(
@@ -915,7 +957,7 @@ pub(super) fn generate_comp(
         CompOpKind::Nq => (quote!(!=), quote!(__CmpOp::Nq)),
         CompOpKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
-    Ok(quote!())
+    Ok(quote!(#lhs #op #rhs))
 }
 
 pub(super) fn generate_variable_call(

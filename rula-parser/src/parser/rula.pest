@@ -18,11 +18,13 @@ expr = {
   match_expr | 
   return_expr | 
   // non-named
+    rule_call_expr| 
+    comp_expr |
   term_expr | 
   send_expr |
   fn_call_expr |
-  rule_call_expr| 
-  comp_expr |
+
+
   // comparison must be higher precedence
   variable_call_expr |
   literal_expr

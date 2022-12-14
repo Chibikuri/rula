@@ -620,18 +620,18 @@ impl ActExpr {
 pub struct If {
     pub block: Box<Expr>, // StmtKind::Expr
     pub stmts: Vec<Stmt>,
-    pub elif: Vec<Option<If>>, // Vec [ExprKind::If] (If ~ else ~ else is error in grammar level)
-    pub els: Box<Option<Stmt>>,
+    pub elif: Vec<If>,
+    pub els: Vec<Stmt>,
 }
 
 impl If {
-    pub fn new(block: Expr, stmt: Vec<Stmt>, elif: Vec<Option<If>>, els: Option<Stmt>) -> If {
+    pub fn new(block: Expr, stmt: Vec<Stmt>, elif: Vec<If>, els: Vec<Stmt>) -> If {
         If {
             // enum type validation
             block: Box::new(block),
             stmts: stmt,
             elif: elif,
-            els: Box::new(els),
+            els: els,
         }
     }
 
@@ -640,7 +640,7 @@ impl If {
             block: Box::new(Expr::place_holder()),
             stmts: vec![],
             elif: vec![],
-            els: Box::new(None),
+            els: vec![],
         }
     }
 
@@ -653,11 +653,11 @@ impl If {
     }
 
     pub fn add_elif(&mut self, elif: If) {
-        self.elif.push(Some(elif));
+        self.elif.push(elif);
     }
 
     pub fn add_else(&mut self, els: Stmt) {
-        self.els = Box::new(Some(els));
+        self.els.push(els);
     }
 
     pub fn check(&self) {

@@ -1050,7 +1050,7 @@ mod tests {
                     // elif ~
                     vec![],
                     // else ~
-                    None,
+                    vec![],
                 ))),
             );
             assert_eq!(target_ast_nodes, let_if_ast_nodes)
@@ -1077,7 +1077,7 @@ mod tests {
                 // elif ~
                 vec![],
                 // else ~
-                None,
+                vec![],
             );
             assert_eq!(target_ast_nodes, if_ast_nodes);
         }
@@ -1098,9 +1098,9 @@ mod tests {
                 // elif ~
                 vec![],
                 // else ~
-                Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                     Lit::new(LitKind::Ident(Ident::new("expression2", None))),
-                ))))),
+                ))))],
             );
             assert_eq!(target_ast_nodes, if_else_ast_nodes);
         }
@@ -1122,7 +1122,7 @@ mod tests {
                     Lit::new(LitKind::Ident(Ident::new("expression", None))),
                 ))))],
                 // elif ~
-                vec![Some(If::new(
+                vec![If::new(
                     // else if (block)
                     Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                         "block2", None,
@@ -1132,10 +1132,10 @@ mod tests {
                         Lit::new(LitKind::Ident(Ident::new("expression2", None))),
                     ))))],
                     vec![],
-                    None,
-                ))],
+                    vec![],
+                )],
                 // else ~
-                None,
+                vec![],
             );
             assert_eq!(target_ast_nodes, if_elif_ast_nodes);
         }
@@ -1157,7 +1157,7 @@ mod tests {
                     Lit::new(LitKind::Ident(Ident::new("expression", None))),
                 ))))],
                 // elif ~
-                vec![Some(If::new(
+                vec![If::new(
                     // else if (block)
                     Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                         "block2", None,
@@ -1167,12 +1167,12 @@ mod tests {
                         Lit::new(LitKind::Ident(Ident::new("expression2", None))),
                     ))))],
                     vec![],
-                    None,
-                ))],
+                    vec![],
+                )],
                 // else ~
-                Some(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
+                vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                     Lit::new(LitKind::Ident(Ident::new("expression3", None))),
-                ))))),
+                ))))],
             );
             assert_eq!(target_ast_nodes, if_elif_ast_nodes);
         }
