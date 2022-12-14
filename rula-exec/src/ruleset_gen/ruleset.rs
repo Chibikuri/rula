@@ -44,7 +44,7 @@ pub struct RuleSet {
 pub enum AddressKind {
     // For connection to the simulator
     IpKind(IpAddr),
-    IntegerKind(i32),
+    IntegerKind(u64),
 }
 
 pub type PartnerAddr = AddressKind;

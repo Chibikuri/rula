@@ -49,7 +49,7 @@ pub enum ActionClauses {
 // In the future, to identify
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct QubitIdentifier {
-    pub qubit_index: u32,
+    pub qubit_index: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -160,6 +160,14 @@ pub enum ProtocolMessages {
     Update(ProtoMessageIdentifier),
     Meas(ProtoMessageIdentifier),
     Transfer(ProtoMessageIdentifier),
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum ProtoMessageType {
+    Free,
+    Update,
+    Meas,
+    Transfer,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

@@ -91,14 +91,14 @@ pub enum CmpOp {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Res {
     name: String,
-    pub num_required_resource: u32,
+    pub num_required_resource: u64,
     pub partner_addr: PartnerAddr,
     pub required_fidelity: Option<f64>,
 }
 
 impl Res {
     pub fn new(
-        num_resource: u32,
+        num_resource: u64,
         partner_addr: PartnerAddr,
         required_fidelity: Option<f64>,
     ) -> Self {

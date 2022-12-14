@@ -300,12 +300,9 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
     let mut cond_expr = CondExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::ident => cond_expr.add_name(Some(build_ast_from_ident(block).unwrap())),
-            // Rule::watch_expr => {
-            //     cond_expr.add_watch_expr(build_ast_from_monitor_expr(block).unwrap())
-            // }
-            Rule::let_stmt => cond_expr
-                .add_condition_clause(CondClauses::Let(build_ast_from_let_stmt(block).unwrap())),
+            Rule::res_assign => cond_expr.add_condition_clause(CondClauses::ResAssign(
+                build_ast_from_res_assign(block).unwrap(),
+            )),
             Rule::fn_call_expr => cond_expr.add_condition_clause(CondClauses::FnCall(
                 build_ast_from_fn_call_expr(block).unwrap(),
             )),
@@ -318,6 +315,22 @@ fn build_ast_from_cond_expr(pair: Pair<Rule>) -> IResult<CondExpr> {
         }
     }
     Ok(cond_expr)
+}
+
+fn build_ast_from_res_assign(pair: Pair<Rule>) -> IResult<ResAssign> {
+    let mut res_assign = ResAssign::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                res_assign.add_res_name(build_ast_from_ident(block).unwrap());
+            }
+            Rule::fn_call_expr => {
+                res_assign.add_fn_call(build_ast_from_fn_call_expr(block).unwrap());
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(res_assign)
 }
 
 fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr> {
@@ -497,6 +510,25 @@ fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
 
 fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
     let mut send_expr = Send::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::fn_call_expr => {
+                let generated = build_ast_from_fn_call_expr(block).unwrap();
+                match &*generated.func_name.name as &str {
+                    "update" => { /*ok */ }
+                    "free" => { /*ok */ }
+                    "transfer" => { /*ok */ }
+                    "meas" => { /*ok */ }
+                    _ => return Err(RuLaError::RuLaSyntaxError),
+                }
+                send_expr.add_fn_call(generated);
+            }
+            Rule::expr => {
+                send_expr.add_expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap())
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
 
     Ok(send_expr)
 }
@@ -740,7 +772,6 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
 }
 
 fn build_ast_from_num_lit(pair: Pair<Rule>) -> IResult<NumberLit> {
-    println!("{:#?}", pair);
     let mut num_lit = NumberLit::new(pair.as_str(), false, false, false);
     for block in pair.into_inner() {
         match block.as_rule() {
@@ -792,6 +823,10 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
         },
         Rule::message_type => match pair.as_str() {
             "Message" => return Ok(TypeDef::Message),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        },
+        Rule::result_type => match pair.as_str() {
+            "Result" => return Ok(TypeDef::Result),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::vector_type => Ok(TypeDef::Vector(Box::new(

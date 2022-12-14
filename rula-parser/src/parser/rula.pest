@@ -80,7 +80,8 @@ argument_def = { "(" ~ ( ( ident_typed | ident )? ~ ( "," ~ ( ident_typed | iden
 rule_contents = { ( let_stmt )* ~ cond_expr ~ "=>" ~ act_expr ~ ( stmt )* }
 
 cond_expr = {^"cond" ~ "{"~ (cond_clauses)*  ~ "}"}
-cond_clauses = _{ let_stmt | fn_call_expr | comp_expr }
+cond_clauses = _{ res_assign | fn_call_expr | variable_call_expr }
+res_assign = {"@" ~ ident ~ ":" ~ fn_call_expr}
 
 act_expr = { ^"act" ~ "{" ~ (stmt)* ~ "}"}
 
@@ -141,6 +142,7 @@ typedef_lit = { ( vector_type
                   | qubit_type
                   | repeater_type
                   | message_type
+                  | result_type
 ) }
 
 vector_type = {"vec" ~ "[" ~ typedef_lit ~ "]"}
@@ -152,6 +154,7 @@ string_type = { "str" }
 qubit_type = { "qubit" }
 repeater_type = { "Repeater" }
 message_type = { "Message" }
+result_type = {"Result"}
 
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" | "\t") }

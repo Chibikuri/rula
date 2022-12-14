@@ -83,7 +83,7 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                         }
 
                         impl RuleGenerators{
-                            pub fn generate(&self, _repeater: &Repeater, _arguments: &RuleArgs) -> Stage{
+                            pub fn generate(&mut self, _repeater: &Repeater, _arguments: &RuleArgs) -> Stage{
                                 match self{
                                     #(#rule_gen_idents),*
                                 }
@@ -98,6 +98,7 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                 use rula_exec::ruleset_gen::action::*;
                 use rula_exec::ruleset_gen::conf_parser;
                 use rula_exec::ruleset_gen::types::*;
+
 
                 use std::rc::Rc;
                 use std::cell::RefCell;
@@ -341,6 +342,8 @@ pub(super) fn generate_rule_expr(
 
             fn _generate(&mut self, rules: RuleVec, __repeater: &Repeater, __argument: &RuleArgs) -> RuleVec{
                 #rule_generator
+
+                rules
             }
 
             fn _type_check(){
@@ -364,10 +367,12 @@ pub(super) fn generate_rule_content(
     }
 
     // 1. condition clause
-    let condition_generator = generate_cond(&rule_content_expr.condition_expr, tracker).unwrap();
+    let condition_generator =
+        generate_cond(&rule_content_expr.condition_expr, tracker, scope, true).unwrap();
     // 2. action clause
 
-    let act_generator = generate_act(&*rule_content_expr.action_expr, tracker).unwrap();
+    let act_generator =
+        generate_act(&*rule_content_expr.action_expr, tracker, scope, true).unwrap();
 
     // 3. Post processing
     let mut post_processing = vec![];
@@ -384,12 +389,88 @@ pub(super) fn generate_rule_content(
     ))
 }
 
-pub(super) fn generate_cond(cond_expr: &CondExpr, tracker: &ValueTracker) -> IResult<TokenStream> {
-    Ok(quote!())
+pub(super) fn generate_cond(
+    cond_expr: &CondExpr,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    let mut clauses = vec![];
+    for clause in &cond_expr.clauses {
+        let generated = generate_clauses(clause, tracker, scope, in_ruledef).unwrap();
+        clauses.push(quote!(
+            #generated;
+        ))
+    }
+    let cond_name = match &*cond_expr.name {
+        Some(name) => {
+            let con_name = &*name.name;
+            quote!(#con_name)
+        }
+        None => {
+            quote!(None)
+        }
+    };
+    Ok(quote!(
+        let mut condition = Condition::new(#cond_name);
+        #(#clauses)*
+        // Add this clause to all the rules
+        for rule in rules.borrow().iter(){
+            rule.borrow_mut().set_condition(condition.clone());
+        }
+    ))
 }
 
-pub(super) fn generate_act(act_expr: &ActExpr, tracker: &ValueTracker) -> IResult<TokenStream> {
-    Ok(quote!())
+pub(super) fn generate_clauses(
+    cond: &CondClauses,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    match cond {
+        CondClauses::ResAssign(res_assign) => {
+            let generated = generate_res_assign(res_assign, tracker, scope, in_ruledef).unwrap();
+            Ok(quote!(#generated;))
+        }
+        CondClauses::FnCall(fn_call) => {
+            let generated = generate_fn_call(fn_call, tracker, scope, in_ruledef).unwrap();
+            Ok(quote!(#generated;))
+        }
+        CondClauses::VariableCallExpr(var_call) => {
+            let generated = generate_variable_call(var_call, tracker, scope, in_ruledef).unwrap();
+            Ok(quote!(#generated;))
+        }
+        CondClauses::Comp(comp_expr) => {
+            let generated = generate_comp(comp_expr, tracker, scope, in_ruledef).unwrap();
+            Ok(quote!(#generated;))
+        }
+    }
+}
+
+pub(super) fn generate_res_assign(
+    res_assign: &ResAssign,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    let name = generate_ident(&*res_assign.res_name, tracker, scope).unwrap();
+    let fn_call = generate_fn_call(&*res_assign.fn_call, tracker, scope, in_ruledef).unwrap();
+    Ok(quote!(let #name = #fn_call))
+}
+
+pub(super) fn generate_act(
+    act_expr: &ActExpr,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    let mut generated = vec![];
+    for stmt in &act_expr.operatable {
+        generated.push(generate_stmt(stmt, tracker, scope, in_ruledef).unwrap())
+    }
+    Ok(quote!(
+        #(#generated)*
+    ))
 }
 
 // Generate stmt expression
@@ -405,7 +486,7 @@ pub(super) fn generate_stmt(
 ) -> IResult<TokenStream> {
     match &*stmt.kind {
         StmtKind::Let(let_stmt) => Ok(generate_let(let_stmt, tracker, scope, in_ruledef).unwrap()),
-        StmtKind::Expr(expr) => Ok(generate_expr(expr, tracker, scope, in_ruledef).unwrap()),
+        StmtKind::Expr(expr) => Ok(generate_expr(expr, tracker, scope, in_ruledef, false).unwrap()),
         StmtKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     }
 }
@@ -423,7 +504,7 @@ pub(super) fn generate_let(
         Some(hint) => {
             let variable_name = format_ident!("{}", &*let_stmt.ident.name);
             let (_, type_hint) = generate_type_hint(hint).unwrap();
-            let value = generate_expr(&*let_stmt.expr, tracker, scope, in_ruledef).unwrap();
+            let value = generate_expr(&*let_stmt.expr, tracker, scope, in_ruledef, false).unwrap();
             Ok(quote!(
                 let #variable_name: #type_hint = #value;
             ))
@@ -437,13 +518,18 @@ pub(super) fn generate_expr(
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
+    in_match: bool,
 ) -> IResult<TokenStream> {
     match &*expr.kind {
         ExprKind::If(if_expr) => Ok(generate_if(if_expr, tracker).unwrap()),
         ExprKind::For(for_expr) => Ok(generate_for(for_expr, tracker, scope, in_ruledef).unwrap()),
-        ExprKind::Match(match_expr) => Ok(generate_match(match_expr, tracker).unwrap()),
+        ExprKind::Match(match_expr) => {
+            Ok(generate_match(match_expr, tracker, scope, in_ruledef).unwrap())
+        }
         ExprKind::Return(return_expr) => Ok(generate_return(return_expr, tracker).unwrap()),
-        ExprKind::Send(send_expr) => Ok(generate_send(send_expr, tracker).unwrap()),
+        ExprKind::Send(send_expr) => {
+            Ok(generate_send(send_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        }
         ExprKind::FnCall(fn_call_expr) => {
             Ok(generate_fn_call(fn_call_expr, tracker, scope, in_ruledef).unwrap())
         }
@@ -495,7 +581,7 @@ pub(super) fn generate_for(
         ForGenerator::Series(series) => {
             generate_series(series, tracker, scope, in_ruledef).unwrap()
         }
-        ForGenerator::Expr(expr) => generate_expr(expr, tracker, scope, in_ruledef).unwrap(),
+        ForGenerator::Expr(expr) => generate_expr(expr, tracker, scope, in_ruledef, false).unwrap(),
         ForGenerator::PlaceHolder => {
             return Err(RuleSetGenError::InitializationError);
         }
@@ -520,7 +606,7 @@ pub(super) fn generate_series(
     in_ruledef: bool,
 ) -> IResult<TokenStream> {
     let start_val = generate_number_lit(&*series.start, tracker, "int".to_string(), scope).unwrap();
-    let end_val = generate_expr(&*series.end, tracker, scope, in_ruledef).unwrap();
+    let end_val = generate_expr(&*series.end, tracker, scope, in_ruledef, false).unwrap();
     Ok(quote!(#start_val..#end_val))
 }
 pub(super) fn generate_fn_call(
@@ -535,7 +621,11 @@ pub(super) fn generate_fn_call(
     for arg in &fn_call_expr.arguments {
         generated_arguments.push(generate_fn_call_arg(arg, tracker, scope, in_ruledef).unwrap());
     }
-    Ok(quote!(#func_name ( #(#generated_arguments),*)))
+    if in_ruledef {
+        Ok(quote!(#func_name (Rc::clone(&rules), #(#generated_arguments),*)))
+    } else {
+        Ok(quote!(#func_name ( #(#generated_arguments),*)))
+    }
 }
 
 pub(super) fn generate_fn_call_arg(
@@ -628,32 +718,161 @@ pub(super) fn generate_return(
     Ok(quote!())
 }
 
-pub(super) fn generate_send(send_expr: &Send, tracker: &ValueTracker) -> IResult<TokenStream> {
-    Ok(quote!())
+pub(super) fn generate_send(
+    send_expr: &Send,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+    in_match: bool,
+) -> IResult<TokenStream> {
+    let func = &*send_expr.fn_call;
+    let message_type = match &*func.func_name.name as &str {
+        "free" => {
+            quote!(ProtoMessageType::Free)
+        }
+        "update" => {
+            quote!(ProtoMessageType::Update)
+        }
+        "meas" => {
+            quote!(ProtoMessageType::Meas)
+        }
+        "transfer" => {
+            quote!(ProtoMessageType::Transfer)
+        }
+        _ => return Err(RuleSetGenError::UnSendableFunctionError),
+    };
+    // This suppose to be repeater
+    let expr = generate_expr(&*send_expr.expr, tracker, scope, in_ruledef, false).unwrap();
+    if in_match {
+        Ok(quote!(
+            send(Rc::clone(&__temp_rules), &#expr, #message_type);
+        ))
+    } else {
+        Ok(quote!(
+            send(Rc::clone(&rules), &#expr, #message_type);
+        ))
+    }
 }
 
 // Generate Match expression to achieve match action
 // In the case of static generation, this expand Rules to the stages
-pub(super) fn generate_match(match_expr: &Match, tracker: &ValueTracker) -> IResult<TokenStream> {
-    Ok(quote!())
+pub(super) fn generate_match(
+    match_expr: &Match,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    let expr = generate_expr(&*match_expr.expr, tracker, scope, in_ruledef, false).unwrap();
+    let mut match_conditions = vec![];
+    let mut match_actions = vec![];
+    for arm in &match_expr.match_arms {
+        let (mc, ma) = generate_match_arm(arm, tracker, scope, in_ruledef).unwrap();
+        match_conditions.push(mc);
+        match_actions.push(ma);
+    }
+    let mut final_rule_count = match_conditions.len();
+
+    let otherwise = match &*match_expr.otherwise {
+        Some(other) => {
+            let generated = generate_match_action(other, tracker, scope, in_ruledef).unwrap();
+            final_rule_count += 1;
+            quote!(
+                // Define new rules to flush the current rules
+                let mut rules = Rc::new(RefCell::new(vec![]));
+                for new_rule in new_rule_vec{
+                    rules.borrow_mut().push(new_rule);
+                }
+
+                let mut fin_rule_stack = vec![];
+                for fin_rule in &*finally_rules.borrow_mut(){
+                    let generated_vec = (|__new_rule|{
+                        let __temp_rules = Rc::new(RefCell::new(vec![RefCell::new(__new_rule)]));
+                        #generated;
+                        __temp_rules
+                    })(fin_rule.borrow().clone());
+                    for gen_rule in &*generated_vec.borrow(){
+                        fin_rule_stack.push(gen_rule.clone());
+                    }
+                }
+                for finally_rule in &fin_rule_stack{
+                    rules.borrow_mut().push(finally_rule.clone());
+                }
+            )
+        }
+        None => {
+            quote!()
+        }
+    };
+    // match does not mapped to match expression
+    let count = SynLit::Int(LitInt::new(
+        &final_rule_count.to_string(),
+        Span::call_site(),
+    ));
+    Ok(quote!(
+        let  __cmp_target = #expr.comparable();
+        let current_rule_count = rules.borrow().len();
+        let final_rule_count = current_rule_count * #count;
+
+        let __match_conditions = vec![
+            #(#match_conditions),*
+        ];
+        let __match_actions: Vec<Box<dyn Fn(Rule) -> (RuleVec)>> = vec![
+            #(#match_actions),*
+        ];
+
+        let finally_rules = &*rules.clone();
+
+        let mut new_rule_vec = vec![];
+        for rule in &*rules.borrow_mut(){
+            for ((__cmp_op, __val), __action_func) in &mut __match_conditions.iter().zip(&__match_actions){
+                let mut cloned_rule = rule.borrow().clone();
+                cloned_rule.add_condition_clause(ConditionClauses::Cmp(Cmp::new(__cmp_op.clone(), __val.clone())));
+                let generated_rules = __action_func(cloned_rule);
+                for gen_rule in &*generated_rules.borrow(){
+                    new_rule_vec.push(gen_rule.clone());
+                }
+            }
+        }
+        #otherwise
+
+        let num_rules = rules.borrow().len();
+        if  num_rules != final_rule_count {
+            panic!("The final rule size is wrong Suppose: {} != Actual{}", final_rule_count, num_rules);
+        }
+
+
+    ))
 }
 
 pub(super) fn generate_match_arm(
     match_arm: &MatchArm,
     tracker: &ValueTracker,
-) -> IResult<TokenStream> {
-    // let generated_match_condition =
-    //     generate_match_condition(&mut *match_arm.condition, ident_tracker).unwrap();
-    // let generated_match_action =
-    //     generate_match_action(&mut *match_arm.action, ident_tracker, false, false).unwrap();
-    // Ok(quote!(#generated_match_condition => {#generated_match_action}))
-    Ok(quote!())
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<(TokenStream, TokenStream)> {
+    let match_condition =
+        generate_match_condition(&*match_arm.condition, tracker, scope, in_ruledef).unwrap();
+    let match_actions =
+        generate_match_action(&*match_arm.action, tracker, scope, in_ruledef).unwrap();
+    Ok((
+        quote!(
+           (CmpOp::Eq, __cmp_target(#match_condition))
+        ),
+        quote!(
+            Box::new(|__new_rule|{
+                let __temp_rules = Rc::new(RefCell::new(vec![RefCell::new(__new_rule)]));
+                #match_actions;
+                __temp_rules
+            })
+        ),
+    ))
 }
 
 pub(super) fn generate_match_condition(
     match_condition: &MatchCondition,
     tracker: &ValueTracker,
     scope: &Scope,
+    in_ruledef: bool,
 ) -> IResult<TokenStream> {
     // Right now, satisfiable can only take literals, but in the future, this should be more flexible
     match &*match_condition.satisfiable {
@@ -666,27 +885,17 @@ pub(super) fn generate_match_condition(
 
 pub(super) fn generate_match_action(
     match_action: &MatchAction,
-    ident_tracker: &ValueTracker,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
 ) -> IResult<TokenStream> {
-    // let mut actionables = vec![];
-    // for actionable in &mut *match_action.actionable {
-    //     actionables.push(
-    //         generate_expr(
-    //             actionable,
-    //             None,
-    //             ident_tracker,
-    //             true,
-    //             in_static,
-    //             in_closure,
-    //             false,
-    //         )
-    //         .unwrap(),
-    //     );
-    // }
-    // Ok(quote!(
-    //     #(#actionables);*
-    // ))
-    Ok(quote!())
+    let mut actionables = vec![];
+    for actionable in &match_action.actionable {
+        actionables.push(generate_expr(actionable, tracker, scope, in_ruledef, true).unwrap());
+    }
+    Ok(quote!(
+        #(#actionables);*
+    ))
 }
 
 pub(super) fn generate_comp(
@@ -695,8 +904,8 @@ pub(super) fn generate_comp(
     scope: &Scope,
     in_ruledef: bool,
 ) -> IResult<TokenStream> {
-    let lhs = generate_expr(&comp_expr.lhs, tracker, scope, in_ruledef).unwrap();
-    let rhs = generate_expr(&comp_expr.rhs, tracker, scope, in_ruledef).unwrap();
+    let lhs = generate_expr(&comp_expr.lhs, tracker, scope, in_ruledef, false).unwrap();
+    let rhs = generate_expr(&comp_expr.rhs, tracker, scope, in_ruledef, false).unwrap();
     let (op, cmp_op) = match *comp_expr.comp_op {
         CompOpKind::Lt => (quote!(<), quote!(__CmpOp::Lt)),
         CompOpKind::Gt => (quote!(>), quote!(__CmpOp::Gt)),
@@ -879,6 +1088,7 @@ pub(super) fn generate_ident(
 pub(super) fn generate_type_hint(type_hint: &TypeDef) -> IResult<(Types, TokenStream)> {
     match type_hint {
         TypeDef::Repeater => Ok((Types::Repeater, quote!(&Repeater))),
+        TypeDef::Result => Ok((Types::Result, quote!(RuLaResult))),
         TypeDef::Boolean => Ok((Types::Boolean, quote!(bool))),
         TypeDef::Integer => Ok((Types::Int, quote!(i64))),
         TypeDef::UnsignedInteger => Ok((Types::UInt, quote!(u64))),
@@ -901,6 +1111,7 @@ pub(super) fn generate_evaluator(type_def: &Types) -> IResult<TokenStream> {
     match type_def {
         Types::Repeater => Ok(quote!(eval_as_repeater())),
         Types::Message => Ok(quote!(eval_as_message())),
+        Types::Result => Ok(quote!(eval_as_result())),
         Types::Qubit => Ok(quote!(eval_as_qubit())),
         Types::Int => Ok(quote!(eval_as_int())),
         Types::UInt => Ok(quote!(eval_as_uint())),

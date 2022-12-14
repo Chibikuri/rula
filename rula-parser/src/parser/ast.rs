@@ -547,10 +547,38 @@ impl CondExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CondClauses {
-    Let(Let),
+    ResAssign(ResAssign),
     FnCall(FnCall),
     VariableCallExpr(VariableCallExpr),
     Comp(Comp),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResAssign {
+    pub res_name: Box<Ident>,
+    pub fn_call: Box<FnCall>,
+}
+
+impl ResAssign {
+    pub fn new(res_name: Ident, fn_call: FnCall) -> Self {
+        ResAssign {
+            res_name: Box::new(res_name),
+            fn_call: Box::new(fn_call),
+        }
+    }
+    pub fn place_holder() -> Self {
+        ResAssign {
+            res_name: Box::new(Ident::place_holder()),
+            fn_call: Box::new(FnCall::place_holder()),
+        }
+    }
+
+    pub fn add_res_name(&mut self, name: Ident) {
+        self.res_name = Box::new(name);
+    }
+    pub fn add_fn_call(&mut self, fn_call: FnCall) {
+        self.fn_call = Box::new(fn_call);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -941,6 +969,12 @@ impl Send {
             fn_call: Box::new(FnCall::place_holder()),
             expr: Box::new(Expr::place_holder()),
         }
+    }
+    pub fn add_fn_call(&mut self, fn_call: FnCall) {
+        self.fn_call = Box::new(fn_call);
+    }
+    pub fn add_expr(&mut self, expr: Expr) {
+        self.expr = Box::new(expr);
     }
 }
 
@@ -1347,12 +1381,13 @@ impl Ident {
 pub enum TypeDef {
     Repeater,
     Message,
+    Result,
+    Qubit,
     Integer,
     UnsignedInteger,
     Float,
     Boolean,
     Str,
-    Qubit,
     Vector(Box<TypeDef>),
     PlaceHolder,
 }

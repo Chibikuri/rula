@@ -6,4 +6,5 @@ pub enum RuleSetGenError {
     NoTypeAnnotationError,
     NoRuleFoundError,
     UnknownTypeError,
+    UnSendableFunctionError,
 }

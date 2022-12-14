@@ -18,6 +18,7 @@ pub struct RepeaterConfigs {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepeaterContent {
     pub name: String,
+    pub address: u64,
 }
 
 pub fn parse_config(file_path: PathBuf) -> IResult<Vec<Repeater>> {
