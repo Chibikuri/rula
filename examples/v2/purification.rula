@@ -1,0 +1,43 @@
+#repeaters: vec[Repeater]
+
+import std::operations::{cx, meas_z}
+
+rule local_operation<#rep>(distance: int) :-> (qubit, str) {
+    let partner: Repeater = #rep.hop(distance)
+    cond {
+        @q1: res(1, partner)
+        @q2: res(1, partner)
+    } => act {
+        // do cx
+        cx(q1, q2)
+        // measure the target qubit
+        let result: str = meas_z(q2, "Z")
+        meas(q2, result) -> partner
+        promote (q1, result)
+    }
+}
+
+rule parity_check<#rep>(promoted: qubit, self_result: str) :-> qubit? {
+    let partner: Repeater = #rep.incr(distance)
+    cond {
+        @message: recv(partner)
+    } => act {
+        if(message.result == self_result){
+            // purification success
+            promote(promoted)
+        }else{
+            // purification failed
+            free(promoted)
+        }
+    }
+}
+
+
+ruleset purification {
+    for (i) in 0..#repeaters.max()-1{
+        let (promoted_qubit: qubit, result_i: str) = local_operation<#repeaters(i)>(1)
+        parity_check<#repeaters(i)>(promoted_qubit, result_i)
+        let (promoted_qubit2: qubit, result_next: str) = local_operation<#repeaters(i+1)>(-1)
+        parity_check<#repeaters(i+1)>(promoted_qubit2, result_next)
+    }
+}

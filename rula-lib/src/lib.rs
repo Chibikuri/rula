@@ -7,14 +7,7 @@ pub mod qubit;
 pub mod result;
 pub mod time;
 
-pub mod ruleset {
-    pub mod action;
-    pub mod condition;
-    pub mod ruleset;
-}
-
-use ruleset::action::v2::ActionClauses;
-use ruleset::ruleset::Rule;
+// use ruleset::action::v2::ActionClauses;
+// use ruleset::ruleset::Rule;
 use std::cell::RefCell;
 use std::rc::Rc;
-pub type RuleVec = Rc<RefCell<Vec<RefCell<Rule<ActionClauses>>>>>;

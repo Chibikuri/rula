@@ -41,8 +41,8 @@ fn main() {
     println!("config{:#?}", config);
     // parse rula program
     let mut ast = rula_parser::parse(&contents).unwrap();
-    let _generated =
-        rula_exec::codegen::generator::generate(&mut ast, args.ruleset, config).unwrap();
+    // let _generated =
+    //     rula_exec::codegen::generator::generate(&mut ast, args.ruleset, config).unwrap();
     if args.ruleset {
         println!("Generating RuleSet...");
     }

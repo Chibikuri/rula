@@ -8,13 +8,30 @@ pub mod codegen {
 
     pub mod default_token;
     pub mod generator;
-    pub mod identifier;
 
     #[cfg(test)]
     pub mod test_generator;
 
     use error::RuLaCompileError;
-    pub type IResult<T> = std::result::Result<T, RuLaCompileError>;
+    type IResult<T> = std::result::Result<T, RuLaCompileError>;
+}
+
+// Generator of ruleset
+pub mod ruleset_gen {
+    #[cfg(not(tarpaulin_include))]
+    mod error;
+
+    pub mod action;
+    pub mod condition;
+    pub mod conf_parser;
+    pub mod factory;
+    pub mod ruleset;
+    pub mod ruleset_generator;
+    pub mod tracker;
+    pub mod types;
+
+    use error::RuleSetGenError;
+    type IResult<T> = std::result::Result<T, RuleSetGenError>;
 }
 
 pub mod utils {}

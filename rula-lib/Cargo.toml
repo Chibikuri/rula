@@ -10,6 +10,6 @@ async-trait = "0.1.58"
 futures = "0.3.25"
 serde = {version = "1.0", features=["derive"]}
 serde_json = "^1.0.41"
-mock_components = { path = "../mock-components"}
+rula-exec = {path = "../rula-exec"}
 
 tokio = {version = "1.20.1", features = ["rt", "rt-multi-thread", "net", "time", "io-std", "io-util"]}
