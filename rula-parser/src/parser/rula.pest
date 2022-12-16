@@ -18,8 +18,8 @@ expr = {
   match_expr | 
   return_expr | 
   // non-named
-    rule_call_expr| 
-    comp_expr |
+  rule_call_expr| 
+  comp_expr |
   term_expr | 
   send_expr |
   fn_call_expr |
@@ -111,7 +111,7 @@ false_lit = @{ "false" }
 
 // number literal (int, float)
 // "-some_number" is also fine
-number = { (plus | minus)? ~ ( float| int | ident ) ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? }
+number = {  (plus | minus )? ~ ( float | int | ident ) ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? }
 
 // Integer literal (10, 1000, 10e10, -10, -10e-10 etc)
 // This will allow white space between digits (FIXME)

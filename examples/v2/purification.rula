@@ -5,8 +5,8 @@ import std::operations::{cx, meas_z}
 rule local_operation<#rep>(distance: int) :-> (qubit, str) {
     let partner: Repeater = #rep.hop(distance)
     cond {
-        let q1: qubit = res(1, partner)
-        let q2: qubit = res(1, partner)
+        @q1: res(1, partner)
+        @q2: res(1, partner)
     } => act {
         // do cx
         cx(q1, q2)
@@ -20,7 +20,7 @@ rule local_operation<#rep>(distance: int) :-> (qubit, str) {
 rule parity_check<#rep>(promoted: qubit, self_result: str) :-> qubit? {
     let partner: Repeater = #rep.incr(distance)
     cond {
-        let message: Message = recv(partner)
+        @message: recv(partner)
     } => act {
         if(message.result == self_result){
             // purification success

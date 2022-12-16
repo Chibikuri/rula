@@ -2,9 +2,12 @@ use rula_exec::ruleset_gen::action::*;
 use rula_exec::ruleset_gen::condition::*;
 use rula_exec::ruleset_gen::ruleset::*;
 
+use proc_macro2::TokenStream;
+use std::env;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::process::Command;
 
 // Helper functions for creating Rules
 pub(crate) fn create_rule(
@@ -22,6 +25,26 @@ pub(crate) fn create_rule(
     rule.set_condition(condition);
     rule.set_action(action);
     rule
+}
+
+fn generate_token_stream_file(program: TokenStream, file_name: &str) {
+    let mut file_path = env::current_dir().unwrap();
+    file_path.push("tests");
+    file_path.push(file_name);
+    // let mut writer = BufWriter::new(File::create(file_path.clone()).unwrap());
+    let mut f = File::create(file_path.clone()).unwrap();
+    f.write_all(program.to_string().as_bytes())
+        .expect("Unable to write data");
+    // fs::write(file_path.to_str(), program.to_string()).expect("Failed to write file");
+    // writer.write(&program.to_string().as_bytes()).unwrap();
+    // Format generated file
+    #[cfg(not(feature = "no-format"))]
+    Command::new("cargo")
+        .arg("fmt")
+        .arg("--")
+        .arg(file_path)
+        .spawn()
+        .expect("Command failed");
 }
 
 // pub(crate) fn create_condition(name: Option<&str>, clauses: Vec<ConditionClauses>) -> Condition {
@@ -63,7 +86,7 @@ mod generate_swapping_ruleset {
         let mut ast = rula_parser::parse(&contents).unwrap();
 
         // 2. generate ruleset (provide ruleset flag)
-        let rulesets = rula_exec::ruleset_gen::ruleset_generator::generate(
+        let tokens = rula_exec::ruleset_gen::ruleset_generator::generate(
             &ast,
             PathBuf::from("../examples/v2/config.json"),
         )
@@ -75,11 +98,9 @@ mod generate_swapping_ruleset {
         let rule1 = Rule::new("swapping");
         stage.add_rule(rule1);
         target_ruleset.add_stage(stage);
-
-        assert_eq!(
-            rulesets.get(&0).expect("failed to get rulesets").clone(),
-            target_ruleset
-        );
+        generate_token_stream_file(tokens, "generator.rs");
+        // assert_eq!(rulesets[0], target_ruleset);
+        assert_eq!(1, 2);
         // 2.1.0
         // Entanglement Swapping Condition
         // let enough_resource_clause_qn0 = ConditionClauses::EnoughResource(EnoughResource::new(
@@ -156,12 +177,10 @@ mod purification_ruleset {
         .unwrap();
 
         // 2.1 target ruleset
-        let mut target_rulesets = vec![RuleSet::new("purification")];
+        let target = RuleSet::new("purification");
+        // let mut target_rulesets = vec![];
 
-        for (i, ruleset) in rulesets {
-            println!("{:#?}", ruleset);
-            assert_eq!(ruleset, target_rulesets[i as usize]);
-        }
+        // assert_eq!(rulesets[0], target);
     }
 }
 
