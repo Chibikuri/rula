@@ -83,7 +83,7 @@ mod generate_swapping_ruleset {
             .read_to_string(&mut contents)
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
-        let mut ast = rula_parser::parse(&contents).unwrap();
+        let ast = rula_parser::parse(&contents).unwrap();
 
         // 2. generate ruleset (provide ruleset flag)
         let tokens = rula_exec::ruleset_gen::ruleset_generator::generate(

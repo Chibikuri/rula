@@ -2,20 +2,6 @@
 extern crate quote;
 extern crate syn;
 
-pub mod codegen {
-    #[cfg(not(tarpaulin_include))]
-    mod error;
-
-    pub mod default_token;
-    pub mod generator;
-
-    #[cfg(test)]
-    pub mod test_generator;
-
-    use error::RuLaCompileError;
-    type IResult<T> = std::result::Result<T, RuLaCompileError>;
-}
-
 // Generator of ruleset
 pub mod ruleset_gen {
     #[cfg(not(tarpaulin_include))]
@@ -34,7 +20,6 @@ pub mod ruleset_gen {
     type IResult<T> = std::result::Result<T, RuleSetGenError>;
 }
 
-pub mod utils {}
 
 #[cfg(test)]
 mod tests {
