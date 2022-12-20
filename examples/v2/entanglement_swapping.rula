@@ -30,9 +30,12 @@ rule swapping<#rep>(distance: int){
 
 
 ruleset entanglement_swapping{
-    for i in 1..#repeaters.len()-1{
-        if (i % 2 == 1){
-            swapping<#repeaters(i)>(1)
+    // From distance 1 to half
+    for d in 1..#repeaters.len()/2 + 1{
+        for i in 1..#repeaters.len()-1{
+            if (i % 2 == 0){
+                swapping<#repeaters(i)>(d)
+            }
         }
     }
 }

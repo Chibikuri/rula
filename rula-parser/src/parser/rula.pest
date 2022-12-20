@@ -9,7 +9,7 @@ repeaters = {"#repeaters: vec[Repeater]"}
 let_stmt = { ^"let" ~ ( ident_typed | "(" ~ ident_typed ~ ("," ~ ident_typed)* ~ ")" ) ~ "=" ~ expr}
 
 expr = {
-  // named
+  // keyword expression
   import_expr |
   ruleset_expr |
   rule_expr |
@@ -17,27 +17,33 @@ expr = {
   for_expr|
   match_expr | 
   return_expr | 
-  // non-named
+  // non keyword expression
   rule_call_expr| 
+  // precedence sensitive
   comp_expr |
   term_expr | 
   send_expr |
   fn_call_expr |
-
-
-  // comparison must be higher precedence
   variable_call_expr |
   literal_expr
 }
 
+// Import expression to get functions. (import test::func)
 import_expr = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
 
-match_expr = {^"match" ~ expr ~ "{" ~ (match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
+// match expression for conditioning
+// match expression {
+//  00 => {do something},
+//  11 => {do something else},
+// otherwise => {hey}
+// }
+match_expr = { ^"match" ~ expr ~ "{" ~ (match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
 match_arm = { match_condition ~ "=>" ~ match_action }
-match_condition = {satisfiable}
+match_condition = { satisfiable }
 satisfiable = { literal_expr }
-match_action = {"{" ~ expr? ~ ("," ~ expr)* ~ "}"}
+match_action = { "{" ~ expr? ~ ("," ~ expr)* ~ "}" }
 
+// Return values 
 return_expr = {^"return" ~ expr?}
 
 // If expression (e.g. if (block > 0) {expreesion;};)
@@ -45,11 +51,13 @@ if_expr = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_expr )* ~
 else_if_expr = { ^"else" ~ ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" }
 else_expr = { ^"else" ~ "{" ~ (stmt)* ~ "}"}
 
-for_expr = { ^"for" ~ ( ident | for_multi_block ) ~ "in" ~ for_generator ~ "{" ~ (stmt)* ~ "}"}
-for_multi_block = _{"(" ~ ident_list ~ ")"}
+// For expression for looping
+for_expr = { ^"for" ~ ( ident | for_multi_block ) ~ "in" ~ for_generator ~ "{" ~ (stmt)* ~ "}" }
+for_multi_block = _{ "(" ~ ident_list ~ ")" }
 for_generator = _{ series | expr }
 series = { int ~ ".." ~ expr }
 
+// Send mesage to the repeaters
 send_expr = { fn_call_expr ~ "->" ~ expr }
 
 // term_expr = { inner_term ~ ( op ~ inner_term )* }
@@ -72,9 +80,10 @@ comp_expr = { comparable ~ comp_op ~ comparable }
 comparable = { variable_call_expr | fn_call_expr | term_expr | literal_expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!=" }
 
-// Rule expression to define RuLa rule
+// RuleSet expression with multiple statements
 ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
 
+// Rule expression for each rule
 rule_expr = { ^"rule" ~ ident ~ "<" ~ repeater_ident ~ ">"~ argument_def ~ (":->" ~ ret_type_annotation)? ~ "{" ~ rule_contents ~ "}" }
 ret_type_annotation = { typedef_lit ~ maybe? | "(" ~ (typedef_lit ~ maybe?) ~ ("," ~ typedef_lit ~ maybe?)* ~ ")"}
 maybe = {"?"}
@@ -93,7 +102,7 @@ callable = { fn_call_expr | repeater_ident | ident }
 rule_call_expr = { ident ~ "<" ~ repeater_call ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
 repeater_call = {"#repeaters" ~ "(" ~ (term_expr | ident | int ) ~ ")"}
 
-fn_call_expr = { (repeater_ident | ident) ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
+fn_call_expr = { ident ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
 fn_call_args = { fn_call_expr | variable_call_expr | term_expr | literal_expr }
 
 repeater_ident = { "#" ~ ident}
