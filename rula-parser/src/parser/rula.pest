@@ -19,12 +19,12 @@ expr = {
   return_expr | 
   // non keyword expression
   rule_call_expr| 
+  send_expr |
   // precedence sensitive
   comp_expr |
-  term_expr | 
-  send_expr |
+  term_expr |
   fn_call_expr |
-  variable_call_expr |
+  variable_call_expr|
   literal_expr
 }
 
@@ -37,7 +37,7 @@ import_expr = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_lis
 //  11 => {do something else},
 // otherwise => {hey}
 // }
-match_expr = { ^"match" ~ expr ~ "{" ~ (match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
+match_expr = { ^"match" ~ expr ~ "{" ~ ( match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
 match_arm = { match_condition ~ "=>" ~ match_action }
 match_condition = { satisfiable }
 satisfiable = { literal_expr }
@@ -60,10 +60,8 @@ series = { int ~ ".." ~ expr }
 // Send mesage to the repeaters
 send_expr = { fn_call_expr ~ "->" ~ expr }
 
-// term_expr = { inner_term ~ ( op ~ inner_term )* }
-// inner_term = _{ number | "(" ~ term_expr ~ ")" }
-// currently, term expression is very limited 
-term_expr = { terms ~ op ~ terms }
+term_expr = { inner_term ~ ( op ~ inner_term )+ }
+inner_term = _{ terms | "(" ~ term_expr ~ ")" }
 terms = { variable_call_expr | fn_call_expr | literal_expr }
 
 // A set of arithmetic operations for tems
@@ -77,7 +75,7 @@ caret = { "^" }
 
 // Comparison (no chain comparison allowed)
 comp_expr = { comparable ~ comp_op ~ comparable }
-comparable = { variable_call_expr | fn_call_expr | term_expr | literal_expr }
+comparable = { term_expr | variable_call_expr | fn_call_expr |  literal_expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!=" }
 
 // RuleSet expression with multiple statements
@@ -103,7 +101,7 @@ rule_call_expr = { ident ~ "<" ~ repeater_call ~ ">" ~ "(" ~ fn_call_args? ~ (",
 repeater_call = {"#repeaters" ~ "(" ~ (term_expr | ident | int ) ~ ")"}
 
 fn_call_expr = { ident ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
-fn_call_args = { fn_call_expr | variable_call_expr | term_expr | literal_expr }
+fn_call_args = { term_expr | fn_call_expr | variable_call_expr | literal_expr }
 
 repeater_ident = { "#" ~ ident}
 
@@ -124,7 +122,7 @@ number = {  (plus | minus )? ~ ( float | int | ident ) ~ ( "e" ~ ( "+" | "-" )? 
 
 // Integer literal (10, 1000, 10e10, -10, -10e-10 etc)
 // This will allow white space between digits (FIXME)
-int = @{ ASCII_DIGIT+ ~ !ASCII_ALPHA} 
+int = @{ ( ASCII_NONZERO_DIGIT ~ ASCII_DIGIT+ | ASCII_DIGIT ) ~ !ASCII_ALPHA} 
 float = {int ~ "." ~ int}
 // Binary literals (e.g. b101100)
 binary = { "0b" ~ bin_num}

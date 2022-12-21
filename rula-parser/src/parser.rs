@@ -1231,8 +1231,8 @@ mod tests {
         fn test_simple_match_no_otherwise() {
             let match_expr = pair_generator(
                 "match test{
-            00 => {something()},
-            11 => {otherthing()},
+            true => {something()},
+            false => {otherthing()},
         }",
                 Rule::match_expr,
             );
@@ -1243,9 +1243,7 @@ mod tests {
                 ))))),
                 vec![
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("00", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(true)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("something", None),
                             false,
@@ -1253,9 +1251,7 @@ mod tests {
                         )))]),
                     ),
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("11", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(false)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("otherthing", None),
                             false,
@@ -1272,8 +1268,8 @@ mod tests {
         fn test_simple_match_with_otherwise() {
             let match_expr = pair_generator(
                 "match test{
-            00 => {something()},
-            11 => {otherthing()},
+            true => {something()},
+            false => {otherthing()},
             otherwise => {final()}
         }",
                 Rule::match_expr,
@@ -1285,9 +1281,7 @@ mod tests {
                 ))))),
                 vec![
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("00", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(true)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("something", None),
                             false,
@@ -1295,9 +1289,7 @@ mod tests {
                         )))]),
                     ),
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("11", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(false)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("otherthing", None),
                             false,
