@@ -16,10 +16,11 @@ pub mod ruleset_gen {
     pub mod tracker;
     pub mod types;
 
+    mod test_ruleset_generator;
+
     use error::RuleSetGenError;
     type IResult<T> = std::result::Result<T, RuleSetGenError>;
 }
-
 
 #[cfg(test)]
 mod tests {

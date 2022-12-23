@@ -20,6 +20,8 @@ expr = {
   // non keyword expression
   rule_call_expr| 
   send_expr |
+  vector |
+  tuple |
   // precedence sensitive
   comp_expr |
   term_expr |
@@ -98,12 +100,15 @@ variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
 callable = { fn_call_expr | repeater_ident | ident }
 
 rule_call_expr = { ident ~ "<" ~ repeater_call ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
-repeater_call = {"#repeaters" ~ "(" ~ (term_expr | ident | int ) ~ ")"}
+repeater_call = {"#repeaters" ~ "(" ~ ( term_expr | ident | int ) ~ ")"}
 
 fn_call_expr = { ident ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
 fn_call_args = { term_expr | fn_call_expr | variable_call_expr | literal_expr }
 
 repeater_ident = { "#" ~ ident}
+
+vector = {"[" ~ literal_expr? ~ ("," ~ literal_expr)* ~ ","? ~ "]"} 
+tuple = {"(" ~ expr? ~ ("," ~ expr)* ~ ","? ~ ")"}
 
 ident_list = { ( ident | ident_typed ) ~ ( "," ~ ( ident | ident_typed ) )* }
 ident_typed = { ident ~ ":" ~ typedef_lit }
@@ -118,7 +123,7 @@ false_lit = @{ "false" }
 
 // number literal (int, float)
 // "-some_number" is also fine
-number = {  (plus | minus )? ~ ( float | int | ident ) ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? }
+number = {  ( plus | minus )? ~ ( float | int | ident ) ~ ( "e" ~ ( "+" | "-" )? ~ ASCII_DIGIT+ )? }
 
 // Integer literal (10, 1000, 10e10, -10, -10e-10 etc)
 // This will allow white space between digits (FIXME)

@@ -281,16 +281,12 @@ pub enum ExprKind {
     Send(Send),
     FnCall(FnCall),
     RuleCall(RuleCall),
+    RuLaVec(RuLaVec),
+    RuLaTuple(RuLaTuple),
     Comp(Comp),
     Term(Term), // There could be better way. Leave this for now.
     VariableCallExpr(VariableCallExpr),
     Lit(Lit),
-    // Struct(Struct),
-    // FnDef(FnDef),
-    // While(While),
-    // CondExpr(CondExpr),
-    // ActExpr(ActExpr),
-    // Array(Array), // [..]
     PlaceHolder, // for initializing reason, but maybe better way?
 }
 
@@ -711,12 +707,12 @@ pub enum ForGenerator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Series {
-    pub start: Box<NumberLit>,
+    pub start: Box<IntegerLit>,
     pub end: Box<Expr>,
 }
 
 impl Series {
-    pub fn new(start: NumberLit, end: Expr) -> Self {
+    pub fn new(start: IntegerLit, end: Expr) -> Self {
         Series {
             start: Box::new(start),
             end: Box::new(end),
@@ -724,102 +720,18 @@ impl Series {
     }
     pub fn place_holder() -> Self {
         Series {
-            start: Box::new(NumberLit::place_holder()),
+            start: Box::new(IntegerLit::place_holder()),
             end: Box::new(Expr::place_holder()),
         }
     }
 
-    pub fn add_start(&mut self, start: NumberLit) {
+    pub fn add_start(&mut self, start: IntegerLit) {
         self.start = Box::new(start);
     }
     pub fn add_end(&mut self, end: Expr) {
         self.end = Box::new(end);
     }
 }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct While {
-//     pub block: Box<Expr>,
-//     pub stmt: Box<Stmt>,
-// }
-
-// impl While {
-//     pub fn new(block_expr: Expr, stmt: Stmt) -> Self {
-//         While {
-//             block: Box::new(block_expr),
-//             stmt: Box::new(stmt),
-//         }
-//     }
-//     pub fn place_holder() -> Self {
-//         While {
-//             block: Box::new(Expr::place_holder()),
-//             stmt: Box::new(Stmt::place_holder()),
-//         }
-//     }
-//     pub fn add_block(&mut self, block: Expr) {
-//         self.block = Box::new(block)
-//     }
-//     pub fn add_stmt(&mut self, stmt: Stmt) {
-//         self.stmt = Box::new(stmt)
-//     }
-// }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct FnDef {
-//     pub arguments: Vec<Ident>, // LitKind::Ident
-//     pub stmt: Box<Stmt>,
-// }
-
-// impl FnDef {
-//     pub fn new(args: Vec<Ident>, stmt: Stmt) -> FnDef {
-//         FnDef {
-//             arguments: args,
-//             stmt: Box::new(stmt),
-//         }
-//     }
-//     pub fn place_holder() -> FnDef {
-//         FnDef {
-//             arguments: vec![],
-//             stmt: Box::new(Stmt::place_holder()),
-//         }
-//     }
-
-//     pub fn add_arg(&mut self, argument: Ident) {
-//         self.arguments.push(argument);
-//     }
-
-//     pub fn add_expr(&mut self, stmt: Stmt) {
-//         self.stmt = Box::new(stmt);
-//     }
-// }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Struct {
-//     pub name: Box<Ident>,
-//     pub items: Vec<Ident>,
-// }
-
-// impl Struct {
-//     pub fn new(name: Ident, item_vec: Vec<Ident>) -> Self {
-//         Struct {
-//             name: Box::new(name),
-//             items: item_vec,
-//         }
-//     }
-//     pub fn place_holder() -> Self {
-//         Struct {
-//             name: Box::new(Ident::place_holder()),
-//             items: vec![],
-//         }
-//     }
-
-//     pub fn add_name(&mut self, name: Ident) {
-//         self.name = Box::new(name)
-//     }
-//     pub fn add_item(&mut self, item: Ident) {
-//         self.items.push(item)
-//     }
-// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
@@ -1067,7 +979,7 @@ impl RuleCall {
 pub enum RepeaterCallArg {
     Term(Term),
     Ident(Ident),
-    NumberLit(NumberLit),
+    IntegerLit(IntegerLit),
     PlaceHolder,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -1194,28 +1106,43 @@ pub enum CompOpKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Array {
+pub struct RuLaVec {
     // pub type_hint: Box<TypeDef>,
     pub items: Vec<Lit>,
 }
 
-impl Array {
+impl RuLaVec {
     pub fn new(item_vec: Vec<Lit>) -> Self {
-        Array {
+        RuLaVec {
             // type_hint: Box::new(type_val),
             items: item_vec,
         }
     }
     pub fn place_holder() -> Self {
-        Array {
-            // type_hint: Box::new(TypeDef::PlaceHolder),
-            items: vec![],
-        }
+        RuLaVec { items: vec![] }
     }
-    // pub fn add_type_hind(typedef: TypeDef)
 
     pub fn add_item(&mut self, item: Lit) {
         self.items.push(item)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RuLaTuple {
+    pub items: Vec<Expr>,
+}
+
+impl RuLaTuple {
+    pub fn new(item_tuple: Vec<Expr>) -> Self {
+        RuLaTuple { items: item_tuple }
+    }
+
+    pub fn place_holder() -> Self {
+        RuLaTuple { items: vec![] }
+    }
+
+    pub fn add_item(&mut self, item: Expr) {
+        self.items.push(item);
     }
 }
 
@@ -1267,40 +1194,120 @@ impl StringLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLit {
-    pub value: Box<Ident>, // At this point, number type cannot be determined
-    pub castable: bool,    // If the value is identifier, false
-    pub negative: bool,    // If this is a negative value, true
-    pub float: bool,
+    pub kind: NumberLitKind,
 }
 
 impl NumberLit {
-    pub fn new(val: &str, castable: bool, negative: bool, float: bool) -> Self {
-        NumberLit {
-            value: Box::new(Ident::new(val, None)),
-            castable: castable,
-            negative: negative,
-            float: float,
-        }
+    pub fn new(kind: NumberLitKind) -> Self {
+        NumberLit { kind: kind }
     }
+
     pub fn place_holder() -> Self {
         NumberLit {
-            value: Box::new(Ident::place_holder()),
-            castable: false,
-            negative: false,
-            float: false,
+            kind: NumberLitKind::PlaceHolder,
         }
     }
-    pub fn update_val(&mut self, val: &str) {
-        self.value = Box::new(Ident::new(val, None));
+
+    pub fn update_value(&mut self, kind: NumberLitKind) {
+        self.kind = kind;
     }
-    pub fn castable(&mut self) {
-        self.castable = true
-    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NumberLitKind {
+    IntegerLit(IntegerLit),
+    FloatLit(FloatLit),
+    NumIdentLit(NumIdentLit),
+    PlaceHolder,
+}
+
+impl NumberLit {
     pub fn negative(&mut self) {
-        self.negative = true
+        match &mut self.kind {
+            NumberLitKind::IntegerLit(int_lit) => {
+                int_lit.negative();
+            }
+            NumberLitKind::FloatLit(float_lit) => {
+                float_lit.negative();
+            }
+            NumberLitKind::NumIdentLit(num_ident_lit) => num_ident_lit.negative(),
+            NumberLitKind::PlaceHolder => {
+                panic!("Value is not properly set");
+            }
+        }
     }
-    pub fn float(&mut self) {
-        self.float = true
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntegerLit {
+    pub value: Box<Ident>,
+    pub negative: bool,
+}
+
+impl IntegerLit {
+    pub fn new(val: &str, negative: bool) -> Self {
+        IntegerLit {
+            value: Box::new(Ident::new(val, Some(TypeDef::Integer))),
+            negative: negative,
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        IntegerLit {
+            value: Box::new(Ident::place_holder()),
+            negative: false,
+        }
+    }
+
+    pub fn negative(&mut self) {
+        self.negative = true;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FloatLit {
+    pub value: Box<Ident>,
+    pub negative: bool,
+}
+
+impl FloatLit {
+    pub fn new(val: &str, negative: bool) -> Self {
+        FloatLit {
+            value: Box::new(Ident::new(val, Some(TypeDef::Float))),
+            negative: negative,
+        }
+    }
+
+    pub fn negative(&mut self) {
+        self.negative = true;
+    }
+}
+
+// Identifier for a number.
+// At the parser, this cannot be classified to int or float
+#[derive(Debug, Clone, PartialEq)]
+pub struct NumIdentLit {
+    pub value: Box<Ident>,
+    pub negative: bool,
+}
+
+impl NumIdentLit {
+    pub fn new(val: Ident, negative: bool) -> Self {
+        NumIdentLit {
+            value: Box::new(val),
+            negative: negative,
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        NumIdentLit {
+            value: Box::new(Ident::place_holder()),
+            negative: false,
+        }
+    }
+
+    pub fn negative(&mut self) {
+        self.negative = true;
     }
 }
 

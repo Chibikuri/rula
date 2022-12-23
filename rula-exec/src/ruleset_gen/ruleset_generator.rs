@@ -587,6 +587,12 @@ pub(super) fn generate_expr(
         ExprKind::RuleCall(rule_call_expr) => {
             Ok(generate_rule_call(rule_call_expr, tracker, scope).unwrap())
         }
+        ExprKind::RuLaVec(rula_vec_expr) => {
+            Ok(generate_vec(rula_vec_expr, tracker, scope).unwrap())
+        }
+        ExprKind::RuLaTuple(rula_tuple_expr) => {
+            Ok(generate_tuple(rula_tuple_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        }
         ExprKind::Comp(comp_expr) => {
             Ok(generate_comp(comp_expr, tracker, scope, in_ruledef).unwrap())
         }
@@ -700,7 +706,7 @@ pub(super) fn generate_series(
     scope: &Scope,
     in_ruledef: bool,
 ) -> IResult<TokenStream> {
-    let start_val = generate_number_lit(&*series.start, tracker, "int".to_string(), scope).unwrap();
+    let start_val = generate_int_lit(&*series.start).unwrap();
     let end_val = generate_expr(&*series.end, tracker, scope, in_ruledef, false).unwrap();
     Ok(quote!(#start_val..#end_val))
 }
@@ -780,19 +786,19 @@ pub(super) fn generate_rule_call(
     for (gen_arg, (_, type_val)) in arguments.iter().zip(supposed_arguments.iter()) {
         let generated_type = match type_val {
             Types::Boolean => {
-                quote!(RuLaValue::Boolean(#gen_arg))
+                quote!(RuLaValue::Boolean(#gen_arg as bool))
             }
             Types::Int => {
-                quote!(RuLaValue::Int(#gen_arg))
+                quote!(RuLaValue::Int(#gen_arg as i64))
             }
             Types::UInt => {
-                quote!(RuLaValue::UInt(#gen_arg))
+                quote!(RuLaValue::UInt(#gen_arg as u64))
             }
             Types::Float => {
-                quote!(RuLaValue::UInt(#gen_arg))
+                quote!(RuLaValue::Float(#gen_arg as f64))
             }
             Types::Str => {
-                quote!(RuLaValue::Str(#gen_arg))
+                quote!(RuLaValue::Str(#gen_arg as String))
             }
             Types::Result => {
                 quote!(RuLaValue::Result(#gen_arg))
@@ -833,9 +839,7 @@ pub(super) fn generate_rep_call_arg(
             generate_term_expr(term, tracker, scope, in_ruledef).unwrap()
         }
         RepeaterCallArg::Ident(ident) => (generate_ident(ident, tracker, scope).unwrap()),
-        RepeaterCallArg::NumberLit(number_lit) => {
-            (generate_number_lit(number_lit, tracker, "int".to_string(), scope).unwrap())
-        }
+        RepeaterCallArg::IntegerLit(int_lit) => (generate_int_lit(int_lit).unwrap()),
         RepeaterCallArg::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
     Ok((quote!(__factory.repeaters.at(#arg)), quote!(#arg)))
@@ -1079,6 +1083,32 @@ pub(super) fn generate_variable_call(
     Ok(quote!(#(#generated).*))
 }
 
+pub(super) fn generate_vec(
+    vector_expr: &RuLaVec,
+    tracker: &ValueTracker,
+    scope: &Scope,
+) -> IResult<TokenStream> {
+    let mut items = vec![];
+    for lit in &vector_expr.items {
+        items.push(generate_lit(lit, tracker, "int".to_string(), scope).unwrap());
+    }
+    Ok(quote!(vec![#(#items),*]))
+}
+
+pub(super) fn generate_tuple(
+    tuple_expr: &RuLaTuple,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+    in_match: bool,
+) -> IResult<TokenStream> {
+    let mut items = vec![];
+    for exp in &tuple_expr.items {
+        items.push(generate_expr(exp, tracker, scope, in_ruledef, in_match).unwrap());
+    }
+    Ok(quote!((#(#items),*)))
+}
+
 pub(super) fn generate_lit(
     lit: &Lit,
     tracker: &ValueTracker,
@@ -1088,7 +1118,7 @@ pub(super) fn generate_lit(
     match &*lit.kind {
         LitKind::Ident(ident_lit) => Ok(generate_ident(ident_lit, tracker, scope).unwrap()),
         LitKind::NumberLit(number_lit) => {
-            Ok(generate_number_lit(number_lit, tracker, cast, scope).unwrap())
+            Ok(generate_number_lit(number_lit, tracker, scope).unwrap())
         }
         LitKind::StringLit(string_lit) => {
             let val = SynLit::Str(LitStr::new(&string_lit.as_string(), Span::call_site()));
@@ -1101,43 +1131,38 @@ pub(super) fn generate_lit(
 pub(super) fn generate_number_lit(
     number_lit: &NumberLit,
     tracker: &ValueTracker,
-    cast: String,
     scope: &Scope,
 ) -> IResult<TokenStream> {
-    let eval = |num: &str, cast: &str| {
-        if cast == "int" {
-            let value = SynLit::Int(LitInt::new(num, Span::call_site()));
-            quote!(#value)
-        } else {
-            let value = SynLit::Float(LitFloat::new(&*number_lit.value.name, Span::call_site()));
-            quote!(#value)
+    match &number_lit.kind {
+        NumberLitKind::IntegerLit(int_lit) => Ok(generate_int_lit(int_lit).unwrap()),
+        NumberLitKind::FloatLit(float_lit) => Ok(generate_float_lit(float_lit).unwrap()),
+        NumberLitKind::NumIdentLit(num_ident_lit) => {
+            let value = generate_ident(&num_ident_lit.value, tracker, scope).unwrap();
+            if num_ident_lit.negative {
+                Ok(quote!(-#value))
+            } else {
+                Ok(quote!(#value))
+            }
         }
-    };
-    let value = number_lit.value.name.chars().nth(0).unwrap();
-    if number_lit.castable {
-        if value == '-' {
-            let generated = eval(&number_lit.value.name[1..], &cast);
-            Ok(quote!(-#generated))
-        } else if value == '+' {
-            let generated = eval(&number_lit.value.name[1..], &cast);
-            Ok(quote!(#generated))
-        } else {
-            let generated = eval(&number_lit.value.name, &cast);
-            Ok(quote!(#generated))
-        }
+        NumberLitKind::PlaceHolder => Err(RuleSetGenError::InitializationError),
+    }
+}
+
+pub(super) fn generate_int_lit(integer_lit: &IntegerLit) -> IResult<TokenStream> {
+    let value = SynLit::Int(LitInt::new(&integer_lit.value.name, Span::call_site()));
+    if integer_lit.negative {
+        Ok(quote!(-#value))
     } else {
-        if value == '-' {
-            let new_ident = Ident::new(&number_lit.value.name[1..], None);
-            let generated = generate_ident(&new_ident, tracker, scope).unwrap();
-            Ok(quote!(-#generated))
-        } else if value == '+' {
-            let new_ident = Ident::new(&number_lit.value.name[1..], None);
-            let generated = generate_ident(&new_ident, tracker, scope).unwrap();
-            Ok(quote!(#generated))
-        } else {
-            let generated = generate_ident(&number_lit.value, tracker, scope).unwrap();
-            Ok(quote!(#generated))
-        }
+        Ok(quote!(#value))
+    }
+}
+
+pub(super) fn generate_float_lit(float_lit: &FloatLit) -> IResult<TokenStream> {
+    let value = SynLit::Float(LitFloat::new(&float_lit.value.name, Span::call_site()));
+    if float_lit.negative {
+        Ok(quote!(-#value))
+    } else {
+        Ok(quote!(#value))
     }
 }
 

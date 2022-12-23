@@ -1,13 +1,35 @@
-use super::ruleset_generator::*;
-
 #[cfg(test)]
-mod tests{
-    use super::*;
+mod tests {
+    use super::super::ruleset_generator::*;
+    use super::super::tracker::Tracker;
+    use rula_parser::parser::ast::*;
+    use std::cell::RefCell;
 
-    #[cfg(test)]
-    mod ruleset_generator_tests{
-        use super::*;
-
+    fn mock_tracker() -> ValueTracker {
+        RefCell::new(Tracker::new())
     }
 
+    #[cfg(test)]
+    mod let_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn simple_let_gen() {
+            // (original) let x: int = 19;
+            // (generated) let x: i64 = RuLaValue::Int(19 as i64);
+
+            let target_ast = Let::new(
+                Ident::new("x", Some(TypeDef::Integer)),
+                Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("19", false)),
+                ))))),
+            );
+            let generated_let =
+                generate_let(&target_ast, &mock_tracker(), &String::from("Test"), false)
+                    .unwrap()
+                    .to_string();
+            let expected = "let x : i64 = 19 ;";
+            assert_eq!(generated_let, expected);
+        }
+    }
 }
