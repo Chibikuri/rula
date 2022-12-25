@@ -152,6 +152,12 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::rule_call_expr => Ok(Expr::new(ExprKind::RuleCall(
             build_ast_from_rule_call_expr(pair).unwrap(),
         ))),
+        Rule::vector => Ok(Expr::new(ExprKind::RuLaVec(
+            build_ast_from_vector(pair).unwrap(),
+        ))),
+        Rule::tuple => Ok(Expr::new(ExprKind::RuLaTuple(
+            build_ast_from_tuple(pair).unwrap(),
+        ))),
         Rule::comp_expr => Ok(Expr::new(ExprKind::Comp(
             build_ast_from_comp_expr(pair).unwrap(),
         ))),
@@ -420,7 +426,7 @@ fn build_ast_from_series_expr(pair: Pair<Rule>) -> IResult<Series> {
     let mut series_expr = Series::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::int => series_expr.add_start(NumberLit::new(block.as_str(), true, false, false)),
+            Rule::int => series_expr.add_start(build_ast_from_integer_lit(block).unwrap()),
             Rule::expr => series_expr
                 .add_end(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
@@ -598,12 +604,9 @@ fn build_ast_from_repeater_arg(pair: Pair<Rule>) -> IResult<RepeaterCallArg> {
             build_ast_from_term_expr(pair).unwrap(),
         )),
         Rule::ident => Ok(RepeaterCallArg::Ident(build_ast_from_ident(pair).unwrap())),
-        Rule::int => Ok(RepeaterCallArg::NumberLit(NumberLit::new(
-            pair.as_str(),
-            true,
-            false,
-            false,
-        ))),
+        Rule::int => Ok(RepeaterCallArg::IntegerLit(
+            build_ast_from_integer_lit(pair).unwrap(),
+        )),
         _ => return Err(RuLaError::RuLaSyntaxError),
     }
 }
@@ -652,6 +655,18 @@ fn build_ast_from_term_expr(pair: Pair<Rule>) -> IResult<Term> {
                 } else {
                     term_expr
                         .add_rhs(build_ast_from_terms(block.into_inner().next().unwrap()).unwrap());
+                }
+            }
+            Rule::term_expr => {
+                if is_left {
+                    term_expr.add_lhs(Terms::Term(
+                        build_ast_from_term_expr(block).unwrap(),
+                    ));
+                    is_left = false;
+                } else {
+                    term_expr.add_rhs(Terms::Term(
+                        build_ast_from_term_expr(block).unwrap(),
+                    ));
                 }
             }
             Rule::op => match block.as_str() {
@@ -720,25 +735,33 @@ fn build_ast_from_callable(pair: Pair<Rule>) -> IResult<Callable> {
     }
 }
 
-// Don't want to evaluate anything at this moment.
-// fn eval_prec(pair: Pair<Rule>) -> f64 {
-//     // primary closure taking pair and throw it to consume function.
-//     let primary = |pair| eval_prec(pair);
-//     let infix = |lhs: f64, op: Pair<Rule>, rhs: f64| match op.as_rule() {
-//         Rule::plus => lhs + rhs,
-//         Rule::minus => lhs - rhs,
-//         Rule::asterisk => lhs * rhs,
-//         Rule::slash => lhs / rhs,
-//         Rule::caret => lhs.powf(rhs),
-//         _ => unreachable!("operation unreachable, {:#?}", &op),
-//     };
+fn build_ast_from_vector(pair: Pair<Rule>) -> IResult<RuLaVec> {
+    let mut rula_vec = RuLaVec::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::literal_expr => {
+                rula_vec
+                    .add_item(build_ast_from_literals(block.into_inner().next().unwrap()).unwrap());
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(rula_vec)
+}
 
-//     match pair.as_rule() {
-//         Rule::term_expr => PREC_CLIMBER.climb(pair.into_inner(), primary, infix),
-//         Rule::number => pair.as_str().parse().unwrap(),
-//         _ => unreachable!("unreachable{:#?}", &pair),
-//     }
-// }
+fn build_ast_from_tuple(pair: Pair<Rule>) -> IResult<RuLaTuple> {
+    let mut rula_tuple = RuLaTuple::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::expr => {
+                rula_tuple
+                    .add_item(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap());
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(rula_tuple)
+}
 
 // Parse Literals <--> {string literal | boolean literal}
 fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
@@ -771,25 +794,44 @@ fn build_ast_from_literals(pair: Pair<Rule>) -> IResult<Lit> {
 }
 
 fn build_ast_from_num_lit(pair: Pair<Rule>) -> IResult<NumberLit> {
-    let mut num_lit = NumberLit::new(pair.as_str(), false, false, false);
+    let mut negative = false;
+    let mut number_lit = NumberLit::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::minus => num_lit.negative(),
+            Rule::minus => negative = true,
             Rule::int => {
-                num_lit.castable();
-                num_lit.update_val(block.as_str());
+                number_lit.update_value(NumberLitKind::IntegerLit(
+                    build_ast_from_integer_lit(block).unwrap(),
+                ));
             }
-            Rule::float => {
-                num_lit.castable();
-                num_lit.float();
-                num_lit.update_val(block.as_str());
-            }
-            Rule::ident => {}
+            Rule::float => number_lit.update_value(NumberLitKind::FloatLit(
+                build_ast_from_float_lit(block).unwrap(),
+            )),
+            Rule::ident => number_lit.update_value(NumberLitKind::NumIdentLit(NumIdentLit::new(
+                build_ast_from_ident(block).unwrap(),
+                false,
+            ))),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(num_lit)
+    // This operation is oder sensitive.
+    // The value must be set before the negative is activated
+    if negative {
+        number_lit.negative()
+    }
+    Ok(number_lit)
 }
+
+fn build_ast_from_integer_lit(pair: Pair<Rule>) -> IResult<IntegerLit> {
+    let int_lit = IntegerLit::new(pair.as_str(), false);
+    Ok(int_lit)
+}
+
+fn build_ast_from_float_lit(pair: Pair<Rule>) -> IResult<FloatLit> {
+    let float_lit = FloatLit::new(pair.as_str(), false);
+    Ok(float_lit)
+}
+
 fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
     match pair.as_rule() {
         Rule::integer_type => match pair.as_str() {
@@ -843,153 +885,6 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
     }
 }
 
-// fn build_ast_from_interface(pair: Pair<Rule>) -> IResult<Interface> {
-//     let mut interface = Interface::place_holder();
-//     for block in pair.into_inner() {
-//         match block.as_rule() {
-//             Rule::ident_list => {
-//                 // interface list
-//                 for interface_name in block.into_inner() {
-//                     let interface_ident = build_ast_from_ident(interface_name).unwrap();
-//                     interface.add_interface(interface_ident);
-//                 }
-//             }
-//             Rule::ident => {
-//                 // group name
-//                 let interface_group = build_ast_from_ident(block).unwrap();
-//                 interface.add_name(Some(interface_group));
-//             }
-//             _ => return Err(RuLaError::RuLaSyntaxError),
-//         }
-//     }
-
-//     Ok(interface)
-// }
-
-// fn build_ast_from_config_def(pair: Pair<Rule>) -> IResult<Config> {
-//     let mut config_def = Config::place_holder();
-//     for config_block in pair.into_inner() {
-//         match config_block.as_rule() {
-//             Rule::int => {
-//                 config_def.update_num_node(config_block.as_str());
-//             }
-//             Rule::config_item => {
-//                 config_def.add_value(build_ast_from_config_item(config_block).unwrap());
-//             }
-//             Rule::ident => {
-//                 config_def.update_config_name(build_ast_from_ident(config_block).unwrap());
-//             }
-//             _ => return Err(RuLaError::RuLaSyntaxError),
-//         }
-//     }
-//     Ok(config_def)
-// }
-
-// fn build_ast_from_config_item(pair: Pair<Rule>) -> IResult<ConfigItem> {
-//     let mut config_item = ConfigItem::place_holder();
-//     for block in pair.into_inner() {
-//         match block.as_rule() {
-//             Rule::ident => {
-//                 config_item.update_name(build_ast_from_ident(block).unwrap());
-//             }
-//             Rule::typedef_lit => {
-//                 config_item.add_type_def(
-//                     build_ast_from_typedef_lit(block.into_inner().next().unwrap()).unwrap(),
-//                 );
-//             }
-//             _ => return Err(RuLaError::RuLaSyntaxError),
-//         }
-//     }
-//     Ok(config_item)
-// }
-
-// fn build_ast_from_while_expr(pair: Pair<Rule>) -> IResult<While> {
-//     let mut while_expr = While::place_holder();
-//     for blocks in pair.into_inner() {
-//         match blocks.as_rule() {
-//             Rule::expr => while_expr
-//                 .add_block(build_ast_from_expr(blocks.into_inner().next().unwrap()).unwrap()),
-//             Rule::stmt => while_expr
-//                 .add_stmt(build_ast_from_stmt(blocks.into_inner().next().unwrap()).unwrap()),
-//             _ => return Err(RuLaError::RuLaSyntaxError),
-//         }
-//     }
-//     Ok(while_expr)
-// }
-
-// fn buil_ast_from_struct_expr(pair: Pair<Rule>) -> IResult<Struct> {
-//     let mut struct_expr = Struct::place_holder();
-//     for st in pair.into_inner() {
-//         match st.as_rule() {
-//             Rule::struct_name => {
-//                 struct_expr.add_name(build_ast_from_ident(st.into_inner().next().unwrap()).unwrap())
-//             }
-//             Rule::ident_typed => struct_expr.add_item(build_ast_from_ident_typed(st).unwrap()),
-//             _ => return Err(RuLaError::RuLaSyntaxError),
-//         }
-//     }
-//     Ok(struct_expr)
-// }
-
-// fn build_ast_from_rule_idents(pair: Pair<Rule>) -> IResult<RuleIdentifier> {
-//     match pair.as_rule() {
-//         Rule::fn_call_expr => Ok(RuleIdentifier::FnCall(
-//             build_ast_from_fn_call_expr(pair).unwrap(),
-//         )),
-//         Rule::let_stmt => Ok(RuleIdentifier::Let(build_ast_from_let_stmt(pair).unwrap())),
-//         _ => unreachable!(),
-//     }
-// }
-
-// fn build_ast_from_monitor_expr(pair: Pair<Rule>) -> IResult<Option<WatchExpr>> {
-//     let mut monitor_expr = WatchExpr::place_holder();
-//     for let_stmt in pair.into_inner() {
-//         let watched = build_ast_from_let_stmt(let_stmt).unwrap();
-//         monitor_expr.add_watch_value(watched);
-//     }
-//     Ok(Some(monitor_expr))
-// }
-
-// fn build_ast_from_awaitable_expr(pair: Pair<Rule>) -> IResult<Awaitable> {
-//     match pair.as_rule() {
-//         Rule::fn_call_expr => Ok(Awaitable::FnCall(
-//             build_ast_from_fn_call_expr(pair).unwrap(),
-//         )),
-//         Rule::variable_call_expr => Ok(Awaitable::VariableCallExpr(
-//             build_ast_from_variable_call_expr(pair).unwrap(),
-//         )),
-//         Rule::comp_expr => Ok(Awaitable::Comp(build_ast_from_comp_expr(pair).unwrap())),
-//         _ => unreachable!("No more awaitable conditions allowed"),
-//     }
-// }
-
-// fn build_ast_from_fn_def_expr(pair: Pair<Rule>) -> IResult<FnDef> {
-//     let mut fnc_def = FnDef::place_holder();
-//     for block in pair.into_inner() {
-//         match block.as_rule() {
-//             Rule::argument_def => {
-//                 // loop over all arguments
-//                 for arg in block.into_inner() {
-//                     fnc_def.add_arg(build_ast_from_ident_typed(arg).unwrap());
-//                 }
-//             }
-//             Rule::stmt => {
-//                 fnc_def.add_expr(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap())
-//             }
-//             _ => return Err(RuLaError::RuLaSyntaxError),
-//         }
-//     }
-//     Ok(fnc_def)
-// }
-
-// fn build_ast_from_braket_expr(pair: Pair<Rule>) -> IResult<Array> {
-//     let mut array = Array::place_holder();
-//     for lit in pair.into_inner() {
-//         array.add_item(build_ast_from_literals(lit.into_inner().next().unwrap()).unwrap())
-//     }
-//     Ok(array)
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1025,7 +920,7 @@ mod tests {
             let target_ast_nodes = Let::new(
                 Ident::new("hello", Some(TypeDef::Integer)),
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
-                    "123", true, true, false,
+                    NumberLitKind::IntegerLit(IntegerLit::new("123", true)),
                 ))))),
             );
             assert_eq!(let_ast_nodes, target_ast_nodes);
@@ -1231,8 +1126,8 @@ mod tests {
         fn test_simple_match_no_otherwise() {
             let match_expr = pair_generator(
                 "match test{
-            00 => {something()},
-            11 => {otherthing()},
+            true => {something()},
+            false => {otherthing()},
         }",
                 Rule::match_expr,
             );
@@ -1243,9 +1138,7 @@ mod tests {
                 ))))),
                 vec![
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("00", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(true)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("something", None),
                             false,
@@ -1253,9 +1146,7 @@ mod tests {
                         )))]),
                     ),
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("11", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(false)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("otherthing", None),
                             false,
@@ -1272,8 +1163,8 @@ mod tests {
         fn test_simple_match_with_otherwise() {
             let match_expr = pair_generator(
                 "match test{
-            00 => {something()},
-            11 => {otherthing()},
+            true => {something()},
+            false => {otherthing()},
             otherwise => {final()}
         }",
                 Rule::match_expr,
@@ -1285,9 +1176,7 @@ mod tests {
                 ))))),
                 vec![
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("00", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(true)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("something", None),
                             false,
@@ -1295,9 +1184,7 @@ mod tests {
                         )))]),
                     ),
                     MatchArm::new(
-                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::NumberLit(
-                            NumberLit::new("11", true, false, false),
-                        )))),
+                        MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(false)))),
                         MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
                             Ident::new("otherthing", None),
                             false,
@@ -1457,7 +1344,7 @@ mod tests {
             let target_ast_nodes = RuleCall::new(
                 // rule_name
                 Ident::new("rulename", None),
-                RepeaterCallArg::NumberLit(NumberLit::new("0", true, false, false)),
+                RepeaterCallArg::IntegerLit(IntegerLit::new("0", false)),
                 vec![],
             );
             assert_eq!(rule_call_ast, target_ast_nodes);
@@ -1471,7 +1358,7 @@ mod tests {
             let rule_call_ast = build_ast_from_rule_call_expr(rule_call).unwrap();
             let target_ast_nodes = RuleCall::new(
                 Ident::new("rulename", None),
-                RepeaterCallArg::NumberLit(NumberLit::new("0", true, false, false)),
+                RepeaterCallArg::IntegerLit(IntegerLit::new("0", false)),
                 vec![
                     FnCallArgs::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
                     FnCallArgs::VariableCall(VariableCallExpr::new(vec![
@@ -1497,7 +1384,30 @@ mod tests {
                 Terms::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
                 TermOps::Plus,
                 Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
-                    "1", true, false, false,
+                    NumberLitKind::IntegerLit(IntegerLit::new("1", false)),
+                )))),
+            );
+            assert_eq!(term_ast, target_ast);
+        }
+
+        #[test]
+        fn test_multi_term_expr() {
+            let term_expr = pair_generator("(#repeaters.len()/2) + 1", Rule::term_expr);
+            let term_ast = build_ast_from_term_expr(term_expr).unwrap();
+            let target_ast = Term::new(
+                Terms::Term(Term::new(
+                    Terms::VariableCallExpr(VariableCallExpr::new(vec![
+                        Callable::RepeaterIdent(Ident::new("repeaters", None)),
+                        Callable::FnCall(FnCall::new(Ident::new("len", None), false, vec![])),
+                    ])),
+                    TermOps::Slash,
+                    Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                        NumberLitKind::IntegerLit(IntegerLit::new("2", false)),
+                    )))),
+                )),
+                TermOps::Plus,
+                Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("1", false)),
                 )))),
             );
             assert_eq!(term_ast, target_ast);
@@ -1513,9 +1423,9 @@ mod tests {
             let series_expr = pair_generator("0..10", Rule::series);
             let series_ast = build_ast_from_series_expr(series_expr).unwrap();
             let target_ast = Series::new(
-                NumberLit::new("0", true, false, false),
+                IntegerLit::new("0", false),
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
-                    "10", true, false, false,
+                    NumberLitKind::IntegerLit(IntegerLit::new("10", false)),
                 ))))),
             );
             assert_eq!(series_ast, target_ast);
@@ -1526,7 +1436,7 @@ mod tests {
             let series_expr = pair_generator("0..fin()", Rule::series);
             let series_ast = build_ast_from_series_expr(series_expr).unwrap();
             let target_ast = Series::new(
-                NumberLit::new("0", true, false, false),
+                IntegerLit::new("0", false),
                 Expr::new(ExprKind::FnCall(FnCall::new(
                     Ident::new("fin", None),
                     false,
@@ -1541,16 +1451,67 @@ mod tests {
             let series_expr = pair_generator("0..fin()-1 ", Rule::series);
             let series_ast = build_ast_from_series_expr(series_expr).unwrap();
             let target_ast = Series::new(
-                NumberLit::new("0", true, false, false),
+                IntegerLit::new("0", false),
                 Expr::new(ExprKind::Term(Term::new(
                     Terms::FnCall(FnCall::new(Ident::new("fin", None), false, vec![])),
                     TermOps::Minus,
                     Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
-                        "1", true, false, false,
+                        NumberLitKind::IntegerLit(IntegerLit::new("1", false)),
                     )))),
                 ))),
             );
             assert_eq!(series_ast, target_ast);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_vector_expr {
+        use super::*;
+
+        #[test]
+        fn test_simple_int_vector() {
+            let vec_expr = pair_generator("[0, 1, 2, 3]", Rule::vector);
+            let vec_ast = build_ast_from_vector(vec_expr).unwrap();
+            let target_ast = RuLaVec::new(vec![
+                Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("0", false)),
+                ))),
+                Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("1", false)),
+                ))),
+                Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("2", false)),
+                ))),
+                Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("3", false)),
+                ))),
+            ]);
+            assert_eq!(vec_ast, target_ast);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_tuple_expr {
+        use super::*;
+
+        #[test]
+        fn test_simple_tuple() {
+            let tuple_expr = pair_generator("(test(), fnc())", Rule::tuple);
+            let tuple_ast = build_ast_from_tuple(tuple_expr).unwrap();
+
+            let target_ast = RuLaTuple::new(vec![
+                Expr::new(ExprKind::FnCall(FnCall::new(
+                    Ident::new("test", None),
+                    false,
+                    vec![],
+                ))),
+                Expr::new(ExprKind::FnCall(FnCall::new(
+                    Ident::new("fnc", None),
+                    false,
+                    vec![],
+                ))),
+            ]);
+            assert_eq!(tuple_ast, target_ast);
         }
     }
 }

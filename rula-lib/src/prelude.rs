@@ -1,7 +1,4 @@
-use rula_exec::ruleset_gen::action::ActionClauses;
-use rula_exec::ruleset_gen::action::ProtoMessageIdentifier;
-use rula_exec::ruleset_gen::action::ProtoMessageType;
-use rula_exec::ruleset_gen::action::ProtocolMessages;
+use rula_exec::ruleset_gen::action::*;
 use rula_exec::ruleset_gen::condition::*;
 use rula_exec::ruleset_gen::ruleset::*;
 use rula_exec::ruleset_gen::types::*;
@@ -22,6 +19,22 @@ pub fn res(
             )))
     }
     Qubit::new(qubit_index)
+}
+
+pub fn check_timer(rules: RuleVec, timer_id: String) {
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_condition_clause(ConditionClauses::Timer(10.0));
+    }
+    todo!("Need fix");
+}
+
+pub fn cmp(rules: RuleVec) {
+    todo!("Add!")
+}
+
+pub fn set_timer(rules: RuleVec) {
+    todo!("Add timer");
 }
 
 pub fn send(rules: RuleVec, partner_repeater: &Repeater, proto_message_type: ProtoMessageType) {
