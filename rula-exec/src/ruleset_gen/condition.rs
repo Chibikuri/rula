@@ -32,7 +32,7 @@ pub enum ConditionClauses {
     Timer(f64),
     /// The number of available resources in the QNIC
     Res(Res),
-    /// Just wait (deprecated)
+    /// Wait until the message arrives
     Wait,
 }
 

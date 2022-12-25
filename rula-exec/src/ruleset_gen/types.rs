@@ -99,7 +99,7 @@ pub type RuleVec = Rc<RefCell<Vec<RefCell<Rule>>>>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Repeater {
     pub name: String,
-    pub address: u64,
+    pub index: u64,
     // repeater chains
     // (initiators) left_repeaters < -- > self (0) < -- > right_repeaters (responder)
     pub left_repeaters: Vec<Box<Repeater>>,
@@ -110,11 +110,16 @@ impl Repeater {
     pub fn new(name: &str) -> Self {
         Repeater {
             name: name.to_string(),
-            address: 0,
+            index: 0,
             left_repeaters: vec![],
             right_repeaters: vec![],
         }
     }
+
+    pub fn update_index(&mut self, index: u64) {
+        self.index = index;
+    }
+
     // TODO: remove rulevec arg
     pub fn hop(&self, _: RuleVec, distance: i64) -> &Repeater {
         if distance == 0 {

@@ -659,14 +659,10 @@ fn build_ast_from_term_expr(pair: Pair<Rule>) -> IResult<Term> {
             }
             Rule::term_expr => {
                 if is_left {
-                    term_expr.add_lhs(Terms::Term(
-                        build_ast_from_term_expr(block).unwrap(),
-                    ));
+                    term_expr.add_lhs(Terms::Term(build_ast_from_term_expr(block).unwrap()));
                     is_left = false;
                 } else {
-                    term_expr.add_rhs(Terms::Term(
-                        build_ast_from_term_expr(block).unwrap(),
-                    ));
+                    term_expr.add_rhs(Terms::Term(build_ast_from_term_expr(block).unwrap()));
                 }
             }
             Rule::op => match block.as_str() {

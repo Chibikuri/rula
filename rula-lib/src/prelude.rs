@@ -14,7 +14,7 @@ pub fn res(
         rule.borrow_mut()
             .add_condition_clause(ConditionClauses::Res(Res::new(
                 num_res,
-                PartnerAddr::IntegerKind(partner_repeater.address),
+                PartnerAddr::IntegerKind(partner_repeater.index),
                 Some(req_fidelity),
             )))
     }
@@ -38,8 +38,9 @@ pub fn set_timer(rules: RuleVec) {
 }
 
 pub fn send(rules: RuleVec, partner_repeater: &Repeater, proto_message_type: ProtoMessageType) {
+    // 1. Create send instruction
     let proto_message_identifier = ProtoMessageIdentifier {
-        partner_addr: PartnerAddr::IntegerKind(partner_repeater.address),
+        partner_addr: PartnerAddr::IntegerKind(partner_repeater.index),
     };
     let protocol_message = match proto_message_type {
         ProtoMessageType::Free => ProtocolMessages::Free(proto_message_identifier),
@@ -51,4 +52,7 @@ pub fn send(rules: RuleVec, partner_repeater: &Repeater, proto_message_type: Pro
         rule.borrow_mut()
             .add_action_clause(ActionClauses::Send(protocol_message.clone()));
     }
+    // 2. Create a wait instruction for partner repeater
+    let wait_condition_clause = ConditionClauses::Wait;
+    
 }

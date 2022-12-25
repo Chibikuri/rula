@@ -108,8 +108,8 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
             for name in &tracker.borrow().rule_names {
                 let rname = format_ident!("__{}", name);
                 rule_adder.push(quote!(
-                    let __rule = rula::#rname::new();
-                    ruleset_factory.add_rule_generator(#name, rula::RuleGenerators::#rname(__rule));
+                    let __rule = rula::#rname::new(Rc::clone(&ruleset_factory));
+                    ruleset_factory.borrow_mut().add_rule_generator(#name, rula::RuleGenerators::#rname(__rule));
                 ))
             }
             quote!(
@@ -133,6 +133,7 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
 
                     type RepeaterNumber = usize;
                     type RuleVec = Rc<RefCell<Vec<RefCell<Rule>>>>;
+                    type FactoryType = Rc<RefCell<RuleSetFactory>>;
                     use rula_exec::ruleset_gen::types::Repeater;
 
                     #rule_generators
@@ -142,11 +143,14 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                 // cargo test --package tests-rulesetgen --test ruleset_generator
                 pub fn generate_ruleset(){
                     // parse config here
-                    let repeaters = conf_parser::parse_config(#conf_path.into()).unwrap();
+                    let mut repeaters = conf_parser::parse_config(#conf_path.into()).unwrap();
+                    for (i, rep) in repeaters.iter_mut().enumerate(){
+                        rep.update_index(i as u64);
+                    }
                     // Register rules
-                    let mut ruleset_factory = rula::RuleSetFactory::from(repeaters);
+                    let ruleset_factory = Rc::new(RefCell::new(rula::RuleSetFactory::from(repeaters)));
                     #(#rule_adder)*
-                    let rulesets = rula::generate_ruleset(ruleset_factory);
+                    let rulesets = rula::generate_ruleset(Rc::clone(&ruleset_factory));
                     for (i, ruleset) in rulesets.iter().enumerate(){
                         let output_file_path = format!("tests/generated/test_{}.json", i);
                         let mut file = File::create(output_file_path).expect("Failed to create a new file");
@@ -291,14 +295,11 @@ pub(super) fn generate_ruleset_expr(
 
     // RuleSet Generator closure
     let ruleset_generator = quote!(
-        pub fn generate_ruleset(mut __factory: RuleSetFactory) -> Vec<RuleSet> {
+        pub fn generate_ruleset(__factory: Rc<RefCell<RuleSetFactory>>) -> Vec<RuleSet> {
             // order corresponds to repeater number
-            let mut rulesets = vec![];
-            for i in 0..#num_repeaters{
-                rulesets.insert(i, RuleSet::new(#ruleset_name));
-            }
+            __factory.borrow_mut().update_ruleset_name(#ruleset_name);
             #(#generated)*
-            rulesets
+            __factory.borrow().rulesets.clone()
         }
     );
     // fin. Release all scoped values here
@@ -370,11 +371,13 @@ pub(super) fn generate_rule_expr(
         pub struct #rule_name_structure_name{
             // Order is the same as the def
             pub rule_args: Vec<String>,
+            pub callback: Rc<RefCell<RuleSetFactory>>
         }
         impl #rule_name_structure_name{
-            pub fn new() -> Self{
+            pub fn new(ruleset_factory: Rc<RefCell<RuleSetFactory>>) -> Self{
                 #rule_name_structure_name{
-                    rule_args: vec![#(#arg_names),*]
+                    rule_args: vec![#(#arg_names),*],
+                    callback: ruleset_factory
                 }
             }
             pub fn gen_rules(&mut self, repeater: &Repeater, arguments: &RuleArgs)-> Stage{
@@ -814,12 +817,11 @@ pub(super) fn generate_rule_call(
     // Add rule to stage inside the RuleSet
     Ok(quote!(
         // register current argument
-        __factory.register_args(#rule_name, vec![#(#argument_register),*]);
-        __factory.resolve_args(#rule_name);
+        __factory.borrow_mut().register_args(#rule_name, vec![#(#argument_register),*]);
+        __factory.borrow_mut().resolve_args(#rule_name);
         // Register arguments
-        let _stage = __factory.genenerate_stage(#rule_name, #repeater_index);
+        let _stage = __factory.borrow_mut().genenerate_stage(#rule_name, #repeater_index);
         // Flush Arguments
-        &rulesets[#repeater_index as usize].add_stage(_stage);
     ))
 }
 
@@ -838,7 +840,7 @@ pub(super) fn generate_rep_call_arg(
         RepeaterCallArg::IntegerLit(int_lit) => (generate_int_lit(int_lit).unwrap()),
         RepeaterCallArg::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
-    Ok((quote!(__factory.repeaters.at(#arg)), quote!(#arg)))
+    Ok((quote!(__factory.borrow().repeaters.at(#arg)), quote!(#arg)))
 }
 
 // Promote resources to the next stage
@@ -1069,7 +1071,7 @@ pub(super) fn generate_variable_call(
                 if in_ruledef {
                     generated.push(quote!(__repeater))
                 } else {
-                    generated.push(quote!(__factory.repeaters))
+                    generated.push(quote!(__factory.borrow().repeaters))
                 }
             }
         }
