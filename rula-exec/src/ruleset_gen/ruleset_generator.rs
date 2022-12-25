@@ -603,7 +603,7 @@ pub(super) fn generate_expr(
             Ok(generate_variable_call(variable_call_expr, tracker, scope, in_ruledef).unwrap())
         }
         ExprKind::Lit(lit_expr) => {
-            Ok(generate_lit(&lit_expr, tracker, "".to_string(), scope).unwrap())
+            Ok(generate_lit(&lit_expr, tracker, scope).unwrap())
         }
         ExprKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     }
@@ -743,7 +743,7 @@ pub(super) fn generate_fn_call_arg(
             Ok(generate_variable_call(var_call, tracker, scope, in_ruledef).unwrap())
         }
         FnCallArgs::Lit(literals) => {
-            Ok(generate_lit(literals, tracker, String::from(""), scope).unwrap())
+            Ok(generate_lit(literals, tracker, scope).unwrap())
         }
         FnCallArgs::Term(term_expr) => {
             Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
@@ -1014,7 +1014,7 @@ pub(super) fn generate_match_condition(
     // Right now, satisfiable can only take literals, but in the future, this should be more flexible
     match &*match_condition.satisfiable {
         Satisfiable::Lit(literal) => {
-            Ok(generate_lit(literal, tracker, "int".to_string(), scope).unwrap())
+            Ok(generate_lit(literal, tracker, scope).unwrap())
         }
         _ => Err(RuleSetGenError::InitializationError),
     }
@@ -1090,7 +1090,7 @@ pub(super) fn generate_vec(
 ) -> IResult<TokenStream> {
     let mut items = vec![];
     for lit in &vector_expr.items {
-        items.push(generate_lit(lit, tracker, "int".to_string(), scope).unwrap());
+        items.push(generate_lit(lit, tracker, scope).unwrap());
     }
     Ok(quote!(vec![#(#items),*]))
 }
@@ -1112,7 +1112,6 @@ pub(super) fn generate_tuple(
 pub(super) fn generate_lit(
     lit: &Lit,
     tracker: &ValueTracker,
-    cast: String,
     scope: &Scope,
 ) -> IResult<TokenStream> {
     match &*lit.kind {
@@ -1216,7 +1215,7 @@ pub(super) fn generate_term_element(
         Terms::VariableCallExpr(var_call_expr) => {
             Ok(generate_variable_call(var_call_expr, tracker, scope, in_ruledef).unwrap())
         }
-        Terms::Lit(lit_expr) => Ok(generate_lit(lit_expr, tracker, "".to_string(), scope).unwrap()),
+        Terms::Lit(lit_expr) => Ok(generate_lit(lit_expr, tracker, scope).unwrap()),
         Terms::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     }
 }
