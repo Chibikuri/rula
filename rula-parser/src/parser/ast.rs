@@ -1051,6 +1051,7 @@ impl Term {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Terms {
+    Term(Term),
     VariableCallExpr(VariableCallExpr),
     FnCall(FnCall),
     Lit(Lit),

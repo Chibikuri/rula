@@ -657,6 +657,18 @@ fn build_ast_from_term_expr(pair: Pair<Rule>) -> IResult<Term> {
                         .add_rhs(build_ast_from_terms(block.into_inner().next().unwrap()).unwrap());
                 }
             }
+            Rule::term_expr => {
+                if is_left {
+                    term_expr.add_lhs(Terms::Term(
+                        build_ast_from_term_expr(block).unwrap(),
+                    ));
+                    is_left = false;
+                } else {
+                    term_expr.add_rhs(Terms::Term(
+                        build_ast_from_term_expr(block).unwrap(),
+                    ));
+                }
+            }
             Rule::op => match block.as_str() {
                 "+" => {
                     term_expr.add_op(TermOps::Plus);
@@ -1370,6 +1382,29 @@ mod tests {
             let term_ast = build_ast_from_term_expr(term_expr).unwrap();
             let target_ast = Term::new(
                 Terms::Lit(Lit::new(LitKind::Ident(Ident::new("i", None)))),
+                TermOps::Plus,
+                Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("1", false)),
+                )))),
+            );
+            assert_eq!(term_ast, target_ast);
+        }
+
+        #[test]
+        fn test_multi_term_expr() {
+            let term_expr = pair_generator("(#repeaters.len()/2) + 1", Rule::term_expr);
+            let term_ast = build_ast_from_term_expr(term_expr).unwrap();
+            let target_ast = Term::new(
+                Terms::Term(Term::new(
+                    Terms::VariableCallExpr(VariableCallExpr::new(vec![
+                        Callable::RepeaterIdent(Ident::new("repeaters", None)),
+                        Callable::FnCall(FnCall::new(Ident::new("len", None), false, vec![])),
+                    ])),
+                    TermOps::Slash,
+                    Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                        NumberLitKind::IntegerLit(IntegerLit::new("2", false)),
+                    )))),
+                )),
                 TermOps::Plus,
                 Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
                     NumberLitKind::IntegerLit(IntegerLit::new("1", false)),

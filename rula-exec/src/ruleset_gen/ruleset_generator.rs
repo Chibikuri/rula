@@ -602,9 +602,7 @@ pub(super) fn generate_expr(
         ExprKind::VariableCallExpr(variable_call_expr) => {
             Ok(generate_variable_call(variable_call_expr, tracker, scope, in_ruledef).unwrap())
         }
-        ExprKind::Lit(lit_expr) => {
-            Ok(generate_lit(&lit_expr, tracker, scope).unwrap())
-        }
+        ExprKind::Lit(lit_expr) => Ok(generate_lit(&lit_expr, tracker, scope).unwrap()),
         ExprKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     }
 }
@@ -742,9 +740,7 @@ pub(super) fn generate_fn_call_arg(
         FnCallArgs::VariableCall(var_call) => {
             Ok(generate_variable_call(var_call, tracker, scope, in_ruledef).unwrap())
         }
-        FnCallArgs::Lit(literals) => {
-            Ok(generate_lit(literals, tracker, scope).unwrap())
-        }
+        FnCallArgs::Lit(literals) => Ok(generate_lit(literals, tracker, scope).unwrap()),
         FnCallArgs::Term(term_expr) => {
             Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
         }
@@ -1013,9 +1009,7 @@ pub(super) fn generate_match_condition(
 ) -> IResult<TokenStream> {
     // Right now, satisfiable can only take literals, but in the future, this should be more flexible
     match &*match_condition.satisfiable {
-        Satisfiable::Lit(literal) => {
-            Ok(generate_lit(literal, tracker, scope).unwrap())
-        }
+        Satisfiable::Lit(literal) => Ok(generate_lit(literal, tracker, scope).unwrap()),
         _ => Err(RuleSetGenError::InitializationError),
     }
 }
@@ -1216,6 +1210,9 @@ pub(super) fn generate_term_element(
             Ok(generate_variable_call(var_call_expr, tracker, scope, in_ruledef).unwrap())
         }
         Terms::Lit(lit_expr) => Ok(generate_lit(lit_expr, tracker, scope).unwrap()),
+        Terms::Term(term_expr) => {
+            Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
+        }
         Terms::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     }
 }
