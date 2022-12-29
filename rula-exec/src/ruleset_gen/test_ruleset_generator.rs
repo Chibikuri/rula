@@ -32,4 +32,14 @@ mod tests {
             assert_eq!(generated_let, expected);
         }
     }
+
+    #[cfg(test)]
+    mod term_expr_tests {
+        use super::*;
+
+        #[test]
+        fn simple_term_expr() {
+            // (original) x/2 + 1
+        }
+    }
 }

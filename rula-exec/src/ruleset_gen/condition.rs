@@ -1,4 +1,4 @@
-use super::ruleset::PartnerAddr;
+use super::ruleset::{PartnerAddr, ProtocolMessages};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -32,8 +32,8 @@ pub enum ConditionClauses {
     Timer(f64),
     /// The number of available resources in the QNIC
     Res(Res),
-    /// Wait until the message arrives
-    Wait,
+    /// Wait until the specificmessage arrives
+    Wait(ProtocolMessages),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -128,17 +128,26 @@ impl Wait {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
+    use crate::ruleset_gen::ruleset::ProtoMessageIdentifier;
+
     use super::*;
 
     #[test]
     fn test_condition_clause() {
         let mut condition = Condition::new(None);
         // from(fidelity: f64, qnic_interface: Interface)
-        let fidelity_clause = ConditionClauses::Wait;
+        let fidelity_clause = ConditionClauses::Wait(ProtocolMessages::Free(
+            ProtoMessageIdentifier::new(PartnerAddr::IntegerKind(1)),
+        ));
         condition.add_condition_clause(fidelity_clause);
         assert_eq!(condition.name, None);
         assert_eq!(condition.clauses.len(), 1);
-        assert_eq!(condition.clauses[0], ConditionClauses::Wait,);
+        assert_eq!(
+            condition.clauses[0],
+            ConditionClauses::Wait(ProtocolMessages::Free(ProtoMessageIdentifier::new(
+                PartnerAddr::IntegerKind(1)
+            )))
+        );
     }
 
     #[test]

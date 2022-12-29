@@ -20,11 +20,11 @@ expr = {
   // non keyword expression
   rule_call_expr| 
   send_expr |
-  vector |
-  tuple |
   // precedence sensitive
   comp_expr |
   term_expr |
+  vector |
+  tuple |
   fn_call_expr |
   variable_call_expr|
   literal_expr

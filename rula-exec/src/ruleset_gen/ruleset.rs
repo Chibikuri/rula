@@ -184,6 +184,34 @@ impl Rule {
     }
 }
 
+// At the level of RuleSet, the outcome has not yet
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum ProtocolMessages {
+    Free(ProtoMessageIdentifier),
+    Update(ProtoMessageIdentifier),
+    Meas(ProtoMessageIdentifier),
+    Transfer(ProtoMessageIdentifier),
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum ProtoMessageType {
+    Free,
+    Update,
+    Meas,
+    Transfer,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct ProtoMessageIdentifier {
+    pub partner_addr: PartnerAddr,
+}
+
+impl ProtoMessageIdentifier {
+    pub fn new(addr: PartnerAddr) -> Self {
+        ProtoMessageIdentifier { partner_addr: addr }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;

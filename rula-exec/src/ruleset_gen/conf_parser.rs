@@ -18,7 +18,7 @@ pub struct RepeaterConfigs {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepeaterContent {
     pub name: String,
-    pub address: u64,
+    pub index: u64,
 }
 
 pub fn parse_config(file_path: PathBuf) -> IResult<Vec<Repeater>> {
@@ -26,8 +26,10 @@ pub fn parse_config(file_path: PathBuf) -> IResult<Vec<Repeater>> {
     // Initiator (#1) < --- > Responder (#fin)
     // 1. Generate all repeaters
     let mut repeaters = vec![];
-    for i in config.repeaters {
-        repeaters.push(Repeater::new(&i.name));
+    for (i, content) in config.repeaters.iter().enumerate() {
+        let mut repeater = Repeater::new(&content.name);
+        repeater.update_index(i as u64);
+        repeaters.push(repeater);
     }
     let repeater_copy = repeaters.clone();
     let rep_size = repeaters.len();

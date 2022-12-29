@@ -2,6 +2,8 @@ use rula_exec::ruleset_gen::action::*;
 use rula_exec::ruleset_gen::condition::*;
 use rula_exec::ruleset_gen::ruleset::*;
 use rula_exec::ruleset_gen::types::*;
+use std::cell::RefCell;
+use std::collections::HashSet;
 
 pub fn res(
     rules: RuleVec,
@@ -42,17 +44,37 @@ pub fn send(rules: RuleVec, partner_repeater: &Repeater, proto_message_type: Pro
     let proto_message_identifier = ProtoMessageIdentifier {
         partner_addr: PartnerAddr::IntegerKind(partner_repeater.index),
     };
-    let protocol_message = match proto_message_type {
-        ProtoMessageType::Free => ProtocolMessages::Free(proto_message_identifier),
-        ProtoMessageType::Update => ProtocolMessages::Update(proto_message_identifier),
-        ProtoMessageType::Meas => ProtocolMessages::Meas(proto_message_identifier),
-        ProtoMessageType::Transfer => ProtocolMessages::Transfer(proto_message_identifier),
-    };
+    let protocol_message = generate_protocol_message(proto_message_type, proto_message_identifier);
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
             .add_action_clause(ActionClauses::Send(protocol_message.clone()));
     }
-    // 2. Create a wait instruction for partner repeater
-    let wait_condition_clause = ConditionClauses::Wait;
-    
+}
+
+pub fn wait(
+    partner_rules: RuleVec,
+    swapping_repeater: &Repeater,
+    proto_message_type: ProtoMessageType,
+) {
+    let identifier = ProtoMessageIdentifier::new(AddressKind::IntegerKind(swapping_repeater.index));
+    let proto_message = generate_protocol_message(proto_message_type, identifier);
+    let condition_clause = ConditionClauses::Wait(proto_message.clone());
+    let action_clause = ActionClauses::Wait(proto_message.clone());
+    for rule in partner_rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_condition_clause(condition_clause.clone());
+        rule.borrow_mut().add_action_clause(action_clause.clone());
+    }
+}
+
+fn generate_protocol_message(
+    proto_message_type: ProtoMessageType,
+    identifier: ProtoMessageIdentifier,
+) -> ProtocolMessages {
+    match proto_message_type {
+        ProtoMessageType::Free => ProtocolMessages::Free(identifier),
+        ProtoMessageType::Update => ProtocolMessages::Update(identifier),
+        ProtoMessageType::Meas => ProtocolMessages::Meas(identifier),
+        ProtoMessageType::Transfer => ProtocolMessages::Transfer(identifier),
+    }
 }
