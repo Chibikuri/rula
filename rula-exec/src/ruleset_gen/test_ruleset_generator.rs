@@ -34,6 +34,26 @@ mod tests {
     }
 
     #[cfg(test)]
+    mod import_tests {
+        use super::*;
+        use std::path::PathBuf;
+
+        #[test]
+        fn simple_import() {
+            // (original) import test::hollow;
+            // (generated) use test::hollow;
+
+            let target_ast = Import::new(PathKind::from(vec![PathBuf::from("test/hollow")]));
+
+            let generated_import = generate_import(&target_ast, &mock_tracker())
+                .unwrap()
+                .to_string();
+            let expected = "use test :: hollow ;";
+            assert_eq!(generated_import, expected);
+        }
+    }
+
+    #[cfg(test)]
     mod term_expr_tests {
         use super::*;
 

@@ -13,7 +13,7 @@ type RuleName = String;
 // Track all global state in generation
 // #[derive(Debug)]
 pub struct Tracker {
-    pub rulesets: RefCell<HashMap<NodeNumber, RuleSet>>,
+    // pub rulesets: RefCell<HashMap<NodeNumber, RuleSet>>,
     pub ruleset_name: String,
     pub rule_names: HashSet<String>,
     pub internal_repeater_name: HashMap<RuleName, String>,
@@ -25,7 +25,7 @@ pub struct Tracker {
 impl Tracker {
     pub fn new() -> Self {
         Tracker {
-            rulesets: RefCell::new(HashMap::new()),
+            // rulesets: RefCell::new(HashMap::new()),
             ruleset_name: String::from(""),
             rule_names: HashSet::new(),
             internal_repeater_name: HashMap::new(),
@@ -36,32 +36,32 @@ impl Tracker {
     }
 
     // Functions for RuleSet
-    pub fn add_ruleset(&self, number: NodeNumber, ruleset: RuleSet) {
-        self.rulesets.borrow_mut().insert(number, ruleset);
-    }
+    // pub fn add_ruleset(&self, number: NodeNumber, ruleset: RuleSet) {
+    //     self.rulesets.borrow_mut().insert(number, ruleset);
+    // }
 
-    pub fn update_ruleset_name(&mut self, new_name: &str) {
-        self.ruleset_name = new_name.to_string();
-        for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
-            ruleset.update_name(new_name);
-        }
-    }
+    // pub fn update_ruleset_name(&mut self, new_name: &str) {
+    //     self.ruleset_name = new_name.to_string();
+    //     for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
+    //         ruleset.update_name(new_name);
+    //     }
+    // }
 
-    pub fn add_stage(&self, repeater_index: usize, stage: Stage) {
-        self.rulesets
-            .borrow_mut()
-            .get_mut(&repeater_index)
-            .expect("Failed to find a ruelset")
-            .add_stage(stage);
-    }
+    // pub fn add_stage(&self, repeater_index: usize, stage: Stage) {
+    //     self.rulesets
+    //         .borrow_mut()
+    //         .get_mut(&repeater_index)
+    //         .expect("Failed to find a ruelset")
+    //         .add_stage(stage);
+    // }
 
-    pub fn return_rulesets(&self) -> Vec<RuleSet> {
-        let mut rulesets = vec![];
-        for (_, rs) in self.rulesets.borrow().iter() {
-            rulesets.push(rs.clone())
-        }
-        rulesets
-    }
+    // pub fn return_rulesets(&self) -> Vec<RuleSet> {
+    //     let mut rulesets = vec![];
+    //     for (_, rs) in self.rulesets.borrow().iter() {
+    //         rulesets.push(rs.clone())
+    //     }
+    //     rulesets
+    // }
 
     // Functions for Rules
     pub fn check_rule_name_exist(&self, name: &str) -> bool {
@@ -186,7 +186,6 @@ impl RetTypeAnnotation {
     }
 }
 
-type ArgName = String;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Arguments {
     // Order is important here

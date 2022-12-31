@@ -83,33 +83,6 @@ pub enum ProgramKind {
     RuleExpr(RuleExpr),
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Interface {
-//     pub interface: Vec<Ident>,
-//     pub group_name: Box<Option<Ident>>,
-// }
-
-// impl Interface {
-//     pub fn new(interfaces: Vec<Ident>, group_name: Option<Ident>) -> Self {
-//         Interface {
-//             interface: interfaces,
-//             group_name: Box::new(group_name),
-//         }
-//     }
-//     pub fn place_holder() -> Self {
-//         Interface {
-//             interface: vec![],
-//             group_name: Box::new(None),
-//         }
-//     }
-//     pub fn add_interface(&mut self, interface: Ident) {
-//         self.interface.push(interface);
-//     }
-//     pub fn add_name(&mut self, name: Option<Ident>) {
-//         self.group_name = Box::new(name);
-//     }
-// }
-
 // Statement AST could be the top level AST in user writable for now
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stmt {
@@ -136,69 +109,6 @@ pub enum StmtKind {
     Expr(Expr),
     PlaceHolder, // For initialization use
 }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Config {
-//     pub name: Box<Ident>,
-//     pub num_node: Box<String>,
-//     pub values: Vec<ConfigItem>,
-// }
-
-// impl Config {
-//     pub fn new(name: Ident, num_node: String, values: Vec<ConfigItem>) -> Self {
-//         Config {
-//             name: Box::new(name),
-//             num_node: Box::new(num_node),
-//             values: values,
-//         }
-//     }
-
-//     pub fn place_holder() -> Self {
-//         Config {
-//             name: Box::new(Ident::place_holder()),
-//             num_node: Box::new(String::from("0")),
-//             values: vec![],
-//         }
-//     }
-
-//     pub fn update_num_node(&mut self, num_conf: &str) {
-//         self.num_node = Box::new(String::from(num_conf));
-//     }
-
-//     pub fn update_config_name(&mut self, name: Ident) {
-//         self.name = Box::new(name);
-//     }
-//     pub fn add_value(&mut self, config_item: ConfigItem) {
-//         self.values.push(config_item);
-//     }
-// }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct ConfigItem {
-//     pub value: Box<Ident>,
-//     pub type_def: Box<TypeDef>,
-// }
-
-// impl ConfigItem {
-//     pub fn new(value: Ident, type_def: TypeDef) -> Self {
-//         ConfigItem {
-//             value: Box::new(value),
-//             type_def: Box::new(type_def),
-//         }
-//     }
-//     pub fn place_holder() -> Self {
-//         ConfigItem {
-//             value: Box::new(Ident::place_holder()),
-//             type_def: Box::new(TypeDef::PlaceHolder),
-//         }
-//     }
-//     pub fn update_name(&mut self, name: Ident) {
-//         self.value = Box::new(name);
-//     }
-//     pub fn add_type_def(&mut self, type_def: TypeDef) {
-//         self.type_def = Box::new(type_def);
-//     }
-// }
 
 /**
  * Let statement composed of identifier and expression
@@ -1314,7 +1224,7 @@ impl NumIdentLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BinaryLit {
-    value: Box<String>,
+    pub value: Box<String>,
 }
 
 impl BinaryLit {
@@ -1327,7 +1237,7 @@ impl BinaryLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HexLit {
-    value: Box<String>,
+    pub value: Box<String>,
 }
 
 impl HexLit {
@@ -1340,7 +1250,7 @@ impl HexLit {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnicordLit {
-    value: Box<String>,
+    pub value: Box<String>,
 }
 
 impl UnicordLit {
