@@ -18,16 +18,18 @@ pub struct RepeaterConfigs {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepeaterContent {
     pub name: String,
-    pub address: u64,
+    pub index: u64,
 }
 
-pub fn parse_config(file_path: PathBuf) -> IResult<Vec<Repeater>> {
+pub fn parse_config(file_path: &PathBuf) -> IResult<Vec<Repeater>> {
     let config = deserialize_config(file_path).unwrap();
     // Initiator (#1) < --- > Responder (#fin)
     // 1. Generate all repeaters
     let mut repeaters = vec![];
-    for i in config.repeaters {
-        repeaters.push(Repeater::new(&i.name));
+    for (i, content) in config.repeaters.iter().enumerate() {
+        let mut repeater = Repeater::new(&content.name);
+        repeater.update_index(i as u64);
+        repeaters.push(repeater);
     }
     let repeater_copy = repeaters.clone();
     let rep_size = repeaters.len();
@@ -49,7 +51,7 @@ pub fn parse_config(file_path: PathBuf) -> IResult<Vec<Repeater>> {
     Ok(return_repeaters)
 }
 
-fn deserialize_config(file_path: PathBuf) -> IResult<RepeaterConfigs> {
+fn deserialize_config(file_path: &PathBuf) -> IResult<RepeaterConfigs> {
     let file = File::open(file_path).expect("No such file");
     let reader = BufReader::new(file);
 
@@ -63,7 +65,7 @@ mod tests {
     #[test]
     fn test_parse_config() {
         let config_path = PathBuf::from("../examples/v2/config.json");
-        let deserialized = deserialize_config(config_path).unwrap();
+        let deserialized = deserialize_config(&config_path).unwrap();
         assert_eq!(deserialized.repeaters.len(), 5);
         assert_eq!(deserialized.repeaters[0].name, "#1");
         assert_eq!(deserialized.repeaters[1].name, "#2");
@@ -75,7 +77,7 @@ mod tests {
         // #1 < -- > #2 < -- > #3 < -- > #4 < -- > #5
         let config_path = PathBuf::from("../examples/v2/config.json");
         let tracker = RefCell::new(Tracker::new());
-        let repeater_list = parse_config(config_path).unwrap();
+        let repeater_list = parse_config(&config_path).unwrap();
         assert_eq!(repeater_list.len(), 5);
 
         // The most left repeater (Initiator)

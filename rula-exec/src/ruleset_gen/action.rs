@@ -1,4 +1,4 @@
-use super::ruleset::PartnerAddr;
+use super::ruleset::ProtocolMessages;
 use core::time::Duration;
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,7 @@ pub enum ActionClauses {
     /// Send classical message from one place to another
     Send(ProtocolMessages),
     /// Just Wait
-    Wait,
+    Wait(ProtocolMessages),
 }
 
 // In the future, to identify
@@ -151,28 +151,6 @@ pub struct SetTimer {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum TimerId {
     General(Duration),
-}
-
-// At the level of RuleSet, the outcome has not yet
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum ProtocolMessages {
-    Free(ProtoMessageIdentifier),
-    Update(ProtoMessageIdentifier),
-    Meas(ProtoMessageIdentifier),
-    Transfer(ProtoMessageIdentifier),
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum ProtoMessageType {
-    Free,
-    Update,
-    Meas,
-    Transfer,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct ProtoMessageIdentifier {
-    pub partner_addr: PartnerAddr,
 }
 
 #[cfg(test)]

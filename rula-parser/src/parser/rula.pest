@@ -10,9 +10,6 @@ let_stmt = { ^"let" ~ ( ident_typed | "(" ~ ident_typed ~ ("," ~ ident_typed)* ~
 
 expr = {
   // keyword expression
-  import_expr |
-  ruleset_expr |
-  rule_expr |
   if_expr | 
   for_expr|
   match_expr | 
@@ -20,11 +17,11 @@ expr = {
   // non keyword expression
   rule_call_expr| 
   send_expr |
-  vector |
-  tuple |
   // precedence sensitive
   comp_expr |
   term_expr |
+  vector |
+  tuple |
   fn_call_expr |
   variable_call_expr|
   literal_expr
