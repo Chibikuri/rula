@@ -98,59 +98,9 @@ mod generate_swapping_ruleset {
         let rule1 = Rule::new("swapping");
         stage.add_rule(rule1);
         target_ruleset.add_stage(stage);
-        generate_token_stream_file(tokens, "generator.rs");
+        generate_token_stream_file(tokens, "generator_swapping.rs");
         // assert_eq!(rulesets[0], target_ruleset);
         assert_eq!(1, 2);
-        // 2.1.0
-        // Entanglement Swapping Condition
-        // let enough_resource_clause_qn0 = ConditionClauses::EnoughResource(EnoughResource::new(
-        //     1,
-        //     Some(0.8),
-        //     Some(::new(QnicType::QnicE, 0, None)),
-        // ));
-        // let enough_resource_clause_qn1 = ConditionClauses::EnoughResource(EnoughResource::new(
-        //     1,
-        //     Some(0.8),
-        //     Some(QnicInterfaceWrapper::new(QnicType::QnicE, 0, None)),
-        // ));
-        // let mut condition = Condition::new(None);
-        // condition.add_condition_clause(enough_resource_clause_qn0);
-        // condition.add_condition_clause(enough_resource_clause_qn1);
-
-        // // Entanglement Swapping Action
-        // let cnot_control_gate = ActionClauses::Gate(QGate::new(
-        //     QGateType::CxControl,
-        //     QubitInterfaceWrapper::new(),
-        // ));
-        // let cnot_target_gate = ActionClauses::Gate(QGate::new(
-        //     QGateType::CxControl,
-        //     QubitInterfaceWrapper::new(),
-        // ));
-        // let send_result_qn0 = ActionClauses::Send(Send::new(
-        //     IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)),
-        //     IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)),
-        // ));
-        // let send_result_qn1 = ActionClauses::Send(Send::new(
-        //     IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2)),
-        //     IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3)),
-        // ));
-        // let mut action = Action::new(None);
-        // action.add_action_clause(cnot_control_gate);
-        // action.add_action_clause(send_result_qn0);
-        // action.add_action_clause(cnot_target_gate);
-        // action.add_action_clause(send_result_qn1);
-
-        // let rule = create_rule("swapping", 0, 0, condition, action, 0, true);
-        // target_ruleset.add_rule(rule);
-
-        // match ruleset {
-        //     Some(ruleset_contents) => {
-        //         println!("left: {:#?}", target_ruleset);
-        //         println!("generated: {:#?}", ruleset_contents);
-        //         assert_eq!(target_ruleset, ruleset_contents)
-        //     }
-        //     None => panic!("No ruleset found in the test"),
-        // }
     }
 }
 
@@ -170,7 +120,7 @@ mod purification_ruleset {
         let mut ast = rula_parser::parse(&contents).unwrap();
 
         // 2. generate ruleset (provide ruleset flag)
-        let rulesets = rula_exec::ruleset_gen::ruleset_generator::generate(
+        let tokens = rula_exec::ruleset_gen::ruleset_generator::generate(
             &ast,
             PathBuf::from("../examples/v2/config.json"),
         )
@@ -178,9 +128,9 @@ mod purification_ruleset {
 
         // 2.1 target ruleset
         let target = RuleSet::new("purification");
-        // let mut target_rulesets = vec![];
 
-        // assert_eq!(rulesets[0], target);
+        generate_token_stream_file(tokens, "generator_purification.rs");
+        assert_eq!(1, 2);
     }
 }
 
