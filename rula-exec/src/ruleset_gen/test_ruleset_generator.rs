@@ -19,13 +19,13 @@ mod tests {
             // (generated) let x: i64 = RuLaValue::Int(19 as i64);
 
             let target_ast = Let::new(
-                Ident::new("x", Some(TypeDef::Integer)),
+                vec![Ident::new("x", Some(TypeDef::Integer))],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
                     NumberLitKind::IntegerLit(IntegerLit::new("19", false)),
                 ))))),
             );
             let generated_let =
-                generate_let(&target_ast, &mock_tracker(), &String::from("Test"), false)
+                generate_let(&target_ast, &mock_tracker(), &String::from("Test"), true)
                     .unwrap()
                     .to_string();
             let expected = "let x : i64 = 19 ;";

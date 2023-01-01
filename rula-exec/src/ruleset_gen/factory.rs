@@ -2,11 +2,13 @@ use proc_macro2::TokenStream;
 
 pub fn generate_factory() -> TokenStream {
     quote!(
+
     #[derive(Debug, PartialEq, Clone)]
     pub struct RuleSetFactory {
         pub repeaters: RepeaterList,
-        pub rule_generators: RefCell<HashMap<String, RuleGenerators>>,
-        pub rule_arguments: RefCell<HashMap<String, RuleArgs>>,
+        pub rule_generators: RefCell<HashMap<RuleName, RuleGenerators>>,
+        pub rule_arguments: RefCell<HashMap<RuleName, RuleArgs>>,
+        pub promoted_values: RefCell<HashMap<RuleName, Vec<RuLaValue>>>,
         // Order of vector is very important
         pub unconverted_rule_arguments: RefCell<HashMap<String, Vec<RuLaValue>>>,
         pub rulesets: RefCell<Vec<RefCell<RuleSet>>>
@@ -23,6 +25,7 @@ pub fn generate_factory() -> TokenStream {
                 repeaters: RepeaterList::from(repeaters),
                 rule_generators: RefCell::new(HashMap::new()),
                 rule_arguments: RefCell::new(HashMap::new()),
+                promoted_values: RefCell::new(HashMap::new()),
                 unconverted_rule_arguments: RefCell::new(HashMap::new()),
                 rulesets: RefCell::new(rulesets),
             }
@@ -64,6 +67,10 @@ pub fn generate_factory() -> TokenStream {
                 rule_arg.set(arg_n, arg_v.clone());
             }
             self.rule_arguments.borrow_mut().insert(rule_name.to_string(), rule_arg);
+        }
+
+        pub fn promoted_values(&self, rule_name: &str) -> Vec<RuLaValue>{
+            self.promoted_values.borrow().get(rule_name).expect("Failed to get promoted values").clone()
         }
     }
 

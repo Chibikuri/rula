@@ -140,8 +140,8 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::match_expr => Ok(Expr::new(ExprKind::Match(
             build_ast_from_match_expr(pair).unwrap(),
         ))),
-        Rule::return_expr => Ok(Expr::new(ExprKind::Return(
-            build_ast_from_return_expr(pair).unwrap(),
+        Rule::promote_expr => Ok(Expr::new(ExprKind::Promote(
+            build_ast_from_promote_expr(pair).unwrap(),
         ))),
         Rule::send_expr => Ok(Expr::new(ExprKind::Send(
             build_ast_from_send_expr(pair).unwrap(),
@@ -501,16 +501,16 @@ fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
     Ok(match_action)
 }
 
-fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
-    let mut return_expr = Return::place_holder();
+fn build_ast_from_promote_expr(pair: Pair<Rule>) -> IResult<Promote> {
+    let mut promote_expr = Promote::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::expr => return_expr
+            Rule::expr => promote_expr
                 .add_target(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(return_expr)
+    Ok(promote_expr)
 }
 
 fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
@@ -901,7 +901,7 @@ mod tests {
             let let_stmt = pair_generator(r#"let hello: str = "world""#, Rule::let_stmt);
             let let_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", Some(TypeDef::Str)),
+                vec![Ident::new("hello", Some(TypeDef::Str))],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::StringLit(StringLit::new(
                     "world",
                 ))))),
@@ -914,7 +914,7 @@ mod tests {
             let let_stmt = pair_generator(r#"let hello:int = -123"#, Rule::let_stmt);
             let let_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", Some(TypeDef::Integer)),
+                vec![Ident::new("hello", Some(TypeDef::Integer))],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
                     NumberLitKind::IntegerLit(IntegerLit::new("123", true)),
                 ))))),
@@ -927,7 +927,7 @@ mod tests {
             let let_stmt = pair_generator("let hello: str = if(block){expression}", Rule::let_stmt);
             let let_if_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", Some(TypeDef::Str)),
+                vec![Ident::new("hello", Some(TypeDef::Str))],
                 Expr::new(ExprKind::If(If::new(
                     // (block)
                     Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
@@ -1201,12 +1201,12 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_simple_return_expr() {
-            let return_expr = pair_generator("return hello", Rule::return_expr);
-            let return_asts = build_ast_from_return_expr(return_expr).unwrap();
-            let target_ast_nodes = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
-                Ident::new("hello", None),
-            )))));
+        fn test_simple_promote_expr() {
+            let promote_expr = pair_generator("return hello", Rule::promote_expr);
+            let return_asts = build_ast_from_promote_expr(promote_expr).unwrap();
+            let target_ast_nodes = Promote::new(vec![Expr::new(ExprKind::Lit(Lit::new(
+                LitKind::Ident(Ident::new("hello", None)),
+            )))]);
             assert_eq!(target_ast_nodes, return_asts);
         }
     }
@@ -1236,7 +1236,7 @@ mod tests {
         // helper function
         fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> Let {
             let target_ast_nodes = Let::new(
-                Ident::new(name, type_def),
+                vec![Ident::new(name, type_def)],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                     "val", None,
                 ))))),

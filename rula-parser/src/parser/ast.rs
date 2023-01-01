@@ -119,28 +119,28 @@ pub enum StmtKind {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<Ident>, // ExprKind::Ident
+    pub ident: Vec<Ident>, // ExprKind::Ident
     pub expr: Box<Expr>,
 }
 
 impl Let {
     // Constructor with kind check
-    pub fn new(identifier: Ident, expr: Expr) -> Self {
+    pub fn new(identifiers: Vec<Ident>, expr: Expr) -> Self {
         Let {
-            ident: Box::new(identifier),
+            ident: identifiers,
             expr: Box::new(expr),
         }
     }
 
     pub fn place_holder() -> Self {
         Let {
-            ident: Box::new(Ident::place_holder()),
+            ident: vec![],
             expr: Box::new(Expr::place_holder()),
         }
     }
 
     pub fn add_ident(&mut self, identifier: Ident) {
-        self.ident = Box::new(identifier);
+        self.ident.push(identifier);
     }
 
     pub fn add_expr(&mut self, expr: Expr) {
@@ -186,7 +186,7 @@ pub enum ExprKind {
     If(If),
     For(For),
     Match(Match),
-    Return(Return),
+    Promote(Promote),
     //
     Send(Send),
     FnCall(FnCall),
@@ -752,23 +752,21 @@ impl MatchAction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Return {
-    pub target: Box<Expr>,
+pub struct Promote {
+    pub target: Vec<Expr>,
 }
 
-impl Return {
-    pub fn new(return_target: Expr) -> Self {
-        Return {
-            target: Box::new(return_target),
+impl Promote {
+    pub fn new(promote_target: Vec<Expr>) -> Self {
+        Promote {
+            target: promote_target,
         }
     }
     pub fn place_holder() -> Self {
-        Return {
-            target: Box::new(Expr::place_holder()),
-        }
+        Promote { target: vec![] }
     }
     pub fn add_target(&mut self, target: Expr) {
-        self.target = Box::new(target);
+        self.target.push(target);
     }
 }
 

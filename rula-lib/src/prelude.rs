@@ -67,6 +67,8 @@ pub fn wait(
     }
 }
 
+pub fn recv(rules: RuleVec, source_repeater: &Repeater) {}
+
 fn generate_protocol_message(
     proto_message_type: ProtoMessageType,
     identifier: ProtoMessageIdentifier,

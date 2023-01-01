@@ -35,34 +35,6 @@ impl Tracker {
         }
     }
 
-    // Functions for RuleSet
-    // pub fn add_ruleset(&self, number: NodeNumber, ruleset: RuleSet) {
-    //     self.rulesets.borrow_mut().insert(number, ruleset);
-    // }
-
-    // pub fn update_ruleset_name(&mut self, new_name: &str) {
-    //     self.ruleset_name = new_name.to_string();
-    //     for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
-    //         ruleset.update_name(new_name);
-    //     }
-    // }
-
-    // pub fn add_stage(&self, repeater_index: usize, stage: Stage) {
-    //     self.rulesets
-    //         .borrow_mut()
-    //         .get_mut(&repeater_index)
-    //         .expect("Failed to find a ruelset")
-    //         .add_stage(stage);
-    // }
-
-    // pub fn return_rulesets(&self) -> Vec<RuleSet> {
-    //     let mut rulesets = vec![];
-    //     for (_, rs) in self.rulesets.borrow().iter() {
-    //         rulesets.push(rs.clone())
-    //     }
-    //     rulesets
-    // }
-
     // Functions for Rules
     pub fn check_rule_name_exist(&self, name: &str) -> bool {
         self.rule_names.contains(name)
@@ -121,6 +93,19 @@ impl Tracker {
     ) {
         self.return_type_annotation
             .insert(rule_name.to_string(), ret_type_annotation);
+    }
+
+    pub fn exist_return_types(&self, rule_name: &RuleName) -> bool {
+        self.return_type_annotation.contains_key(rule_name)
+    }
+
+    pub fn check_return_type_annotations(&self, rule_name: &RuleName) -> &RetTypeAnnotation {
+        if !self.exist_return_types(rule_name) {
+            panic!("No return type annotation found!");
+        }
+        self.return_type_annotation
+            .get(rule_name)
+            .expect("Failed to get")
     }
 
     pub fn update_num_node(&mut self, num_node: u32) {

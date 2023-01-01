@@ -13,7 +13,7 @@ expr = {
   if_expr | 
   for_expr|
   match_expr | 
-  return_expr | 
+  promote_expr | 
   // non keyword expression
   rule_call_expr| 
   send_expr |
@@ -43,7 +43,7 @@ satisfiable = { literal_expr }
 match_action = { "{" ~ expr? ~ ("," ~ expr)* ~ "}" }
 
 // Return values 
-return_expr = {^"return" ~ expr?}
+promote_expr = {^"promote" ~ expr ~ ("," ~ expr)*}
 
 // If expression (e.g. if (block > 0) {expreesion;};)
 if_expr = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_expr )* ~ else_expr? }
