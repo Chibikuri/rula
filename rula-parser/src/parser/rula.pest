@@ -165,7 +165,7 @@ string_type = { "str" }
 qubit_type = { "qubit" }
 repeater_type = { "Repeater" }
 message_type = { "Message" }
-result_type = {"Result"}
+result_type = { "Result" } 
 
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" | "\t") }

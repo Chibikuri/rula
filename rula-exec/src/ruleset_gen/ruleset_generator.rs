@@ -356,6 +356,7 @@ pub(super) fn generate_rule_expr(
         #[derive(Debug, Clone, PartialEq)]
         pub struct #rule_name_structure_name {
             // Order is the same as the def
+            pub name: String,
             pub rule_args: Vec<String>,
             pub callback: Rc<RefCell<RuleSetFactory>>
         }
@@ -363,6 +364,7 @@ pub(super) fn generate_rule_expr(
         impl #rule_name_structure_name {
             pub fn new(ruleset_factory: Rc<RefCell<RuleSetFactory>>) -> Self{
                 #rule_name_structure_name{
+                    name: #rule_name.to_string(),
                     rule_args: vec![#(#arg_names),*],
                     callback: ruleset_factory
                 }
@@ -646,7 +648,9 @@ pub(super) fn generate_expr(
         ExprKind::Match(match_expr) => {
             Ok(generate_match(match_expr, tracker, scope, in_ruledef).unwrap())
         }
-        ExprKind::Promote(promote_expr) => Ok(generate_promote(promote_expr, tracker).unwrap()),
+        ExprKind::Promote(promote_expr) => {
+            Ok(generate_promote(promote_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        }
         ExprKind::RuleCall(rule_call_expr) => {
             Ok(generate_rule_call(rule_call_expr, tracker, scope).unwrap())
         }
@@ -806,9 +810,9 @@ pub(super) fn generate_fn_call(
         generated_arguments.push(generate_fn_call_arg(arg, tracker, scope, in_ruledef).unwrap());
     }
     if in_ruledef {
-        Ok(quote!(#func_name (Rc::clone(&rules), #(#generated_arguments),*)))
+        Ok(quote!(#func_name (Rc::clone(&rules), #(&#generated_arguments),*)))
     } else {
-        Ok(quote!(#func_name ( #(#generated_arguments),*)))
+        Ok(quote!(#func_name ( #(&#generated_arguments),*)))
     }
 }
 
@@ -869,33 +873,7 @@ pub(super) fn generate_rule_call(
     // 2. register arguments to rules (rule_name, arguments)
     let mut argument_register = vec![];
     for (gen_arg, (_, type_val)) in arguments.iter().zip(supposed_arguments.iter()) {
-        let generated_type = match type_val {
-            Types::Boolean => {
-                quote!(RuLaValue::Boolean(#gen_arg as bool))
-            }
-            Types::Int => {
-                quote!(RuLaValue::Int(#gen_arg as i64))
-            }
-            Types::UInt => {
-                quote!(RuLaValue::UInt(#gen_arg as u64))
-            }
-            Types::Float => {
-                quote!(RuLaValue::Float(#gen_arg as f64))
-            }
-            Types::Str => {
-                quote!(RuLaValue::Str(#gen_arg as String))
-            }
-            Types::Result => {
-                quote!(RuLaValue::Result(#gen_arg))
-            }
-            Types::Qubit => {
-                quote!(RuLaValue::Qubit(#gen_arg))
-            }
-            Types::Message => {
-                quote!(RuLaValue::Message(#gen_arg))
-            }
-            _ => todo!("Is this supposed to be error?"),
-        };
+        let generated_type = generate_type_wrapper(gen_arg, type_val).unwrap();
         argument_register.push(generated_type)
     }
 
@@ -967,12 +945,38 @@ pub(super) fn generate_rep_call_arg(
 
 // Promote resources to the next stage
 pub(super) fn generate_promote(
-    return_expr: &Promote,
+    promote_expr: &Promote,
     tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+    in_match: bool,
 ) -> IResult<TokenStream> {
-    todo!();
-    Ok(quote!())
-    // Ok(quote!(return rules))
+    if !in_ruledef {
+        panic!("promotion must be in rule definition")
+    } else if !tracker.borrow().check_rule_name_exist(scope) {
+        panic!("No rule found {}", scope);
+    }
+    // get the expected return types
+    if !tracker.borrow().exist_return_types(scope) {
+        panic!("No type annotation found in rule {}", scope);
+    }
+
+    let return_types = tracker
+        .borrow()
+        .check_return_type_annotations(scope)
+        .clone();
+    let mut expressions = vec![];
+    for (expr, (type_def, maybe)) in promote_expr
+        .target
+        .iter()
+        .zip(return_types.return_types.iter())
+    {
+        let generated_expr = generate_expr(expr, tracker, scope, in_ruledef, in_match).unwrap();
+        let type_wrapped_expr = generate_type_wrapper(&generated_expr, type_def).unwrap();
+        expressions
+            .push(quote!(self.callback.borrow_mut().promote(&self.name, #type_wrapped_expr);));
+    }
+    Ok(quote!(#(#expressions)*))
 }
 
 // Generate send expression
@@ -1528,6 +1532,22 @@ pub(super) fn generate_evaluator(type_def: &Types) -> IResult<TokenStream> {
         Types::Boolean => Ok(quote!(eval_as_bool())),
         Types::Str => Ok(quote!(eval_as_str())),
         Types::Vec(_) => Ok(quote!(eval_as_vec())),
+        Types::Unknown => Err(RuleSetGenError::UnknownTypeError),
+    }
+}
+
+pub(super) fn generate_type_wrapper(expr: &TokenStream, type_def: &Types) -> IResult<TokenStream> {
+    match type_def {
+        Types::Repeater => Ok(quote!(RuLaValue::Repeater(#expr))),
+        Types::Message => Ok(quote!(RuLaValue::Message(#expr))),
+        Types::Result => Ok(quote!(RuLaValue::RuLaResult(#expr))),
+        Types::Qubit => Ok(quote!(RuLaValue::Qubit(#expr))),
+        Types::Int => Ok(quote!(RuLaValue::Int(#expr as i64))),
+        Types::UInt => Ok(quote!(RuLaValue::UInt(#expr as u64))),
+        Types::Float => Ok(quote!(RuLaValue::Float(#expr as f64))),
+        Types::Boolean => Ok(quote!(RuLaValue::Boolean(#expr as bool))),
+        Types::Str => Ok(quote!(RuLaValue::Str(#expr))),
+        Types::Vec(_) => Ok(quote!(RuLaValue::Vector(#expr))),
         Types::Unknown => Err(RuleSetGenError::UnknownTypeError),
     }
 }

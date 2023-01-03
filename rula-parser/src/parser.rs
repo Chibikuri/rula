@@ -1202,7 +1202,7 @@ mod tests {
 
         #[test]
         fn test_simple_promote_expr() {
-            let promote_expr = pair_generator("return hello", Rule::promote_expr);
+            let promote_expr = pair_generator("promote hello", Rule::promote_expr);
             let return_asts = build_ast_from_promote_expr(promote_expr).unwrap();
             let target_ast_nodes = Promote::new(vec![Expr::new(ExprKind::Lit(Lit::new(
                 LitKind::Ident(Ident::new("hello", None)),

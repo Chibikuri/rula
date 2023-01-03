@@ -69,6 +69,14 @@ pub fn generate_factory() -> TokenStream {
             self.rule_arguments.borrow_mut().insert(rule_name.to_string(), rule_arg);
         }
 
+        pub fn promote(&self, rule_name: &str, value: RuLaValue){
+            self.promoted_values
+            .borrow_mut()
+            .entry(rule_name.to_string())
+            .and_modify(|vals| vals.push(value))
+            .or_insert(vec![]);
+        }
+
         pub fn promoted_values(&self, rule_name: &str) -> Vec<RuLaValue>{
             self.promoted_values.borrow().get(rule_name).expect("Failed to get promoted values").clone()
         }

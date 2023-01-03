@@ -7,7 +7,7 @@ use rula_exec::ruleset_gen::{
     types::{Qubit, RuLaResult, RuleVec},
 };
 
-pub fn bsm(rules: RuleVec, q1: Qubit, q2: Qubit) -> RuLaResult {
+pub fn bsm(rules: RuleVec, q1: &Qubit, q2: &Qubit) -> RuLaResult {
     let q1_identifier = QubitIdentifier {
         qubit_index: q1.index,
     };
@@ -38,7 +38,7 @@ pub fn x(rules: RuleVec) {}
 
 pub fn z(rules: RuleVec) {}
 
-pub fn cx(rules: RuleVec, q1: Qubit, q2: Qubit) {
+pub fn cx(rules: RuleVec, q1: &Qubit, q2: &Qubit) {
     let q1_identifier = QubitIdentifier {
         qubit_index: q1.index,
     };
@@ -56,7 +56,7 @@ pub fn cx(rules: RuleVec, q1: Qubit, q2: Qubit) {
     }
 }
 
-pub fn measure(rules: RuleVec, q1: Qubit, basis: &str) -> RuLaResult {
+pub fn measure(rules: RuleVec, q1: &Qubit, basis: &str) -> RuLaResult {
     match basis {
         "X" => meas_x(Rc::clone(&rules), q1),
         "Y" => meas_y(Rc::clone(&rules), q1),
@@ -68,7 +68,7 @@ pub fn measure(rules: RuleVec, q1: Qubit, basis: &str) -> RuLaResult {
     RuLaResult::new()
 }
 
-fn meas_x(rules: RuleVec, q1: Qubit) {
+fn meas_x(rules: RuleVec, q1: &Qubit) {
     for rule in rules.borrow().iter() {
         let q1_identifier = QubitIdentifier {
             qubit_index: q1.index,
@@ -81,7 +81,7 @@ fn meas_x(rules: RuleVec, q1: Qubit) {
     }
 }
 
-fn meas_y(rules: RuleVec, q1: Qubit) {
+fn meas_y(rules: RuleVec, q1: &Qubit) {
     for rule in rules.borrow().iter() {
         let q1_identifier = QubitIdentifier {
             qubit_index: q1.index,
@@ -94,7 +94,7 @@ fn meas_y(rules: RuleVec, q1: Qubit) {
     }
 }
 
-fn meas_z(rules: RuleVec, q1: Qubit) {
+fn meas_z(rules: RuleVec, q1: &Qubit) {
     for rule in rules.borrow().iter() {
         let q1_identifier = QubitIdentifier {
             qubit_index: q1.index,
