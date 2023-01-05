@@ -32,6 +32,8 @@ pub enum ConditionClauses {
     Timer(f64),
     /// The number of available resources in the QNIC
     Res(Res),
+    /// Received the message
+    Recv(Recv),
     /// Wait until the specificmessage arrives
     Wait(ProtocolMessages),
 }
@@ -72,6 +74,14 @@ impl CmpTarget {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum MeasResult {
+    // concrete value
+    Value(String),
+    // identifier for previous result
+    Id(String),
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum CmpKind {
     MeasResult,
     Fidelity,
@@ -107,6 +117,19 @@ impl Res {
             num_required_resource: num_resource,
             partner_addr: partner_addr,
             required_fidelity: required_fidelity,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Recv {
+    pub partner_index: u64,
+}
+
+impl Recv {
+    pub fn new(partner_index: u64) -> Self {
+        Recv {
+            partner_index: partner_index,
         }
     }
 }

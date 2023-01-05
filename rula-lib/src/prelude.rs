@@ -67,7 +67,15 @@ pub fn wait(
     }
 }
 
-pub fn recv(rules: RuleVec, source_repeater: &Repeater) {}
+pub fn recv(rules: RuleVec, source_repeater: &Repeater) -> Message {
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_condition_clause(ConditionClauses::Recv(Recv::new(source_repeater.index)));
+    }
+    let mut new_message = Message::place_holder();
+    new_message.update_source(source_repeater.index);
+    new_message
+}
 
 fn generate_protocol_message(
     proto_message_type: ProtoMessageType,

@@ -266,7 +266,7 @@ pub(super) fn generate_ruleset_expr(
     // 1. Generate statements (stmt)* outside ruledef (in_ruledef = false)
     let mut generated = vec![];
     for stmt in &ruleset_expr.rules {
-        generated.push(generate_stmt(stmt, tracker, scope, false).unwrap());
+        generated.push(generate_stmt(stmt, tracker, scope, false, false).unwrap());
     }
 
     // RuleSet generate function
@@ -401,10 +401,6 @@ pub(super) fn generate_rule_expr(
                 }
                 rules
             }
-
-            fn _type_check(){
-
-            }
         }
     ))
 }
@@ -438,7 +434,7 @@ pub(super) fn generate_rule_content(
     // 3. Post processing
     let mut post_processing = vec![];
     for stmt in rule_content_expr.post_processing.iter() {
-        post_processing.push(generate_stmt(stmt, tracker, scope, in_ruledef).unwrap());
+        post_processing.push(generate_stmt(stmt, tracker, scope, in_ruledef, false).unwrap());
     }
 
     Ok(quote!(
@@ -509,7 +505,7 @@ pub(super) fn generate_clauses(
             generate_variable_call(var_call, tracker, scope, in_ruledef).unwrap()
         }
         CondClauses::Comp(comp_expr) => {
-            generate_comp(comp_expr, tracker, scope, in_ruledef).unwrap()
+            generate_comp(comp_expr, tracker, scope, in_ruledef, false).unwrap()
         }
     };
     Ok(quote!(#generated))
@@ -543,7 +539,7 @@ pub(super) fn generate_act(
     // Generated action clauses
     let mut generated = vec![];
     for stmt in act_expr.operatable.iter() {
-        generated.push(generate_stmt(stmt, tracker, scope, in_ruledef).unwrap())
+        generated.push(generate_stmt(stmt, tracker, scope, in_ruledef, false).unwrap())
     }
     Ok(quote!(
         #(#generated)*
@@ -561,11 +557,12 @@ pub(super) fn generate_stmt(
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
+    in_match: bool,
 ) -> IResult<TokenStream> {
     // Statement can be let statement or series of expressions
     let statement = match &*stmt.kind {
         StmtKind::Let(let_stmt) => generate_let(let_stmt, tracker, scope, in_ruledef).unwrap(),
-        StmtKind::Expr(expr) => generate_expr(expr, tracker, scope, in_ruledef, false).unwrap(),
+        StmtKind::Expr(expr) => generate_expr(expr, tracker, scope, in_ruledef, in_match).unwrap(),
         StmtKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
     Ok(quote!(#statement;))
@@ -586,7 +583,10 @@ pub(super) fn generate_let(
         match &*identifier.type_hint {
             Some(hint) => {
                 let variable_name = format_ident!("{}", &*identifier.name);
-                let (_, type_hint) = generate_type_hint(hint).unwrap();
+                let (type_val, type_hint) = generate_type_hint(hint).unwrap();
+                tracker
+                    .borrow_mut()
+                    .register_variable(&*identifier.name, &type_val, scope);
                 let value =
                     generate_expr(&*let_stmt.expr, tracker, scope, in_ruledef, in_ruledef).unwrap();
                 Ok(quote!(
@@ -603,7 +603,10 @@ pub(super) fn generate_let(
             match &*identifier.type_hint {
                 Some(hint) => {
                     let variable_name = format_ident!("{}", &*identifier.name);
-                    let (_, type_hint) = generate_type_hint(hint).unwrap();
+                    let (type_val, type_hint) = generate_type_hint(hint).unwrap();
+                    tracker
+                        .borrow_mut()
+                        .register_variable(&*identifier.name, &type_val, scope);
                     values.push(variable_name);
                     type_annotations.push(type_hint);
                 }
@@ -657,8 +660,12 @@ pub(super) fn generate_expr(
         ExprKind::Send(send_expr) => {
             Ok(generate_send(send_expr, tracker, scope, in_ruledef, in_match).unwrap())
         }
+        ExprKind::Set(set_expr) => Ok(generate_set(set_expr, tracker, scope, in_ruledef).unwrap()),
+        ExprKind::Get(get_expr) => {
+            Ok(generate_get(get_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        }
         ExprKind::Comp(comp_expr) => {
-            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef).unwrap())
+            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match).unwrap())
         }
         ExprKind::Term(term_expr) => {
             Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
@@ -693,12 +700,12 @@ pub(super) fn generate_if(
     // If this is not the rule definition, this becomes just an ordinary if expression
     if !in_ruledef {
         // Generate expression that returns boolean value
-        let block = generate_expr(&*if_expr.block, tracker, scope, in_ruledef, false).unwrap();
+        let block = generate_if_block(&*if_expr.block, tracker, scope, false).unwrap();
 
         // Generate statements
         let mut stmts = vec![];
         for st in if_expr.stmts.iter() {
-            stmts.push(generate_stmt(st, tracker, scope, in_ruledef).unwrap())
+            stmts.push(generate_stmt(st, tracker, scope, in_ruledef, false).unwrap())
         }
 
         // Generate elif statements
@@ -713,7 +720,7 @@ pub(super) fn generate_if(
         // Generate else statements
         let mut elses = vec![];
         for els in &*if_expr.els {
-            elses.push(generate_stmt(els, tracker, scope, in_ruledef).unwrap())
+            elses.push(generate_stmt(els, tracker, scope, in_ruledef, false).unwrap())
         }
         let generated_elses = if elses.len() > 0 {
             quote!(
@@ -733,8 +740,113 @@ pub(super) fn generate_if(
             #generated_elses
         ))
     } else {
-        // Generate multiple rules
-        Ok(quote!())
+        // // Collect all the block and statement
+        let mut blocks: Vec<IfBlock> = vec![]; // if block that returns boolean value
+                                               // TODO: consider removing clone
+        blocks.push(*if_expr.block.clone());
+
+        // Collect all the statements
+        let mut statements: Vec<Vec<Stmt>> = vec![];
+        statements.push(if_expr.stmts.clone());
+
+        for elif in if_expr.elif.iter() {
+            blocks.push(*elif.block.clone());
+            statements.push(elif.stmts.clone());
+        }
+
+        // Translate blocks into rust code (This will be the condition clauses)
+        let mut generated_conditions = vec![];
+        let mut generated_actions = vec![];
+
+        for block in blocks.iter() {
+            let generated_block = generate_if_block(block, tracker, scope, in_ruledef).unwrap();
+            generated_conditions.push(quote!(
+                Box::new(
+                    |__new_rule: RuleVec|{
+                        #generated_block
+                        __new_rule
+                    }
+                )
+            ));
+        }
+        for action in statements.iter() {
+            // Since this will be defined the same as the match closure, in_match = true.
+            let mut generated = vec![];
+            for stmt in action {
+                generated.push(generate_stmt(stmt, tracker, scope, in_ruledef, true).unwrap());
+            }
+            let closure = quote!(Box::new(
+                |__new_rule: RuleVec, mut __new_partner_rules: HashMap<u64, RuleVec>| {
+                    #(#generated)*
+                    (__new_rule, __new_partner_rules)
+                }
+            ));
+            generated_actions.push(closure)
+        }
+        // If there is a else expression, need counterpart condition for all the expressions
+
+        // Inside the rule definition, if expression is expanded to the multiple rules
+        // This works similarly to the match expressions
+        // Take the current snapshot for the rules
+        Ok(quote!(
+            // Get the current snapshot of the rules
+            let cloned_rules = rules.clone();
+            let cloned_partner_rules = __partner_rules.borrow().clone();
+
+            let mut new_rule_vec = vec![];
+            let mut new_partner_map: HashMap<u64, RuleVec> = HashMap::new();
+
+            let __if_actions: Vec<Box<dyn Fn(RuleVec, HashMap<u64, RuleVec>) -> ((RuleVec, HashMap<u64, RuleVec>))>> = vec![
+                #(#generated_actions),*
+            ];
+
+            let __if_conditions: Vec<Box<dyn Fn(RuleVec) -> (RuleVec)>> = vec![
+                #(#generated_conditions),*
+            ];
+
+            for (__action_func, __condition_func) in __if_actions.iter().zip(__if_conditions.iter()){
+                let (gen_rules) = __condition_func(cloned_rules.clone());
+                let (generated_rules, generated_partner_rules) = __action_func(gen_rules.clone(), cloned_partner_rules.clone());
+                for gen_rule in &*generated_rules.borrow(){
+                    new_rule_vec.push(gen_rule.clone());
+                }
+                for (rep_id, rule_vec) in generated_partner_rules.into_iter(){
+                    if __partner_rules.borrow().contains_key(&rep_id){
+                        for generated_partner_rule in rule_vec.borrow().iter(){
+                            if !__partner_rules.borrow().get(&rep_id).expect("Failed to get repeater rules").borrow().contains(generated_partner_rule){
+                                __partner_rules.borrow().get(&rep_id).expect("Failed to get repeater rules").borrow_mut().push(generated_partner_rule.clone());
+                            }
+                        }
+                    }else{
+                        __partner_rules.borrow_mut().insert(rep_id, rule_vec);
+                    }
+                }
+            }
+            // flush current rules and add new rules
+            let mut rules = Rc::new(RefCell::new(vec![]));
+            for new_rule in new_rule_vec{
+                rules.borrow_mut().push(new_rule);
+            }
+        ))
+    }
+}
+
+pub(super) fn generate_if_block(
+    if_block: &IfBlock,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+) -> IResult<TokenStream> {
+    let in_match = if in_ruledef { true } else { false };
+    match if_block {
+        IfBlock::Get(get_expr) => {
+            Ok(generate_get(get_expr, tracker, scope, in_ruledef, true).unwrap())
+        }
+        IfBlock::Comp(comp_expr) => {
+            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        }
+        IfBlock::Lit(literal_expr) => Ok(generate_lit(literal_expr, tracker, scope).unwrap()),
+        IfBlock::PlaceHolder => Err(RuleSetGenError::InitializationError),
     }
 }
 
@@ -778,7 +890,7 @@ pub(super) fn generate_for(
     // Statements that are in {...}
     let mut generated_stmts = vec![];
     for st in for_expr.stmts.iter() {
-        generated_stmts.push(generate_stmt(st, tracker, scope, in_ruledef).unwrap());
+        generated_stmts.push(generate_stmt(st, tracker, scope, in_ruledef, false).unwrap());
     }
     Ok(quote!(
         for #generated_block in #generator_expr{
@@ -966,17 +1078,48 @@ pub(super) fn generate_promote(
         .check_return_type_annotations(scope)
         .clone();
     let mut expressions = vec![];
-    for (expr, (type_def, maybe)) in promote_expr
+    for (promotable, (type_def, _maybe)) in promote_expr
         .target
         .iter()
         .zip(return_types.return_types.iter())
     {
-        let generated_expr = generate_expr(expr, tracker, scope, in_ruledef, in_match).unwrap();
+        let generated_expr =
+            generate_promotables(promotable, tracker, scope, in_ruledef, in_match).unwrap();
         let type_wrapped_expr = generate_type_wrapper(&generated_expr, type_def).unwrap();
-        expressions
-            .push(quote!(self.callback.borrow_mut().promote(&self.name, #type_wrapped_expr);));
+        if !in_match {
+            expressions
+            .push(quote!(self.callback.borrow_mut().promote(Rc::clone(&rules), &self.name, #type_wrapped_expr);));
+        } else {
+            expressions
+            .push(quote!(self.callback.borrow_mut().promote(Rc::clone(&__new_rule), &self.name, #type_wrapped_expr);));
+        }
     }
     Ok(quote!(#(#expressions)*))
+}
+
+pub(super) fn generate_promotables(
+    promotables: &Promotables,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+    in_match: bool,
+) -> IResult<TokenStream> {
+    match promotables {
+        Promotables::Comp(comp_expr) => {
+            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, false).unwrap())
+        }
+        Promotables::Term(term_expr) => {
+            Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
+        }
+        Promotables::RuLaVec(vec_expr) => Ok(generate_vec(vec_expr, tracker, scope).unwrap()),
+        Promotables::RuLaTuple(tuple_expr) => {
+            Ok(generate_tuple(tuple_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        }
+        Promotables::VariableCall(var_call_expr) => {
+            Ok(generate_variable_call(var_call_expr, tracker, scope, in_ruledef).unwrap())
+        }
+        Promotables::Lit(lit_expr) => Ok(generate_lit(lit_expr, tracker, scope).unwrap()),
+    }
 }
 
 // Generate send expression
@@ -1033,6 +1176,71 @@ pub(super) fn generate_send(
             wait(Rc::clone(__partner_rules.borrow().get(&#expr.index).expect("Failed to get the partner rule vector")), &#expr, #message_type);
             // wait(&self.callback.borrow().rulesets.borrow()[#expr.index as usize], __repeater, #message_type);
         ))
+    }
+}
+
+pub(super) fn generate_set(
+    set_expr: &Set,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    _in_ruledef: bool,
+) -> IResult<TokenStream> {
+    let value = &*set_expr.value;
+
+    // check type def
+    let type_hint = if tracker.borrow().check_variable_exist(&*value.name, scope) {
+        tracker
+            .borrow()
+            .get_variable_type_hint(&*value.name, scope)
+            .clone()
+    } else {
+        return Err(RuleSetGenError::NeedIdentifierTypeAnnotationError);
+    };
+
+    let alias = match &*set_expr.alias {
+        Some(alias_value) => {
+            let set_name = &*alias_value.name;
+            tracker
+                .borrow_mut()
+                .register_set_variable(set_name, &type_hint);
+            quote!(#set_name)
+        }
+        None => {
+            let set_name = &*value.name;
+            tracker
+                .borrow_mut()
+                .register_set_variable(set_name, &type_hint);
+            quote!(#set_name)
+        }
+    };
+
+    let generated_value = generate_type_wrapper(
+        &generate_ident(&*set_expr.value, tracker, scope).unwrap(),
+        &type_hint,
+    )
+    .unwrap();
+
+    Ok(quote!(self.callback.borrow_mut().set(Rc::clone(&rules), #generated_value, #alias);))
+}
+
+pub(super) fn generate_get(
+    get_expr: &Get,
+    tracker: &ValueTracker,
+    _scope: &Scope,
+    _in_ruledef: bool,
+    in_match: bool,
+) -> IResult<TokenStream> {
+    let value = &*get_expr.value.name;
+    // Check the value exist
+    let type_hint = tracker
+        .borrow()
+        .get_type_hint_of_set_variable(value)
+        .clone();
+    let evaluator = generate_evaluator(&type_hint).unwrap();
+    if !in_match {
+        Ok(quote!(self.callback.borrow().get(Rc::clone(&rules), #value).#evaluator;))
+    } else {
+        Ok(quote!(self.callback.borrow().get(Rc::clone(&__new_rule), #value).#evaluator.clone()))
     }
 }
 
@@ -1155,7 +1363,6 @@ pub(super) fn generate_match(
 
         }
 
-        #[doc = "Flush the current rules to store the new rules with new conditions"]
         let mut rules = Rc::new(RefCell::new(vec![]));
         for new_rule in new_rule_vec{
             rules.borrow_mut().push(new_rule);
@@ -1213,7 +1420,7 @@ pub(super) fn generate_match_condition(
     match_condition: &MatchCondition,
     tracker: &ValueTracker,
     scope: &Scope,
-    in_ruledef: bool,
+    _in_ruledef: bool,
 ) -> IResult<TokenStream> {
     // Right now, satisfiable can only take literals, but in the future, this should be more flexible
     match &*match_condition.satisfiable {
@@ -1248,19 +1455,98 @@ pub(super) fn generate_comp(
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
+    in_match: bool,
 ) -> IResult<TokenStream> {
-    let lhs = generate_expr(&comp_expr.lhs, tracker, scope, in_ruledef, false).unwrap();
-    let rhs = generate_expr(&comp_expr.rhs, tracker, scope, in_ruledef, false).unwrap();
-    let (op, _cmp_op) = match *comp_expr.comp_op {
-        CompOpKind::Lt => (quote!(<), quote!(__CmpOp::Lt)),
-        CompOpKind::Gt => (quote!(>), quote!(__CmpOp::Gt)),
-        CompOpKind::LtE => (quote!(<=), quote!(__CmpOp::LtE)),
-        CompOpKind::GtE => (quote!(>=), quote!(__CmpOp::GtE)),
-        CompOpKind::Eq => (quote!(==), quote!(__CmpOp::Eq)),
-        CompOpKind::Nq => (quote!(!=), quote!(__CmpOp::Nq)),
+    let lhs = generate_comparable(&comp_expr.lhs, tracker, scope, in_ruledef, in_match).unwrap();
+    let rhs = generate_comparable(&comp_expr.rhs, tracker, scope, in_ruledef, in_match).unwrap();
+    let (op, cmp_op) = match *comp_expr.comp_op {
+        CompOpKind::Lt => (quote!(<), quote!(CmpOp::Lt)),
+        CompOpKind::Gt => (quote!(>), quote!(CmpOp::Gt)),
+        CompOpKind::LtE => (quote!(<=), quote!(CmpOp::LtE)),
+        CompOpKind::GtE => (quote!(>=), quote!(CmpOp::GtE)),
+        CompOpKind::Eq => (quote!(==), quote!(CmpOp::Eq)),
+        CompOpKind::Nq => (quote!(!=), quote!(CmpOp::Nq)),
         CompOpKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
-    Ok(quote!(#lhs #op #rhs))
+    if !in_match {
+        Ok(quote!(#lhs #op #rhs))
+    } else {
+        Ok(quote!(
+            // Left value could be : Result, int,
+
+            // If either __lhs_val_name or __rhs_val_name is not "_", then that is get expression
+            let (__test_lhs, __lhs_val_name) = #lhs;
+            let (__test_rhs, __rhs_val_name) = #rhs;
+
+            if __lhs_val_name == "*" && __rhs_val_name == "*"{
+                todo!("Currently, either left or right hand side value needs to be ruleset variable")
+            }
+            // TODO: ordinary if expression
+            let (__cmp_target, compare_value) = if __lhs_val_name != "*"{
+                // means lhs is get
+                (__test_rhs.comparable(), __lhs_val_name)
+            } else if __rhs_val_name != "*"{
+                // means rhs is get
+                (__test_lhs.comparable(), __rhs_val_name)
+            }else{
+                todo!("Currently, both value cannot be get in comparison")
+            };
+
+            for rule in __new_rule.borrow().iter(){
+                rule.borrow_mut().add_condition_clause(ConditionClauses::Cmp(Cmp::new(#cmp_op, __cmp_target(compare_value))));
+            }
+        ))
+    }
+}
+
+pub(super) fn generate_comparable(
+    comparable: &Comparable,
+    tracker: &ValueTracker,
+    scope: &Scope,
+    in_ruledef: bool,
+    in_match: bool,
+) -> IResult<TokenStream> {
+    match comparable {
+        Comparable::Get(get_expr) => {
+            let generated = generate_get(get_expr, tracker, scope, in_ruledef, in_match).unwrap();
+            let target_value = &*get_expr.value.name;
+            if in_match {
+                Ok(quote!((#generated.clone(), #target_value)))
+            } else {
+                Ok(quote!(#generated))
+            }
+        }
+        Comparable::Term(term_expr) => {
+            let generated = generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap();
+            if in_match {
+                Ok(quote!((#generated, "*")))
+            } else {
+                Ok(quote!(#generated))
+            }
+        }
+        Comparable::VariableCall(var_call_expr) => {
+            let generated =
+                generate_variable_call(var_call_expr, tracker, scope, in_ruledef).unwrap();
+            if in_match {
+                Ok(quote!((#generated.clone(), "*")))
+            } else {
+                Ok(quote!(#generated))
+            }
+        }
+        Comparable::FnCall(fn_call_expr) => {
+            let generated = generate_fn_call(fn_call_expr, tracker, scope, in_ruledef).unwrap();
+            Ok(quote!((#generated.clone(), "*")))
+        }
+        Comparable::Lit(lit_expr) => {
+            let generated = generate_lit(lit_expr, tracker, scope).unwrap();
+            if in_match {
+                Ok(quote!((#generated, "*")))
+            } else {
+                Ok(quote!(#generated))
+            }
+        }
+        Comparable::PlaceHolder => Err(RuleSetGenError::InitializationError),
+    }
 }
 
 // Generate Variable call expression (e.g. test.function())
@@ -1538,10 +1824,10 @@ pub(super) fn generate_evaluator(type_def: &Types) -> IResult<TokenStream> {
 
 pub(super) fn generate_type_wrapper(expr: &TokenStream, type_def: &Types) -> IResult<TokenStream> {
     match type_def {
-        Types::Repeater => Ok(quote!(RuLaValue::Repeater(#expr))),
-        Types::Message => Ok(quote!(RuLaValue::Message(#expr))),
-        Types::Result => Ok(quote!(RuLaValue::RuLaResult(#expr))),
-        Types::Qubit => Ok(quote!(RuLaValue::Qubit(#expr))),
+        Types::Repeater => Ok(quote!(RuLaValue::Repeater(#expr.clone()))),
+        Types::Message => Ok(quote!(RuLaValue::Message(#expr.clone()))),
+        Types::Result => Ok(quote!(RuLaValue::RuLaResult(#expr.clone()))),
+        Types::Qubit => Ok(quote!(RuLaValue::Qubit(#expr.clone()))),
         Types::Int => Ok(quote!(RuLaValue::Int(#expr as i64))),
         Types::UInt => Ok(quote!(RuLaValue::UInt(#expr as u64))),
         Types::Float => Ok(quote!(RuLaValue::Float(#expr as f64))),

@@ -11,7 +11,10 @@ pub fn generate_factory() -> TokenStream {
         pub promoted_values: RefCell<HashMap<RuleName, Vec<RuLaValue>>>,
         // Order of vector is very important
         pub unconverted_rule_arguments: RefCell<HashMap<String, Vec<RuLaValue>>>,
-        pub rulesets: RefCell<Vec<RefCell<RuleSet>>>
+        pub rulesets: RefCell<Vec<RefCell<RuleSet>>>,
+
+        // set value
+        pub set_values: RefCell<HashMap<String, RuLaValue>>
     }
 
 
@@ -28,6 +31,7 @@ pub fn generate_factory() -> TokenStream {
                 promoted_values: RefCell::new(HashMap::new()),
                 unconverted_rule_arguments: RefCell::new(HashMap::new()),
                 rulesets: RefCell::new(rulesets),
+                set_values: RefCell::new(HashMap::new()),
             }
         }
         pub fn len(&self) -> usize {
@@ -69,7 +73,15 @@ pub fn generate_factory() -> TokenStream {
             self.rule_arguments.borrow_mut().insert(rule_name.to_string(), rule_arg);
         }
 
-        pub fn promote(&self, rule_name: &str, value: RuLaValue){
+        pub fn promote(&self, rules: RuleVec, rule_name: &str, value: RuLaValue){
+            // Push promote actions
+            let identifier = match &value{
+                RuLaValue::Qubit(qubit) => QubitIdentifier{qubit_index: qubit.index},
+                _ => {todo!("Currently, the only value that can be promoted is qubit");}
+            };
+            for rule in rules.borrow().iter(){
+                rule.borrow_mut().add_action_clause(ActionClauses::Promote(identifier.clone()));
+            }
             self.promoted_values
             .borrow_mut()
             .entry(rule_name.to_string())
@@ -79,6 +91,17 @@ pub fn generate_factory() -> TokenStream {
 
         pub fn promoted_values(&self, rule_name: &str) -> Vec<RuLaValue>{
             self.promoted_values.borrow().get(rule_name).expect("Failed to get promoted values").clone()
+        }
+
+        pub fn set(&self, rules: RuleVec, variable: RuLaValue, name: &str){
+            self.set_values.borrow_mut().entry(name.to_string()).or_insert(variable);
+        }
+
+        pub fn get(&self, rules:RuleVec, name: &str) -> RuLaValue {
+            if !self.set_values.borrow().contains_key(name){
+                panic!("No variable found {}", name)
+            }
+            self.set_values.borrow().get(name).expect("Failed to get value").clone()
         }
     }
 

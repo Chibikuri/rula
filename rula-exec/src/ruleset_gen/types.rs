@@ -1,4 +1,4 @@
-use super::condition::{CmpKind, CmpTarget};
+use super::condition::*;
 use super::ruleset::Rule;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -172,7 +172,23 @@ impl Repeater {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Message {}
+pub struct Message {
+    pub result: RuLaResult,
+    pub source: u64,
+}
+
+impl Message {
+    pub fn place_holder() -> Self {
+        let result = RuLaResult::new();
+        Message {
+            result: result,
+            source: 0,
+        }
+    }
+    pub fn update_source(&mut self, partner_index: u64) {
+        self.source = partner_index;
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Qubit {
@@ -195,6 +211,7 @@ impl RuLaResult {
     pub fn comparable(&self) -> impl Fn(&str) -> CmpTarget {
         self.__cmp_target()
     }
+    // TODO: accept general identifier for the previous result
     pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget {
         |value| CmpTarget::MeasResult(String::from(value))
     }
