@@ -23,6 +23,15 @@ pub fn res(
     Qubit::new(qubit_index.clone())
 }
 
+pub fn free(rules: RuleVec, qubit: &Qubit) {
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_action_clause(ActionClauses::Free(QubitIdentifier {
+                qubit_index: qubit.index,
+            }))
+    }
+}
+
 pub fn check_timer(rules: RuleVec, timer_id: String) {
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
