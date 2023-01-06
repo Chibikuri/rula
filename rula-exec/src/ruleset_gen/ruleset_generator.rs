@@ -505,7 +505,7 @@ pub(super) fn generate_clauses(
             generate_variable_call(var_call, tracker, scope, in_ruledef).unwrap()
         }
         CondClauses::Comp(comp_expr) => {
-            generate_comp(comp_expr, tracker, scope, in_ruledef, false).unwrap()
+            generate_comp(comp_expr, tracker, scope, in_ruledef, false, false).unwrap()
         }
     };
     Ok(quote!(#generated))
@@ -665,7 +665,7 @@ pub(super) fn generate_expr(
             Ok(generate_get(get_expr, tracker, scope, in_ruledef, in_match).unwrap())
         }
         ExprKind::Comp(comp_expr) => {
-            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match).unwrap())
+            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match, false).unwrap())
         }
         ExprKind::Term(term_expr) => {
             Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
@@ -700,7 +700,7 @@ pub(super) fn generate_if(
     // If this is not the rule definition, this becomes just an ordinary if expression
     if !in_ruledef {
         // Generate expression that returns boolean value
-        let block = generate_if_block(&*if_expr.block, tracker, scope, false).unwrap();
+        let block = generate_if_block(&*if_expr.block, tracker, scope, false, false).unwrap();
 
         // Generate statements
         let mut stmts = vec![];
@@ -759,7 +759,8 @@ pub(super) fn generate_if(
         let mut generated_actions = vec![];
 
         for block in blocks.iter() {
-            let generated_block = generate_if_block(block, tracker, scope, in_ruledef).unwrap();
+            let generated_block =
+                generate_if_block(block, tracker, scope, in_ruledef, false).unwrap();
             generated_conditions.push(quote!(
                 Box::new(
                     |__new_rule: RuleVec|{
@@ -784,6 +785,38 @@ pub(super) fn generate_if(
             generated_actions.push(closure)
         }
         // If there is a else expression, need counterpart condition for all the expressions
+        if if_expr.els.len() > 0 {
+            // If there is more than one statement in els, this needs to be treated
+            // else condition must be the inverse of all the previous conditions
+            let mut inverse_blocks = vec![];
+            for block in blocks.iter() {
+                inverse_blocks
+                    .push(generate_if_block(block, tracker, scope, in_ruledef, true).unwrap());
+            }
+            // Final else quote
+            generated_conditions.push(quote!(
+                Box::new(
+                    |__new_rule:RuleVec|{
+                        #(#inverse_blocks)*
+                        __new_rule
+                    }
+                )
+            ));
+
+            let mut generated_stmt = vec![];
+            for els_stmt in if_expr.els.iter() {
+                generated_stmt
+                    .push(generate_stmt(els_stmt, tracker, scope, in_ruledef, true).unwrap())
+            }
+            generated_actions.push(quote!(
+                Box::new(
+                    |__new_rule: RuleVec, mut __new_partner_rules: HashMap<u64, RuleVec>|{
+                        #(#generated_stmt)*
+                        (__new_rule, __new_partner_rules)
+                    }
+                )
+            ))
+        }
 
         // Inside the rule definition, if expression is expanded to the multiple rules
         // This works similarly to the match expressions
@@ -836,6 +869,7 @@ pub(super) fn generate_if_block(
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
+    inverse: bool,
 ) -> IResult<TokenStream> {
     let in_match = if in_ruledef { true } else { false };
     match if_block {
@@ -843,7 +877,7 @@ pub(super) fn generate_if_block(
             Ok(generate_get(get_expr, tracker, scope, in_ruledef, true).unwrap())
         }
         IfBlock::Comp(comp_expr) => {
-            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match).unwrap())
+            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match, inverse).unwrap())
         }
         IfBlock::Lit(literal_expr) => Ok(generate_lit(literal_expr, tracker, scope).unwrap()),
         IfBlock::PlaceHolder => Err(RuleSetGenError::InitializationError),
@@ -1106,7 +1140,7 @@ pub(super) fn generate_promotables(
 ) -> IResult<TokenStream> {
     match promotables {
         Promotables::Comp(comp_expr) => {
-            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, false).unwrap())
+            Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, false, false).unwrap())
         }
         Promotables::Term(term_expr) => {
             Ok(generate_term_expr(term_expr, tracker, scope, in_ruledef).unwrap())
@@ -1456,16 +1490,53 @@ pub(super) fn generate_comp(
     scope: &Scope,
     in_ruledef: bool,
     in_match: bool,
+    inverse: bool,
 ) -> IResult<TokenStream> {
     let lhs = generate_comparable(&comp_expr.lhs, tracker, scope, in_ruledef, in_match).unwrap();
     let rhs = generate_comparable(&comp_expr.rhs, tracker, scope, in_ruledef, in_match).unwrap();
     let (op, cmp_op) = match *comp_expr.comp_op {
-        CompOpKind::Lt => (quote!(<), quote!(CmpOp::Lt)),
-        CompOpKind::Gt => (quote!(>), quote!(CmpOp::Gt)),
-        CompOpKind::LtE => (quote!(<=), quote!(CmpOp::LtE)),
-        CompOpKind::GtE => (quote!(>=), quote!(CmpOp::GtE)),
-        CompOpKind::Eq => (quote!(==), quote!(CmpOp::Eq)),
-        CompOpKind::Nq => (quote!(!=), quote!(CmpOp::Nq)),
+        CompOpKind::Lt => {
+            if !inverse {
+                (quote!(<), quote!(CmpOp::Lt))
+            } else {
+                (quote!(<), quote!(CmpOp::Gt))
+            }
+        }
+        CompOpKind::Gt => {
+            if !inverse {
+                (quote!(>), quote!(CmpOp::Gt))
+            } else {
+                (quote!(>), quote!(CmpOp::Lt))
+            }
+        }
+        CompOpKind::LtE => {
+            if !inverse {
+                (quote!(<=), quote!(CmpOp::LtE))
+            } else {
+                (quote!(<=), quote!(CmpOp::GtE))
+            }
+        }
+        CompOpKind::GtE => {
+            if !inverse {
+                (quote!(>=), quote!(CmpOp::GtE))
+            } else {
+                (quote!(>=), quote!(CmpOp::LtE))
+            }
+        }
+        CompOpKind::Eq => {
+            if !inverse {
+                (quote!(==), quote!(CmpOp::Eq))
+            } else {
+                (quote!(==), quote!(CmpOp::Neq))
+            }
+        }
+        CompOpKind::Nq => {
+            if !inverse {
+                (quote!(!=), quote!(CmpOp::Neq))
+            } else {
+                (quote!(!=), quote!(CmpOp::Eq))
+            }
+        }
         CompOpKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
     if !in_match {
