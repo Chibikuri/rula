@@ -140,11 +140,17 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
         Rule::match_expr => Ok(Expr::new(ExprKind::Match(
             build_ast_from_match_expr(pair).unwrap(),
         ))),
-        Rule::return_expr => Ok(Expr::new(ExprKind::Return(
-            build_ast_from_return_expr(pair).unwrap(),
+        Rule::promote_expr => Ok(Expr::new(ExprKind::Promote(
+            build_ast_from_promote_expr(pair).unwrap(),
         ))),
         Rule::send_expr => Ok(Expr::new(ExprKind::Send(
             build_ast_from_send_expr(pair).unwrap(),
+        ))),
+        Rule::set_expr => Ok(Expr::new(ExprKind::Set(
+            build_ast_from_set_expr(pair).unwrap(),
+        ))),
+        Rule::get_expr => Ok(Expr::new(ExprKind::Get(
+            build_ast_from_get_expr(pair).unwrap(),
         ))),
         Rule::fn_call_expr => Ok(Expr::new(ExprKind::FnCall(
             build_ast_from_fn_call_expr(pair).unwrap(),
@@ -359,8 +365,9 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
     for expr in pair.into_inner() {
         match expr.as_rule() {
             // block statement
-            Rule::expr => {
-                if_expr.add_block(build_ast_from_expr(expr.into_inner().next().unwrap()).unwrap());
+            Rule::if_block => {
+                if_expr
+                    .add_block(build_ast_from_if_block(expr.into_inner().next().unwrap()).unwrap());
             }
             Rule::stmt => {
                 // nested expr (brace stmt -> stmt)
@@ -385,9 +392,18 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    // Check if block and expresions are properly set
-    if_expr.check();
     Ok(if_expr)
+}
+
+fn build_ast_from_if_block(pair: Pair<Rule>) -> IResult<IfBlock> {
+    match pair.as_rule() {
+        Rule::get_expr => Ok(IfBlock::Get(build_ast_from_get_expr(pair).unwrap())),
+        Rule::comp_expr => Ok(IfBlock::Comp(build_ast_from_comp_expr(pair).unwrap())),
+        Rule::literal_expr => Ok(IfBlock::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        _ => return Err(RuLaError::RuLaSyntaxError),
+    }
 }
 
 fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
@@ -501,16 +517,44 @@ fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
     Ok(match_action)
 }
 
-fn build_ast_from_return_expr(pair: Pair<Rule>) -> IResult<Return> {
-    let mut return_expr = Return::place_holder();
+fn build_ast_from_promote_expr(pair: Pair<Rule>) -> IResult<Promote> {
+    let mut promote_expr = Promote::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::expr => return_expr
-                .add_target(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
+            Rule::comp_expr => {
+                promote_expr.add_target(Promotables::Comp(
+                    build_ast_from_comp_expr(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
+            Rule::term_expr => {
+                promote_expr.add_target(Promotables::Term(
+                    build_ast_from_term_expr(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
+            Rule::vector => {
+                promote_expr.add_target(Promotables::RuLaVec(
+                    build_ast_from_vector(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
+            Rule::tuple => {
+                promote_expr.add_target(Promotables::RuLaTuple(
+                    build_ast_from_tuple(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
+            Rule::variable_call_expr => {
+                promote_expr.add_target(Promotables::VariableCall(
+                    build_ast_from_variable_call_expr(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
+            Rule::literal_expr => {
+                promote_expr.add_target(Promotables::Lit(
+                    build_ast_from_literals(block.into_inner().next().unwrap()).unwrap(),
+                ));
+            }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(return_expr)
+    Ok(promote_expr)
 }
 
 fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
@@ -536,6 +580,38 @@ fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
     }
 
     Ok(send_expr)
+}
+
+fn build_ast_from_set_expr(pair: Pair<Rule>) -> IResult<Set> {
+    let mut set_expr = Set::place_holder();
+    let mut count = 0;
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => {
+                if count == 0 {
+                    set_expr.set_value(build_ast_from_ident(block).unwrap());
+                    count += 1;
+                } else if count == 1 {
+                    set_expr.set_alias(Some(build_ast_from_ident(block).unwrap()))
+                } else {
+                    panic!("Unknown error in set expression")
+                }
+            }
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(set_expr)
+}
+
+fn build_ast_from_get_expr(pair: Pair<Rule>) -> IResult<Get> {
+    let mut get_expr = Get::place_holder();
+    for block in pair.into_inner() {
+        match block.as_rule() {
+            Rule::ident => get_expr.set_value(build_ast_from_ident(block).unwrap()),
+            _ => return Err(RuLaError::RuLaSyntaxError),
+        }
+    }
+    Ok(get_expr)
 }
 
 fn build_ast_from_fn_call_expr(pair: Pair<Rule>) -> IResult<FnCall> {
@@ -618,7 +694,8 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::comparable => {
-                expressions.push(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap());
+                expressions
+                    .push(build_ast_from_comparable(block.into_inner().next().unwrap()).unwrap());
             }
             Rule::comp_op => match block.as_str() {
                 "<" => comp_op = CompOpKind::Lt,
@@ -640,6 +717,23 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
     comp_expr.add_comp_op(comp_op);
     comp_expr.add_rhs(expressions[1].clone());
     Ok(comp_expr)
+}
+
+fn build_ast_from_comparable(pair: Pair<Rule>) -> IResult<Comparable> {
+    match pair.as_rule() {
+        Rule::get_expr => Ok(Comparable::Get(build_ast_from_get_expr(pair).unwrap())),
+        Rule::term_expr => Ok(Comparable::Term(build_ast_from_term_expr(pair).unwrap())),
+        Rule::variable_call_expr => Ok(Comparable::VariableCall(
+            build_ast_from_variable_call_expr(pair).unwrap(),
+        )),
+        Rule::fn_call_expr => Ok(Comparable::FnCall(
+            build_ast_from_fn_call_expr(pair).unwrap(),
+        )),
+        Rule::literal_expr => Ok(Comparable::Lit(
+            build_ast_from_literals(pair.into_inner().next().unwrap()).unwrap(),
+        )),
+        _ => Err(RuLaError::RuLaSyntaxError),
+    }
 }
 
 fn build_ast_from_term_expr(pair: Pair<Rule>) -> IResult<Term> {
@@ -901,7 +995,7 @@ mod tests {
             let let_stmt = pair_generator(r#"let hello: str = "world""#, Rule::let_stmt);
             let let_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", Some(TypeDef::Str)),
+                vec![Ident::new("hello", Some(TypeDef::Str))],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::StringLit(StringLit::new(
                     "world",
                 ))))),
@@ -914,7 +1008,7 @@ mod tests {
             let let_stmt = pair_generator(r#"let hello:int = -123"#, Rule::let_stmt);
             let let_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", Some(TypeDef::Integer)),
+                vec![Ident::new("hello", Some(TypeDef::Integer))],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
                     NumberLitKind::IntegerLit(IntegerLit::new("123", true)),
                 ))))),
@@ -927,12 +1021,10 @@ mod tests {
             let let_stmt = pair_generator("let hello: str = if(block){expression}", Rule::let_stmt);
             let let_if_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
             let target_ast_nodes = Let::new(
-                Ident::new("hello", Some(TypeDef::Str)),
+                vec![Ident::new("hello", Some(TypeDef::Str))],
                 Expr::new(ExprKind::If(If::new(
                     // (block)
-                    Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                        "block", None,
-                    ))))),
+                    IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
                     // {expression}
                     vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                         Lit::new(LitKind::Ident(Ident::new("expression", None))),
@@ -957,9 +1049,7 @@ mod tests {
             let if_ast_nodes = build_ast_from_if_expr(if_expr).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
-                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block", None,
-                ))))),
+                IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
                 // {expression}
                 vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                     Lit::new(LitKind::Ident(Ident::new("expression", None))),
@@ -978,9 +1068,7 @@ mod tests {
             let if_else_ast_nodes = build_ast_from_if_expr(if_else).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
-                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block", None,
-                ))))),
+                IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
                 // {expression}
                 vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                     Lit::new(LitKind::Ident(Ident::new("expression", None))),
@@ -1004,9 +1092,7 @@ mod tests {
             let if_elif_ast_nodes = build_ast_from_if_expr(if_elif_expr).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
-                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block", None,
-                ))))),
+                IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
                 // {expression}
                 vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                     Lit::new(LitKind::Ident(Ident::new("expression", None))),
@@ -1014,9 +1100,7 @@ mod tests {
                 // elif ~
                 vec![If::new(
                     // else if (block)
-                    Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                        "block2", None,
-                    ))))),
+                    IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block2", None)))),
                     // else if () {statement2;};
                     vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                         Lit::new(LitKind::Ident(Ident::new("expression2", None))),
@@ -1039,9 +1123,7 @@ mod tests {
             let if_elif_ast_nodes = build_ast_from_if_expr(if_elif_expr).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
-                Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                    "block", None,
-                ))))),
+                IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
                 // {expression}
                 vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                     Lit::new(LitKind::Ident(Ident::new("expression", None))),
@@ -1049,9 +1131,7 @@ mod tests {
                 // elif ~
                 vec![If::new(
                     // else if (block)
-                    Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
-                        "block2", None,
-                    ))))),
+                    IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block2", None)))),
                     // else if () {statement2;};
                     vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
                         Lit::new(LitKind::Ident(Ident::new("expression2", None))),
@@ -1201,12 +1281,12 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_simple_return_expr() {
-            let return_expr = pair_generator("return hello", Rule::return_expr);
-            let return_asts = build_ast_from_return_expr(return_expr).unwrap();
-            let target_ast_nodes = Return::new(Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(
+        fn test_simple_promote_expr() {
+            let promote_expr = pair_generator("promote hello", Rule::promote_expr);
+            let return_asts = build_ast_from_promote_expr(promote_expr).unwrap();
+            let target_ast_nodes = Promote::new(vec![Promotables::Lit(Lit::new(LitKind::Ident(
                 Ident::new("hello", None),
-            )))));
+            )))]);
             assert_eq!(target_ast_nodes, return_asts);
         }
     }
@@ -1236,7 +1316,7 @@ mod tests {
         // helper function
         fn generate_type_lit_ast(name: &str, type_def: Option<TypeDef>) -> Let {
             let target_ast_nodes = Let::new(
-                Ident::new(name, type_def),
+                vec![Ident::new(name, type_def)],
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                     "val", None,
                 ))))),

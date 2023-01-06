@@ -13,9 +13,11 @@ expr = {
   if_expr | 
   for_expr|
   match_expr | 
-  return_expr | 
+  promote_expr | 
   // non keyword expression
   rule_call_expr| 
+  set_expr|
+  get_expr|
   send_expr |
   // precedence sensitive
   comp_expr |
@@ -43,11 +45,13 @@ satisfiable = { literal_expr }
 match_action = { "{" ~ expr? ~ ("," ~ expr)* ~ "}" }
 
 // Return values 
-return_expr = {^"return" ~ expr?}
+promote_expr = {^"promote" ~ promotable ~ ("," ~ promotable)*}
+promotable = _{ comp_expr | term_expr | vector | tuple | variable_call_expr | literal_expr }
 
 // If expression (e.g. if (block > 0) {expreesion;};)
-if_expr = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_expr )* ~ else_expr? }
-else_if_expr = { ^"else" ~ ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" }
+if_expr = { ^"if" ~ "(" ~ if_block ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_expr )* ~ else_expr? }
+if_block = { get_expr | comp_expr | literal_expr }
+else_if_expr = { ^"else" ~ ^"if" ~ "(" ~ if_block ~ ")" ~ "{" ~ (stmt)* ~ "}" }
 else_expr = { ^"else" ~ "{" ~ (stmt)* ~ "}"}
 
 // For expression for looping
@@ -59,9 +63,15 @@ series = { int ~ ".." ~ expr }
 // Send mesage to the repeaters
 send_expr = { fn_call_expr ~ "->" ~ expr }
 
+// Set expression that set ruleset variable
+set_expr = { ^"set" ~ ident ~ ("as" ~ ident) }
+
+// Get expression that get ruleset variable
+get_expr = { ^"get" ~ ident }
+
 term_expr = { inner_term ~ ( op ~ inner_term )+ }
 inner_term = _{ terms | "(" ~ term_expr ~ ")" }
-terms = { variable_call_expr | fn_call_expr | literal_expr }
+terms = { get_expr | variable_call_expr | fn_call_expr | literal_expr }
 
 // A set of arithmetic operations for tems
 op = { ( plus | minus | asterisk | slash | percent | caret ) }
@@ -74,7 +84,7 @@ caret = { "^" }
 
 // Comparison (no chain comparison allowed)
 comp_expr = { comparable ~ comp_op ~ comparable }
-comparable = { term_expr | variable_call_expr | fn_call_expr |  literal_expr }
+comparable = { get_expr | term_expr | variable_call_expr | fn_call_expr |  literal_expr }
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!=" }
 
 // RuleSet expression with multiple statements
@@ -165,7 +175,7 @@ string_type = { "str" }
 qubit_type = { "qubit" }
 repeater_type = { "Repeater" }
 message_type = { "Message" }
-result_type = {"Result"}
+result_type = { "Result" } 
 
 COMMENT = _{ ( "/*" ~ ( !"*/" ~ ANY )* ~ "*/" | "//" ~ ( !"\n" ~ ANY )* ~ ( "\n" | EOI ) ) }
 WHITESPACE = _{ ( " " | "\n" | "\t") }

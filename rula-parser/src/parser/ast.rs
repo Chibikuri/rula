@@ -119,28 +119,28 @@ pub enum StmtKind {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Let {
-    pub ident: Box<Ident>, // ExprKind::Ident
+    pub ident: Vec<Ident>, // ExprKind::Ident
     pub expr: Box<Expr>,
 }
 
 impl Let {
     // Constructor with kind check
-    pub fn new(identifier: Ident, expr: Expr) -> Self {
+    pub fn new(identifiers: Vec<Ident>, expr: Expr) -> Self {
         Let {
-            ident: Box::new(identifier),
+            ident: identifiers,
             expr: Box::new(expr),
         }
     }
 
     pub fn place_holder() -> Self {
         Let {
-            ident: Box::new(Ident::place_holder()),
+            ident: vec![],
             expr: Box::new(Expr::place_holder()),
         }
     }
 
     pub fn add_ident(&mut self, identifier: Ident) {
-        self.ident = Box::new(identifier);
+        self.ident.push(identifier);
     }
 
     pub fn add_expr(&mut self, expr: Expr) {
@@ -186,9 +186,11 @@ pub enum ExprKind {
     If(If),
     For(For),
     Match(Match),
-    Return(Return),
+    Promote(Promote),
     //
     Send(Send),
+    Set(Set),
+    Get(Get),
     FnCall(FnCall),
     RuleCall(RuleCall),
     RuLaVec(RuLaVec),
@@ -524,14 +526,14 @@ impl ActExpr {
 */
 #[derive(Debug, Clone, PartialEq)]
 pub struct If {
-    pub block: Box<Expr>, // StmtKind::Expr
+    pub block: Box<IfBlock>, // StmtKind::Expr
     pub stmts: Vec<Stmt>,
     pub elif: Vec<If>,
     pub els: Vec<Stmt>,
 }
 
 impl If {
-    pub fn new(block: Expr, stmt: Vec<Stmt>, elif: Vec<If>, els: Vec<Stmt>) -> If {
+    pub fn new(block: IfBlock, stmt: Vec<Stmt>, elif: Vec<If>, els: Vec<Stmt>) -> If {
         If {
             // enum type validation
             block: Box::new(block),
@@ -543,14 +545,14 @@ impl If {
 
     pub fn place_holder() -> If {
         If {
-            block: Box::new(Expr::place_holder()),
+            block: Box::new(IfBlock::PlaceHolder),
             stmts: vec![],
             elif: vec![],
             els: vec![],
         }
     }
 
-    pub fn add_block(&mut self, block: Expr) {
+    pub fn add_block(&mut self, block: IfBlock) {
         self.block = Box::new(block);
     }
 
@@ -565,13 +567,14 @@ impl If {
     pub fn add_else(&mut self, els: Stmt) {
         self.els.push(els);
     }
+}
 
-    pub fn check(&self) {
-        if *self.block == Expr::place_holder() {
-            // Maybe just error returning
-            panic!("No block expressio set!");
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum IfBlock {
+    Get(Get),
+    Comp(Comp),
+    Lit(Lit),
+    PlaceHolder,
 }
 
 // for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ expr ~ brace_stmt }
@@ -752,24 +755,32 @@ impl MatchAction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Return {
-    pub target: Box<Expr>,
+pub struct Promote {
+    pub target: Vec<Promotables>,
 }
 
-impl Return {
-    pub fn new(return_target: Expr) -> Self {
-        Return {
-            target: Box::new(return_target),
+impl Promote {
+    pub fn new(promote_target: Vec<Promotables>) -> Self {
+        Promote {
+            target: promote_target,
         }
     }
     pub fn place_holder() -> Self {
-        Return {
-            target: Box::new(Expr::place_holder()),
-        }
+        Promote { target: vec![] }
     }
-    pub fn add_target(&mut self, target: Expr) {
-        self.target = Box::new(target);
+    pub fn add_target(&mut self, target: Promotables) {
+        self.target.push(target);
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Promotables {
+    Comp(Comp),
+    Term(Term),
+    RuLaVec(RuLaVec),
+    RuLaTuple(RuLaTuple),
+    VariableCall(VariableCallExpr),
+    Lit(Lit),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -797,6 +808,54 @@ impl Send {
     }
     pub fn add_expr(&mut self, expr: Expr) {
         self.expr = Box::new(expr);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Set {
+    pub value: Box<Ident>,
+    pub alias: Box<Option<Ident>>,
+}
+
+impl Set {
+    pub fn new(value: Ident, alias: Option<Ident>) -> Self {
+        Set {
+            value: Box::new(value),
+            alias: Box::new(alias),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Set {
+            value: Box::new(Ident::place_holder()),
+            alias: Box::new(None),
+        }
+    }
+    pub fn set_value(&mut self, value: Ident) {
+        self.value = Box::new(value);
+    }
+    pub fn set_alias(&mut self, alias: Option<Ident>) {
+        self.alias = Box::new(alias);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Get {
+    pub value: Box<Ident>,
+}
+
+impl Get {
+    pub fn new(value: Ident) -> Self {
+        Get {
+            value: Box::new(value),
+        }
+    }
+    pub fn place_holder() -> Self {
+        Get {
+            value: Box::new(Ident::place_holder()),
+        }
+    }
+    pub fn set_value(&mut self, value: Ident) {
+        self.value = Box::new(value);
     }
 }
 
@@ -894,13 +953,13 @@ pub enum RepeaterCallArg {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comp {
-    pub lhs: Box<Expr>, // comparable expression (should be traited later)
+    pub lhs: Box<Comparable>, // comparable expression (should be traited later)
     pub comp_op: Box<CompOpKind>,
-    pub rhs: Box<Expr>,
+    pub rhs: Box<Comparable>,
 }
 
 impl Comp {
-    pub fn new(lhs: Expr, comp_op: CompOpKind, rhs: Expr) -> Self {
+    pub fn new(lhs: Comparable, comp_op: CompOpKind, rhs: Comparable) -> Self {
         Comp {
             lhs: Box::new(lhs),
             comp_op: Box::new(comp_op),
@@ -909,20 +968,30 @@ impl Comp {
     }
     pub fn place_holder() -> Self {
         Comp {
-            lhs: Box::new(Expr::place_holder()),
+            lhs: Box::new(Comparable::PlaceHolder),
             comp_op: Box::new(CompOpKind::PlaceHolder),
-            rhs: Box::new(Expr::place_holder()),
+            rhs: Box::new(Comparable::PlaceHolder),
         }
     }
-    pub fn add_lhs(&mut self, lhs: Expr) {
+    pub fn add_lhs(&mut self, lhs: Comparable) {
         self.lhs = Box::new(lhs)
     }
-    pub fn add_rhs(&mut self, rhs: Expr) {
+    pub fn add_rhs(&mut self, rhs: Comparable) {
         self.rhs = Box::new(rhs)
     }
     pub fn add_comp_op(&mut self, op: CompOpKind) {
         self.comp_op = Box::new(op)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Comparable {
+    Get(Get),
+    Term(Term),
+    VariableCall(VariableCallExpr),
+    FnCall(FnCall),
+    Lit(Lit),
+    PlaceHolder,
 }
 
 #[derive(Debug, Clone, PartialEq)]

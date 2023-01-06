@@ -1,33 +1,34 @@
 #repeaters: vec[Repeater]
 
-import std::operations::{cx, meas_z}
+import std::operation::{cx, measure}
 
 
-rule local_operation<#rep>(distance: int) :-> (qubit, str) {
+rule local_operation<#rep>(distance: int) :-> qubit {
     let partner: Repeater = #rep.hop(distance)
     cond {
-        @q1: res(1, partner)
-        @q2: res(1, partner)
+        @q1: res(1, 0.8, partner, 0)
+        @q2: res(1, 0.5, partner, 1)
     } => act {
         // do cx
         cx(q1, q2)
         // measure the target qubit
-        let result: str = meas_z(q2, "Z")
+        let result: Result = measure(q2, "Z")
         meas(q2, result) -> partner
-        promote (q1, result)
+        set result as self_result
+        promote q1 
     }
 }
 
-rule parity_check<#rep>(promoted: qubit, self_result: str) :-> qubit? {
-    let partner: Repeater = #rep.incr(distance)
+rule parity_check<#rep>(distance: int, promoted: qubit) :-> qubit? {
+    let partner: Repeater = #rep.hop(distance)
     cond {
         @message: recv(partner)
     } => act {
-        if(message.result == self_result){
+        if(message.result == get self_result){
             // purification success
-            promote(promoted)
+            promote promoted
         }else{
-            // purification failed
+            // purification failed (This can be an expression)
             free(promoted)
         }
     }
@@ -36,18 +37,10 @@ rule parity_check<#rep>(promoted: qubit, self_result: str) :-> qubit? {
 
 ruleset purification {
     // initial purification
-    for i in 0..#repeaters.max()-1{
-        let (promoted_qubit: qubit, result_i: str) = local_operation<#repeaters(i)>(1)
-        parity_check<#repeaters(i)>(promoted_qubit, result_i)
-        let (promoted_qubit2: qubit, result_next: str) = local_operation<#repeaters(i+1)>(-1)
-        parity_check<#repeaters(i+1)>(promoted_qubit2, result_next)
-    }
-    // swappings
-    for d in 1..#repeaters.len()/2 +1 {
-        for i in 1..#repeaters.len() -1{
-            if (i % 2 == 0){
-                swapping<#repeaters(i)>(d)
-            }
-        }
+    for i in 0..#repeaters.len()-1{
+        let promoted_qubit: qubit = local_operation<#repeaters(i)>(1)
+        let promoted1: qubit = parity_check<#repeaters(i)>(i, promoted_qubit)
+        let promoted_qubit2: qubit = local_operation<#repeaters(i+1)>(-1)
+        let promoted2: qubit = parity_check<#repeaters(i+1)>(i, promoted_qubit2)
     }
 }

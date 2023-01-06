@@ -1,4 +1,4 @@
-use super::condition::{CmpKind, CmpTarget};
+use super::condition::*;
 use super::ruleset::Rule;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -39,51 +39,65 @@ pub enum RuLaValue {
     Int(i64),
     Float(f64),
     Boolean(bool),
-    // TODO
-    // Vec(Box<Types>),
+    RuLaResult(RuLaResult), // TODO
+                            // Vec(Box<Types>),
 }
 
 impl RuLaValue {
+    pub fn wrap<T>(val: &T) -> Self {
+        match std::any::type_name::<T>() {
+            // "Repeater" => {RuLaValue::Repeater(val as Repeater)}
+            _ => todo!(),
+        }
+    }
+
+    pub fn eval_as_result(&self) -> &RuLaResult {
+        match self {
+            RuLaValue::RuLaResult(result) => result,
+            _ => panic!("This value cannot be evaluated as result"),
+        }
+    }
+
     pub fn eval_as_repeater(&self) -> &Repeater {
         match self {
             RuLaValue::Repeater(repeater) => repeater,
-            _ => panic!("This value cannot evaluated as repeater"),
+            _ => panic!("This value cannot be evaluated as repeater"),
         }
     }
     pub fn eval_as_message(&self) -> &Message {
         match self {
             RuLaValue::Message(message) => message,
-            _ => panic!("This value cannot evaluated as message"),
+            _ => panic!("This value cannot be evaluated as message"),
         }
     }
     pub fn eval_as_qubit(&self) -> &Qubit {
         match self {
             RuLaValue::Qubit(qubit) => qubit,
-            _ => panic!("This value cannot evaluated as Qubit"),
+            _ => panic!("This value cannot be evaluated as Qubit"),
         }
     }
     pub fn eval_as_str(&self) -> &String {
         match self {
             RuLaValue::Str(string) => string,
-            _ => panic!("This value cannot evaluated as Str"),
+            _ => panic!("This value cannot be evaluated as Str"),
         }
     }
     pub fn eval_as_uint(&self) -> u64 {
         match self {
             RuLaValue::UInt(uint) => uint.clone(),
-            _ => panic!("This value cannot evaluated as UInt"),
+            _ => panic!("This value cannot be evaluated as UInt"),
         }
     }
     pub fn eval_as_int(&self) -> i64 {
         match self {
             RuLaValue::Int(integer) => integer.clone(),
-            _ => panic!("This value cannot evaluated as Int"),
+            _ => panic!("This value cannot be evaluated as Int"),
         }
     }
     pub fn eval_as_float(&self) -> f64 {
         match self {
             RuLaValue::Float(float) => float.clone(),
-            _ => panic!("This value cannot evaluated as float"),
+            _ => panic!("This value cannot be evaluated as float"),
         }
     }
     pub fn eval_as_bool(&self) -> bool {
@@ -121,7 +135,8 @@ impl Repeater {
     }
 
     // TODO: remove rulevec arg
-    pub fn hop(&self, _: RuleVec, distance: i64) -> &Repeater {
+    pub fn hop(&self, _: RuleVec, distance_ref: &i64) -> &Repeater {
+        let distance = distance_ref.clone();
         if distance == 0 {
             return self;
         } else if distance > 0 {
@@ -157,7 +172,23 @@ impl Repeater {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Message {}
+pub struct Message {
+    pub result: RuLaResult,
+    pub source: u64,
+}
+
+impl Message {
+    pub fn place_holder() -> Self {
+        let result = RuLaResult::new();
+        Message {
+            result: result,
+            source: 0,
+        }
+    }
+    pub fn update_source(&mut self, partner_index: u64) {
+        self.source = partner_index;
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Qubit {
@@ -180,14 +211,8 @@ impl RuLaResult {
     pub fn comparable(&self) -> impl Fn(&str) -> CmpTarget {
         self.__cmp_target()
     }
+    // TODO: accept general identifier for the previous result
     pub fn __cmp_target(&self) -> impl Fn(&str) -> CmpTarget {
         |value| CmpTarget::MeasResult(String::from(value))
     }
-    // pub fn comp(rules: RuleVec, values: Vec<&str>, actions: Vec<Fn(rules)>){
-    //     // if there are 2 rules inside, the resulting size should be four
-    //     let snapshot = rules.borrow().clone();
-    //     let num_rule =
-    //     // Prepare
-
-    // }
 }

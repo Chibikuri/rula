@@ -7,20 +7,20 @@ use std::collections::HashSet;
 
 pub fn res(
     rules: RuleVec,
-    num_res: u64,
-    req_fidelity: f64,
+    num_res: &u64,
+    req_fidelity: &f64,
     partner_repeater: &Repeater,
-    qubit_index: u64,
+    qubit_index: &u64,
 ) -> Qubit {
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
             .add_condition_clause(ConditionClauses::Res(Res::new(
-                num_res,
+                num_res.clone(),
                 PartnerAddr::IntegerKind(partner_repeater.index),
-                Some(req_fidelity),
+                Some(req_fidelity.clone()),
             )))
     }
-    Qubit::new(qubit_index)
+    Qubit::new(qubit_index.clone())
 }
 
 pub fn check_timer(rules: RuleVec, timer_id: String) {
@@ -65,6 +65,16 @@ pub fn wait(
             .add_condition_clause(condition_clause.clone());
         rule.borrow_mut().add_action_clause(action_clause.clone());
     }
+}
+
+pub fn recv(rules: RuleVec, source_repeater: &Repeater) -> Message {
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_condition_clause(ConditionClauses::Recv(Recv::new(source_repeater.index)));
+    }
+    let mut new_message = Message::place_holder();
+    new_message.update_source(source_repeater.index);
+    new_message
 }
 
 fn generate_protocol_message(

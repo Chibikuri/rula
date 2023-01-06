@@ -20,6 +20,11 @@ pub struct Tracker {
     pub rule_argument_names: HashMap<RuleName, Vec<(String, Types)>>,
     pub return_type_annotation: HashMap<RuleName, RetTypeAnnotation>,
     pub num_repeater: u32,
+    // Hashmap<Scope Name, <Identifier Name, Types>>
+    pub variables: HashMap<String, HashMap<String, Types>>,
+    // Different from ordinary variables
+    // This map only contains the variables that is set by set expressions
+    pub set_variables: HashMap<String, Types>,
 }
 
 impl Tracker {
@@ -32,36 +37,10 @@ impl Tracker {
             rule_argument_names: HashMap::new(),
             return_type_annotation: HashMap::new(),
             num_repeater: 0,
+            variables: HashMap::new(),
+            set_variables: HashMap::new(),
         }
     }
-
-    // Functions for RuleSet
-    // pub fn add_ruleset(&self, number: NodeNumber, ruleset: RuleSet) {
-    //     self.rulesets.borrow_mut().insert(number, ruleset);
-    // }
-
-    // pub fn update_ruleset_name(&mut self, new_name: &str) {
-    //     self.ruleset_name = new_name.to_string();
-    //     for (_, ruleset) in self.rulesets.borrow_mut().iter_mut() {
-    //         ruleset.update_name(new_name);
-    //     }
-    // }
-
-    // pub fn add_stage(&self, repeater_index: usize, stage: Stage) {
-    //     self.rulesets
-    //         .borrow_mut()
-    //         .get_mut(&repeater_index)
-    //         .expect("Failed to find a ruelset")
-    //         .add_stage(stage);
-    // }
-
-    // pub fn return_rulesets(&self) -> Vec<RuleSet> {
-    //     let mut rulesets = vec![];
-    //     for (_, rs) in self.rulesets.borrow().iter() {
-    //         rulesets.push(rs.clone())
-    //     }
-    //     rulesets
-    // }
 
     // Functions for Rules
     pub fn check_rule_name_exist(&self, name: &str) -> bool {
@@ -123,8 +102,88 @@ impl Tracker {
             .insert(rule_name.to_string(), ret_type_annotation);
     }
 
+    pub fn exist_return_types(&self, rule_name: &RuleName) -> bool {
+        self.return_type_annotation.contains_key(rule_name)
+    }
+
+    pub fn check_return_type_annotations(&self, rule_name: &RuleName) -> &RetTypeAnnotation {
+        if !self.exist_return_types(rule_name) {
+            panic!("No return type annotation found!");
+        }
+        self.return_type_annotation
+            .get(rule_name)
+            .expect("Failed to get")
+    }
+
     pub fn update_num_node(&mut self, num_node: u32) {
         self.num_repeater = num_node;
+    }
+
+    pub fn register_variable(&mut self, ident_name: &String, type_hint: &Types, scope: &String) {
+        if !self.variables.contains_key(scope) {
+            let mut new_map = HashMap::new();
+            new_map.insert(ident_name.to_string(), type_hint.clone());
+            self.variables.insert(scope.to_string(), new_map);
+        } else {
+            if self
+                .variables
+                .get(scope)
+                .expect("Failed to get scope name")
+                .contains_key(ident_name)
+            {
+                panic!("Variable {} is already defined in {}", ident_name, scope);
+            } else {
+                self.variables
+                    .get_mut(scope)
+                    .expect("Failed to get scope name")
+                    .insert(ident_name.to_string(), type_hint.clone());
+            }
+        }
+    }
+
+    pub fn check_variable_exist(&self, ident_name: &String, scope: &String) -> bool {
+        if !self.variables.contains_key(scope) {
+            panic!("No variable found in {}", scope);
+        }
+
+        if !self
+            .variables
+            .get(scope)
+            .expect("Failed to get scope")
+            .contains_key(ident_name)
+        {
+            panic!(
+                "No variable {} in {}, DEBUG {:#?}'",
+                ident_name, scope, self.variables
+            )
+        }
+
+        self.variables
+            .get(scope)
+            .expect("Failed to get scope")
+            .contains_key(ident_name)
+    }
+
+    pub fn get_variable_type_hint(&self, ident_name: &String, scope: &String) -> &Types {
+        self.check_variable_exist(ident_name, scope);
+
+        self.variables
+            .get(scope)
+            .expect("Failed to get scope")
+            .get(ident_name)
+            .expect("Failed to get identifier")
+    }
+
+    pub fn register_set_variable(&mut self, ident_name: &String, type_hint: &Types) {
+        self.set_variables
+            .entry(ident_name.to_string())
+            .or_insert(type_hint.clone());
+    }
+
+    pub fn get_type_hint_of_set_variable(&self, ident_name: &String) -> &Types {
+        self.set_variables
+            .get(ident_name)
+            .expect("Failed to get type hint")
     }
 }
 

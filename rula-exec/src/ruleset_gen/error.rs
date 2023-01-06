@@ -8,4 +8,5 @@ pub enum RuleSetGenError {
     UnknownTypeError,
     UnSendableFunctionError,
     ArgumentNumberError,
+    NeedIdentifierTypeAnnotationError,
 }
