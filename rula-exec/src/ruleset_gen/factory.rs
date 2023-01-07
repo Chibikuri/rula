@@ -82,11 +82,12 @@ pub fn generate_factory() -> TokenStream {
             for rule in rules.borrow().iter(){
                 rule.borrow_mut().add_action_clause(ActionClauses::Promote(identifier.clone()));
             }
-            self.promoted_values
-            .borrow_mut()
-            .entry(rule_name.to_string())
-            .and_modify(|vals| vals.push(value))
-            .or_insert(vec![]);
+            if self.promoted_values.borrow().contains_key(rule_name){
+                self.promoted_values.borrow_mut().get_mut(rule_name).expect("").push(value);
+            }else{
+                let initial_vec = vec![value];
+                self.promoted_values.borrow_mut().insert(rule_name.to_string(), initial_vec);
+            }
         }
 
         pub fn promoted_values(&self, rule_name: &str) -> Vec<RuLaValue>{
