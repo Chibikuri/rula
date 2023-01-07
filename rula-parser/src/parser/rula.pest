@@ -79,7 +79,7 @@ plus = { "+" }
 minus = { "-" }
 asterisk = { "*" }
 slash = { "/" }
-percent = {"%"}
+percent = { "%" }
 caret = { "^" }
 
 // Comparison (no chain comparison allowed)
@@ -88,12 +88,12 @@ comparable = { get_expr | term_expr | variable_call_expr | fn_call_expr |  liter
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!=" }
 
 // RuleSet expression with multiple statements
-ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
+ruleset_expr = { ^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
 
 // Rule expression for each rule
 rule_expr = { ^"rule" ~ ident ~ "<" ~ repeater_ident ~ ">"~ argument_def ~ (":->" ~ ret_type_annotation)? ~ "{" ~ rule_contents ~ "}" }
 ret_type_annotation = { typedef_lit ~ maybe? | "(" ~ (typedef_lit ~ maybe?) ~ ("," ~ typedef_lit ~ maybe?)* ~ ")"}
-maybe = {"?"}
+maybe = { "?" }
 argument_def = { "(" ~ ( ( ident_typed | ident )? ~ ( "," ~ ( ident_typed | ident ) )* ) ~ ")" }
 rule_contents = { ( let_stmt )* ~ cond_expr ~ "=>" ~ act_expr ~ ( stmt )* }
 
@@ -107,7 +107,7 @@ variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
 callable = { fn_call_expr | repeater_ident | ident }
 
 rule_call_expr = { ident ~ "<" ~ repeater_call ~ ">" ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")"}
-repeater_call = {"#repeaters" ~ "(" ~ ( term_expr | ident | int ) ~ ")"}
+repeater_call = { "#repeaters" ~ "(" ~ ( term_expr | ident | int ) ~ ")" }
 
 fn_call_expr = { ident ~ "(" ~ fn_call_args? ~ ("," ~ fn_call_args)* ~ ")" }
 fn_call_args = { term_expr | fn_call_expr | variable_call_expr | literal_expr }

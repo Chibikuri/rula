@@ -2,6 +2,7 @@
 mod tests {
     use super::super::ruleset_generator::*;
     use super::super::tracker::Tracker;
+    use super::super::types::Types;
     use rula_parser::parser::ast::*;
     use std::cell::RefCell;
 
@@ -30,6 +31,53 @@ mod tests {
                     .to_string();
             let expected = "let x : i64 = 19 ;";
             assert_eq!(generated_let, expected);
+        }
+
+        #[test]
+        fn test_multi_arg_let() {
+            // (original) let (x: qubit, y: qubit) = generate();
+            // (generated) let (x, y): (qubit, qubit) = generated();
+            let target_ast = Let::new(
+                vec![
+                    Ident::new("x", Some(TypeDef::Qubit)),
+                    Ident::new("y", Some(TypeDef::Qubit)),
+                ],
+                Expr::new(ExprKind::FnCall(FnCall::new(
+                    Ident::new("generated", None),
+                    false,
+                    vec![],
+                ))),
+            );
+            let generated_let =
+                generate_let(&target_ast, &mock_tracker(), &String::from("Test"), true)
+                    .unwrap()
+                    .to_string();
+            let expected = "let (x , y) : (Qubit , Qubit) = generated (Rc :: clone (& rules) ,) ;";
+            assert_eq!(generated_let, expected);
+        }
+
+        #[test]
+        fn tracker_register_test() {
+            // (original) let test: int = 20;
+
+            let tracker = mock_tracker();
+            let target_ast = Let::new(
+                vec![Ident::new("test", Some(TypeDef::Integer))],
+                Expr::new(ExprKind::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("19", false)),
+                ))))),
+            );
+            let _ = generate_let(&target_ast, &tracker, &String::from("Test"), true);
+            let variables = &tracker.borrow().variables;
+            assert!(variables.contains_key("Test"));
+            assert!(variables
+                .get("Test")
+                .expect("Failed to get scope")
+                .contains_key("test"));
+            assert_eq!(
+                variables.get("Test").expect("").get("test").expect(""),
+                &Types::Int
+            );
         }
     }
 
