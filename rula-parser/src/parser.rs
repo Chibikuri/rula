@@ -706,7 +706,7 @@ fn build_ast_from_comp_expr(pair: Pair<Rule>) -> IResult<Comp> {
                 "!=" => comp_op = CompOpKind::Nq,
                 _ => unreachable!("Unknown ops!"),
             },
-            _ => unreachable!(),
+            _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     if expressions.len() != 2 {
@@ -1588,6 +1588,47 @@ mod tests {
                 ))),
             ]);
             assert_eq!(tuple_ast, target_ast);
+        }
+    }
+
+    #[cfg(test)]
+    mod test_comp_expr {
+        use super::*;
+
+        #[test]
+        fn test_simple_comp() {
+            let comp_expr = pair_generator("test > 0", Rule::comp_expr);
+            let comp_ast = build_ast_from_comp_expr(comp_expr).unwrap();
+
+            let target_ast = Comp::new(
+                Comparable::Lit(Lit::new(LitKind::Ident(Ident::new("test", None)))),
+                CompOpKind::Gt,
+                Comparable::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("0", false)),
+                )))),
+            );
+            assert_eq!(comp_ast, target_ast);
+        }
+
+        #[test]
+        fn test_comp_with_term() {
+            let comp_expr = pair_generator("test + 1 != 0", Rule::comp_expr);
+            let comp_ast = build_ast_from_comp_expr(comp_expr).unwrap();
+
+            let target_ast = Comp::new(
+                Comparable::Term(Term::new(
+                    Terms::Lit(Lit::new(LitKind::Ident(Ident::new("test", None)))),
+                    TermOps::Plus,
+                    Terms::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                        NumberLitKind::IntegerLit(IntegerLit::new("1", false)),
+                    )))),
+                )),
+                CompOpKind::Nq,
+                Comparable::Lit(Lit::new(LitKind::NumberLit(NumberLit::new(
+                    NumberLitKind::IntegerLit(IntegerLit::new("0", false)),
+                )))),
+            );
+            assert_eq!(comp_ast, target_ast);
         }
     }
 }

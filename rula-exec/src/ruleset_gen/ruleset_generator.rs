@@ -1122,10 +1122,10 @@ pub(super) fn generate_promote(
         let type_wrapped_expr = generate_type_wrapper(&generated_expr, type_def).unwrap();
         if !in_match {
             expressions
-            .push(quote!(self.callback.borrow_mut().promote(Rc::clone(&rules), &self.name, #type_wrapped_expr);));
+            .push(quote!(self.callback.borrow().promote(Rc::clone(&rules), &self.name, #type_wrapped_expr);));
         } else {
             expressions
-            .push(quote!(self.callback.borrow_mut().promote(Rc::clone(&__new_rule), &self.name, #type_wrapped_expr);));
+            .push(quote!(self.callback.borrow().promote(Rc::clone(&__new_rule), &self.name, #type_wrapped_expr);));
         }
     }
     Ok(quote!(#(#expressions)*))
@@ -1254,7 +1254,7 @@ pub(super) fn generate_set(
     )
     .unwrap();
 
-    Ok(quote!(self.callback.borrow_mut().set(Rc::clone(&rules), #generated_value, #alias);))
+    Ok(quote!(self.callback.borrow().set(Rc::clone(&rules), #generated_value, #alias);))
 }
 
 pub(super) fn generate_get(
