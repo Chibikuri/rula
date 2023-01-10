@@ -3,7 +3,7 @@
 import std::operation::{cx, measure}
 
 
-rule local_operation<#rep>(distance: int) :-> qubit {
+rule local_operation<#rep>(distance: int) :-> Qubit {
     let partner: Repeater = #rep.hop(distance)
     cond {
         @q1: res(1, 0.8, partner, 0)
@@ -19,7 +19,7 @@ rule local_operation<#rep>(distance: int) :-> qubit {
     }
 }
 
-rule parity_check<#rep>(distance: int, promoted: qubit) :-> qubit? {
+rule parity_check<#rep>(distance: int, promoted: Qubit) :-> Qubit? {
     let partner: Repeater = #rep.hop(distance)
     cond {
         @message: recv(partner)
@@ -38,9 +38,9 @@ rule parity_check<#rep>(distance: int, promoted: qubit) :-> qubit? {
 ruleset purification {
     // initial purification
     for i in 0..#repeaters.len()-1{
-        let promoted_qubit: qubit = local_operation<#repeaters(i)>(1)
-        let promoted1: qubit = parity_check<#repeaters(i)>(i, promoted_qubit)
-        let promoted_qubit2: qubit = local_operation<#repeaters(i+1)>(-1)
-        let promoted2: qubit = parity_check<#repeaters(i+1)>(i, promoted_qubit2)
+        let promoted_qubit: Qubit = local_operation<#repeaters(i)>(1)
+        let promoted1: qubit = parity_check<#repeaters(i)>(1, promoted_qubit)
+        let promoted_qubit2: Qubit = local_operation<#repeaters(i+1)>(-1)
+        let promoted2: qubit = parity_check<#repeaters(i+1)>(-1, promoted_qubit2)
     }
 }
