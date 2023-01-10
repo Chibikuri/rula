@@ -122,7 +122,7 @@
 
 //     #[test]
 //     #[ignore = "temporary"]
-//     fn test_simple_if_expr() {
+//     fn test_simple_if_stmt() {
 //         // if(block){expression}"
 //         let mut target_ast =
 //             build_stmt_ast(Stmt::new(StmtKind::Expr(Expr::new(ExprKind::If(If::new(

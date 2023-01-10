@@ -181,7 +181,7 @@ pub(super) fn generate_rula(rula: &RuLa, tracker: &ValueTracker) -> IResult<Toke
 
 // program: Program AST that contains a vector of Stmt
 // program could have multiple expressions and statements inside
-// program = { repeaters? ~ ( import_expr | rule_expr | ruleset_expr )* }
+// program = { repeaters? ~ ( import_stmt | rule_stmt | ruleset_stmt )* }
 pub(super) fn generate_program(program: &Program, tracker: &ValueTracker) -> IResult<TokenStream> {
     // A vector to store a set of generated stmts
     let programs = {
@@ -192,14 +192,14 @@ pub(super) fn generate_program(program: &Program, tracker: &ValueTracker) -> IRe
                 ProgramKind::Repeaters => {
                     // Prepare annotation
                 }
-                ProgramKind::Import(import_expr) => {
-                    programs.push(generate_import(import_expr, tracker).unwrap());
+                ProgramKind::Import(import_stmt) => {
+                    programs.push(generate_import(import_stmt, tracker).unwrap());
                 }
-                ProgramKind::RuleSetExpr(ruleset_expr) => {
-                    programs.push(generate_ruleset_expr(ruleset_expr, tracker).unwrap());
+                ProgramKind::RuleSetExpr(ruleset_stmt) => {
+                    programs.push(generate_ruleset_stmt(ruleset_stmt, tracker).unwrap());
                 }
-                ProgramKind::RuleExpr(rule_expr) => {
-                    programs.push(generate_rule_expr(rule_expr, tracker).unwrap());
+                ProgramKind::RuleExpr(rule_stmt) => {
+                    programs.push(generate_rule_stmt(rule_stmt, tracker).unwrap());
                 }
             }
         }
@@ -210,16 +210,16 @@ pub(super) fn generate_program(program: &Program, tracker: &ValueTracker) -> IRe
 
 // Import expression to get functions. (import test::func)
 // Generate import expression
-// import_expr = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
+// import_stmt = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
 pub(super) fn generate_import(
-    import_expr: &Import,
+    import_stmt: &Import,
     tracker: &ValueTracker,
 ) -> IResult<TokenStream> {
     // import must be out of scope
     let scope = String::from("___*");
 
     // Convert a set of paths into a set of identifiers
-    let path = import_expr.path.convert_to_ident();
+    let path = import_stmt.path.convert_to_ident();
 
     // Vector to store all paths
     // e.g. [hello::world, good::evening::Yall]
@@ -251,13 +251,13 @@ pub(super) fn generate_import(
 }
 
 // Generate ruleset expression
-// ruleset_expr = {^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
-pub(super) fn generate_ruleset_expr(
-    ruleset_expr: &RuleSetExpr,
+// ruleset_stmt = {^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
+pub(super) fn generate_ruleset_stmt(
+    ruleset_stmt: &RuleSetExpr,
     tracker: &ValueTracker,
 ) -> IResult<TokenStream> {
     // 0. Get the ruleset name and update the ruleset names
-    let ruleset_name = &*ruleset_expr.name.name;
+    let ruleset_name = &*ruleset_stmt.name.name;
     let scope = ruleset_name;
     if tracker.borrow().check_rule_name_exist(ruleset_name) {
         return Err(RuleSetGenError::SameNameExistInRuleError);
@@ -265,7 +265,7 @@ pub(super) fn generate_ruleset_expr(
 
     // 1. Generate statements (stmt)* outside ruledef (in_ruledef = false)
     let mut generated = vec![];
-    for stmt in &ruleset_expr.rules {
+    for stmt in &ruleset_stmt.rules {
         generated.push(generate_stmt(stmt, tracker, scope, false, false).unwrap());
     }
 
@@ -287,14 +287,14 @@ pub(super) fn generate_ruleset_expr(
 }
 
 // Generate rule expression
-// rule_expr = { ^"rule" ~ ident ~ "<" ~ repeater_ident ~ ">"~ argument_def
+// rule_stmt = { ^"rule" ~ ident ~ "<" ~ repeater_ident ~ ">"~ argument_def
 //              ~ (":->" ~ ret_type_annotation)? ~ "{" ~ rule_contents ~ "}" }
-pub(super) fn generate_rule_expr(
-    rule_expr: &RuleExpr,
+pub(super) fn generate_rule_stmt(
+    rule_stmt: &RuleExpr,
     tracker: &ValueTracker,
 ) -> IResult<TokenStream> {
     // 0. (RuleName: ident) Get the rule name and register it to the tracker
-    let rule_name = &*rule_expr.name.name;
+    let rule_name = &*rule_stmt.name.name;
     // Check if there is a Rule with the same name
     if tracker.borrow().check_rule_name_exist(rule_name) {
         return Err(RuleSetGenError::RuleNameDuplicationError);
@@ -306,7 +306,7 @@ pub(super) fn generate_rule_expr(
     // 1. (RepeaterIdent: ident) Register repeater identifiers to be used in this RuleExpr
     // e.g. <#rep> This can be refered as repeater value
     // Now the number of repeater is limited to 1
-    let repeater_identifier = &*rule_expr.repeater_ident.name;
+    let repeater_identifier = &*rule_stmt.repeater_ident.name;
     tracker
         .borrow_mut()
         .add_internal_repeater_name(rule_name, repeater_identifier);
@@ -316,7 +316,7 @@ pub(super) fn generate_rule_expr(
     let mut arg_names = vec![];
     let argument_identifiers = {
         let mut argument_names = vec![];
-        for arg in &*rule_expr.args {
+        for arg in &*rule_stmt.args {
             let arg_name = arg.name.to_string();
             arg_names.push(quote!(#arg_name.to_string()));
             match &*arg.type_hint {
@@ -335,7 +335,7 @@ pub(super) fn generate_rule_expr(
 
     // 3. Check if there is a type annotation for return value or not
     let mut ret_type_annotation = RetTypeAnnotation::new(scope);
-    match &*rule_expr.ret_type_annotation {
+    match &*rule_stmt.ret_type_annotation {
         Some(type_annoation) => {
             for (type_val, maybe) in &type_annoation.typedefs {
                 let (type_info, _) = generate_type_hint(&type_val).unwrap();
@@ -350,7 +350,7 @@ pub(super) fn generate_rule_expr(
 
     // 4. Move into the RuleContent
     let generated_rule_contents =
-        generate_rule_content(&rule_expr.rule_content, tracker, scope).unwrap();
+        generate_rule_content(&rule_stmt.rule_content, tracker, scope).unwrap();
 
     Ok(quote!(
         #[derive(Debug, Clone, PartialEq)]
@@ -562,6 +562,18 @@ pub(super) fn generate_stmt(
     // Statement can be let statement or series of expressions
     let statement = match &*stmt.kind {
         StmtKind::Let(let_stmt) => generate_let(let_stmt, tracker, scope, in_ruledef).unwrap(),
+        StmtKind::If(if_stmt) => generate_if(if_stmt, tracker, scope, in_ruledef).unwrap(),
+        StmtKind::For(for_stmt) => generate_for(for_stmt, tracker, scope, in_ruledef).unwrap(),
+        StmtKind::Match(match_stmt) => {
+            generate_match(match_stmt, tracker, scope, in_ruledef).unwrap()
+        }
+        StmtKind::Promote(promote_stmt) => {
+            generate_promote(promote_stmt, tracker, scope, in_ruledef, in_match).unwrap()
+        }
+        StmtKind::Send(send_stmt) => {
+            generate_send(send_stmt, tracker, scope, in_ruledef, in_match).unwrap()
+        }
+        StmtKind::Set(set_stmt) => generate_set(set_stmt, tracker, scope, in_ruledef).unwrap(),
         StmtKind::Expr(expr) => generate_expr(expr, tracker, scope, in_ruledef, in_match).unwrap(),
         StmtKind::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
@@ -622,13 +634,13 @@ pub(super) fn generate_let(
 }
 
 // expr = {
-//     if_expr |
-//     for_expr|
-//     match_expr |
+//     if_stmt |
+//     for_stmt|
+//     match_stmt |
 //     return_expr |
 //     // non keyword expression
 //     rule_call_expr|
-//     send_expr |
+//     send_stmt |
 //     // precedence sensitive
 //     comp_expr |
 //     term_expr |
@@ -646,23 +658,11 @@ pub(super) fn generate_expr(
     in_match: bool,
 ) -> IResult<TokenStream> {
     match &*expr.kind {
-        ExprKind::If(if_expr) => Ok(generate_if(if_expr, tracker, scope, in_ruledef).unwrap()),
-        ExprKind::For(for_expr) => Ok(generate_for(for_expr, tracker, scope, in_ruledef).unwrap()),
-        ExprKind::Match(match_expr) => {
-            Ok(generate_match(match_expr, tracker, scope, in_ruledef).unwrap())
-        }
-        ExprKind::Promote(promote_expr) => {
-            Ok(generate_promote(promote_expr, tracker, scope, in_ruledef, in_match).unwrap())
+        ExprKind::Get(get_expr) => {
+            Ok(generate_get(get_expr, tracker, scope, in_ruledef, in_match).unwrap())
         }
         ExprKind::RuleCall(rule_call_expr) => {
             Ok(generate_rule_call(rule_call_expr, tracker, scope).unwrap())
-        }
-        ExprKind::Send(send_expr) => {
-            Ok(generate_send(send_expr, tracker, scope, in_ruledef, in_match).unwrap())
-        }
-        ExprKind::Set(set_expr) => Ok(generate_set(set_expr, tracker, scope, in_ruledef).unwrap()),
-        ExprKind::Get(get_expr) => {
-            Ok(generate_get(get_expr, tracker, scope, in_ruledef, in_match).unwrap())
         }
         ExprKind::Comp(comp_expr) => {
             Ok(generate_comp(comp_expr, tracker, scope, in_ruledef, in_match, false).unwrap())
@@ -688,11 +688,11 @@ pub(super) fn generate_expr(
 }
 
 // Generate if expression
-// if_expr = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_expr )* ~ else_expr? }
-// else_if_expr = { ^"else" ~ ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" }
+// if_stmt = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_stmt )* ~ else_expr? }
+// else_if_stmt = { ^"else" ~ ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" }
 // else_expr = { ^"else" ~ "{" ~ (stmt)* ~ "}"}
 pub(super) fn generate_if(
-    if_expr: &If,
+    if_stmt: &If,
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
@@ -700,17 +700,17 @@ pub(super) fn generate_if(
     // If this is not the rule definition, this becomes just an ordinary if expression
     if !in_ruledef {
         // Generate expression that returns boolean value
-        let block = generate_if_block(&*if_expr.block, tracker, scope, false, false).unwrap();
+        let block = generate_if_block(&*if_stmt.block, tracker, scope, false, false).unwrap();
 
         // Generate statements
         let mut stmts = vec![];
-        for st in if_expr.stmts.iter() {
+        for st in if_stmt.stmts.iter() {
             stmts.push(generate_stmt(st, tracker, scope, in_ruledef, false).unwrap())
         }
 
         // Generate elif statements
         let mut elifs = vec![];
-        for elif in &if_expr.elif {
+        for elif in &if_stmt.elif {
             let generated = generate_if(elif, tracker, scope, in_ruledef).unwrap();
             elifs.push(quote!(
                 else #generated
@@ -719,7 +719,7 @@ pub(super) fn generate_if(
 
         // Generate else statements
         let mut elses = vec![];
-        for els in &*if_expr.els {
+        for els in &*if_stmt.els {
             elses.push(generate_stmt(els, tracker, scope, in_ruledef, false).unwrap())
         }
         let generated_elses = if elses.len() > 0 {
@@ -743,13 +743,13 @@ pub(super) fn generate_if(
         // // Collect all the block and statement
         let mut blocks: Vec<IfBlock> = vec![]; // if block that returns boolean value
                                                // TODO: consider removing clone
-        blocks.push(*if_expr.block.clone());
+        blocks.push(*if_stmt.block.clone());
 
         // Collect all the statements
         let mut statements: Vec<Vec<Stmt>> = vec![];
-        statements.push(if_expr.stmts.clone());
+        statements.push(if_stmt.stmts.clone());
 
-        for elif in if_expr.elif.iter() {
+        for elif in if_stmt.elif.iter() {
             blocks.push(*elif.block.clone());
             statements.push(elif.stmts.clone());
         }
@@ -785,7 +785,7 @@ pub(super) fn generate_if(
             generated_actions.push(closure)
         }
         // If there is a else expression, need counterpart condition for all the expressions
-        if if_expr.els.len() > 0 {
+        if if_stmt.els.len() > 0 {
             // If there is more than one statement in els, this needs to be treated
             // else condition must be the inverse of all the previous conditions
             let mut inverse_blocks = vec![];
@@ -804,7 +804,7 @@ pub(super) fn generate_if(
             ));
 
             let mut generated_stmt = vec![];
-            for els_stmt in if_expr.els.iter() {
+            for els_stmt in if_stmt.els.iter() {
                 generated_stmt
                     .push(generate_stmt(els_stmt, tracker, scope, in_ruledef, true).unwrap())
             }
@@ -885,15 +885,15 @@ pub(super) fn generate_if_block(
 }
 
 // Generate for expression
-// for_expr = { ^"for" ~ ( ident | for_multi_block ) ~ "in" ~ for_generator ~ "{" ~ (stmt)* ~ "}" }
+// for_stmt = { ^"for" ~ ( ident | for_multi_block ) ~ "in" ~ for_generator ~ "{" ~ (stmt)* ~ "}" }
 pub(super) fn generate_for(
-    for_expr: &For,
+    for_stmt: &For,
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
 ) -> IResult<TokenStream> {
     // Temporary variable block (e.g. i, (j, k))
-    let block = &for_expr.variables;
+    let block = &for_stmt.variables;
 
     // If the number of temporary variables is more than one, it is surrounded by parens (...)
     let generated_block = if block.len() > 1 {
@@ -911,7 +911,7 @@ pub(super) fn generate_for(
     };
 
     // Expressions come after 'in'~
-    let generator_expr = match &*for_expr.generator {
+    let generator_expr = match &*for_stmt.generator {
         ForGenerator::Series(series) => {
             generate_series(series, tracker, scope, in_ruledef).unwrap()
         }
@@ -923,7 +923,7 @@ pub(super) fn generate_for(
 
     // Statements that are in {...}
     let mut generated_stmts = vec![];
-    for st in for_expr.stmts.iter() {
+    for st in for_stmt.stmts.iter() {
         generated_stmts.push(generate_stmt(st, tracker, scope, in_ruledef, false).unwrap());
     }
     Ok(quote!(
@@ -1091,7 +1091,7 @@ pub(super) fn generate_rep_call_arg(
 
 // Promote resources to the next stage
 pub(super) fn generate_promote(
-    promote_expr: &Promote,
+    promote_stmt: &Promote,
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
@@ -1112,7 +1112,7 @@ pub(super) fn generate_promote(
         .check_return_type_annotations(scope)
         .clone();
     let mut expressions = vec![];
-    for (promotable, (type_def, _maybe)) in promote_expr
+    for (promotable, (type_def, _maybe)) in promote_stmt
         .target
         .iter()
         .zip(return_types.return_types.iter())
@@ -1157,9 +1157,9 @@ pub(super) fn generate_promotables(
 }
 
 // Generate send expression
-// send_expr = { fn_call_expr ~ "->" ~ expr }
+// send_stmt = { fn_call_expr ~ "->" ~ expr }
 pub(super) fn generate_send(
-    send_expr: &Send,
+    send_stmt: &Send,
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
@@ -1168,7 +1168,7 @@ pub(super) fn generate_send(
     if !in_ruledef {
         panic!("Send expression must be inside the rule definition")
     }
-    let func = &*send_expr.fn_call;
+    let func = &*send_stmt.fn_call;
     let message_type = match &*func.func_name.name as &str {
         "free" => {
             quote!(ProtoMessageType::Free)
@@ -1186,7 +1186,7 @@ pub(super) fn generate_send(
     };
 
     // This suppose to be repeater
-    let expr = generate_expr(&*send_expr.expr, tracker, scope, in_ruledef, false).unwrap();
+    let expr = generate_expr(&*send_stmt.expr, tracker, scope, in_ruledef, false).unwrap();
 
     // In send expression, the wait condition is also expaned to the rules in one stage
     if in_match {
@@ -1214,12 +1214,12 @@ pub(super) fn generate_send(
 }
 
 pub(super) fn generate_set(
-    set_expr: &Set,
+    set_stmt: &Set,
     tracker: &ValueTracker,
     scope: &Scope,
     _in_ruledef: bool,
 ) -> IResult<TokenStream> {
-    let value = &*set_expr.value;
+    let value = &*set_stmt.value;
 
     // check type def
     let type_hint = if tracker.borrow().check_variable_exist(&*value.name, scope) {
@@ -1231,7 +1231,7 @@ pub(super) fn generate_set(
         return Err(RuleSetGenError::NeedIdentifierTypeAnnotationError);
     };
 
-    let alias = match &*set_expr.alias {
+    let alias = match &*set_stmt.alias {
         Some(alias_value) => {
             let set_name = &*alias_value.name;
             tracker
@@ -1249,11 +1249,12 @@ pub(super) fn generate_set(
     };
 
     let generated_value = generate_type_wrapper(
-        &generate_ident(&*set_expr.value, tracker, scope).unwrap(),
+        &generate_ident(&*set_stmt.value, tracker, scope).unwrap(),
         &type_hint,
     )
     .unwrap();
 
+    // TODO: set expression in the ruleset
     Ok(quote!(self.callback.borrow().set(Rc::clone(&rules), #generated_value, #alias);))
 }
 
@@ -1280,9 +1281,9 @@ pub(super) fn generate_get(
 
 // Generate Match expression to achieve match action
 // In the case of static generation, this expand Rules to the stages
-// match_expr = { ^"match" ~ expr ~ "{" ~ ( match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
+// match_stmt = { ^"match" ~ expr ~ "{" ~ ( match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
 pub(super) fn generate_match(
-    match_expr: &Match,
+    match_stmt: &Match,
     tracker: &ValueTracker,
     scope: &Scope,
     in_ruledef: bool,
@@ -1291,13 +1292,13 @@ pub(super) fn generate_match(
         panic!("Currently, match expression can be used only inside Rule expression")
     }
     // Generate expression (`in_match = false` since this can be true in match actions)
-    let expr = generate_expr(&*match_expr.expr, tracker, scope, in_ruledef, false).unwrap();
+    let expr = generate_expr(&*match_stmt.expr, tracker, scope, in_ruledef, false).unwrap();
 
     // Generate match arms and otherwise actions
     // `otherwise` includes the counter conditions of all the match arms
     let mut otherwise_conditions = vec![];
     let mut match_actions = vec![];
-    for arm in match_expr.match_arms.iter() {
+    for arm in match_stmt.match_arms.iter() {
         let (otherwise_cond, match_action) =
             generate_match_arm(arm, tracker, scope, in_ruledef).unwrap();
         otherwise_conditions.push(otherwise_cond);
@@ -1307,7 +1308,7 @@ pub(super) fn generate_match(
     // The number of rules after the match expression can be calculated by (current rule number)*(number of match arms + 1 or 0)
     let mut final_rule_count = match_actions.len();
 
-    let otherwise = match &*match_expr.otherwise {
+    let otherwise = match &*match_stmt.otherwise {
         Some(other) => {
             let generated = generate_match_action(other, tracker, scope, in_ruledef).unwrap();
             // Add +1 to for other wise rule
@@ -1473,7 +1474,7 @@ pub(super) fn generate_match_action(
 ) -> IResult<TokenStream> {
     let mut actionables = vec![];
     for actionable in &match_action.actionable {
-        actionables.push(generate_expr(actionable, tracker, scope, in_ruledef, true).unwrap());
+        actionables.push(generate_stmt(actionable, tracker, scope, in_ruledef, true).unwrap());
     }
     Ok(quote!(
         #(#actionables);*

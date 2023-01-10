@@ -2,7 +2,7 @@
 
 import std::operation::{cx, measure}
 
-
+// How to count the measurement number?
 rule local_operation<#rep>(distance: int) :-> Qubit {
     let partner: Repeater = #rep.hop(distance)
     cond {
@@ -39,8 +39,8 @@ ruleset purification {
     // initial purification
     for i in 0..#repeaters.len()-1{
         let promoted_qubit: Qubit = local_operation<#repeaters(i)>(1)
-        let promoted1: qubit = parity_check<#repeaters(i)>(1, promoted_qubit)
+        let promoted1: Qubit = parity_check<#repeaters(i)>(1, promoted_qubit)
         let promoted_qubit2: Qubit = local_operation<#repeaters(i+1)>(-1)
-        let promoted2: qubit = parity_check<#repeaters(i+1)>(-1, promoted_qubit2)
+        let promoted2: Qubit = parity_check<#repeaters(i+1)>(-1, promoted_qubit2)
     }
 }

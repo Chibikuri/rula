@@ -1,24 +1,17 @@
 rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 
-program = { repeaters? ~ ( import_expr | rule_expr | ruleset_expr )* }
+program = { repeaters? ~ ( import_stmt | rule_stmt | ruleset_stmt )* }
 
-stmt = { let_stmt | expr }
+stmt = { let_stmt | if_stmt | for_stmt | match_stmt | promote_stmt | set_stmt | send_stmt | expr }
 
 repeaters = {"#repeaters: vec[Repeater]"}
 
 let_stmt = { ^"let" ~ ( ident_typed | "(" ~ ident_typed ~ ("," ~ ident_typed)* ~ ")" ) ~ "=" ~ expr}
 
 expr = {
-  // keyword expression
-  if_expr | 
-  for_expr|
-  match_expr | 
-  promote_expr | 
   // non keyword expression
   rule_call_expr| 
-  set_expr|
-  get_expr|
-  send_expr |
+  get_expr |
   // precedence sensitive
   comp_expr |
   term_expr |
@@ -30,7 +23,7 @@ expr = {
 }
 
 // Import expression to get functions. (import test::func)
-import_expr = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
+import_stmt = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
 
 // match expression for conditioning
 // match expression {
@@ -38,33 +31,33 @@ import_expr = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_lis
 //  11 => {do something else},
 // otherwise => {hey}
 // }
-match_expr = { ^"match" ~ expr ~ "{" ~ ( match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
+match_stmt = { ^"match" ~ expr ~ "{" ~ ( match_arm ~  ",")* ~ (^"otherwise" ~ "=>" ~ match_action)? ~ "}"}
 match_arm = { match_condition ~ "=>" ~ match_action }
 match_condition = { satisfiable }
 satisfiable = { literal_expr }
-match_action = { "{" ~ expr? ~ ("," ~ expr)* ~ "}" }
+match_action = { "{" ~ stmt? ~ ("," ~ stmt)* ~ "}" }
 
 // Return values 
-promote_expr = {^"promote" ~ promotable ~ ("," ~ promotable)*}
+promote_stmt = {^"promote" ~ promotable ~ ("," ~ promotable)*}
 promotable = _{ comp_expr | term_expr | vector | tuple | variable_call_expr | literal_expr }
 
 // If expression (e.g. if (block > 0) {expreesion;};)
-if_expr = { ^"if" ~ "(" ~ if_block ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_expr )* ~ else_expr? }
+if_stmt = { ^"if" ~ "(" ~ if_block ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_stmt )* ~ else_expr? }
 if_block = { get_expr | comp_expr | literal_expr }
-else_if_expr = { ^"else" ~ ^"if" ~ "(" ~ if_block ~ ")" ~ "{" ~ (stmt)* ~ "}" }
+else_if_stmt = { ^"else" ~ ^"if" ~ "(" ~ if_block ~ ")" ~ "{" ~ (stmt)* ~ "}" }
 else_expr = { ^"else" ~ "{" ~ (stmt)* ~ "}"}
 
 // For expression for looping
-for_expr = { ^"for" ~ ( ident | for_multi_block ) ~ "in" ~ for_generator ~ "{" ~ (stmt)* ~ "}" }
+for_stmt = { ^"for" ~ ( ident | for_multi_block ) ~ "in" ~ for_generator ~ "{" ~ (stmt)* ~ "}" }
 for_multi_block = _{ "(" ~ ident_list ~ ")" }
 for_generator = _{ series | expr }
 series = { int ~ ".." ~ expr }
 
 // Send mesage to the repeaters
-send_expr = { fn_call_expr ~ "->" ~ expr }
+send_stmt = { fn_call_expr ~ "->" ~ expr }
 
 // Set expression that set ruleset variable
-set_expr = { ^"set" ~ ident ~ ("as" ~ ident) }
+set_stmt = { ^"set" ~ ident ~ ("as" ~ ident) }
 
 // Get expression that get ruleset variable
 get_expr = { ^"get" ~ ident }
@@ -88,10 +81,10 @@ comparable = { get_expr | term_expr | variable_call_expr | fn_call_expr |  liter
 comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!=" }
 
 // RuleSet expression with multiple statements
-ruleset_expr = { ^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
+ruleset_stmt = { ^"ruleset" ~ ident ~ "{" ~ (stmt)* ~ "}" }
 
 // Rule expression for each rule
-rule_expr = { ^"rule" ~ ident ~ "<" ~ repeater_ident ~ ">"~ argument_def ~ (":->" ~ ret_type_annotation)? ~ "{" ~ rule_contents ~ "}" }
+rule_stmt = { ^"rule" ~ ident ~ "<" ~ repeater_ident ~ ">"~ argument_def ~ (":->" ~ ret_type_annotation)? ~ "{" ~ rule_contents ~ "}" }
 ret_type_annotation = { typedef_lit ~ maybe? | "(" ~ (typedef_lit ~ maybe?) ~ ("," ~ typedef_lit ~ maybe?)* ~ ")"}
 maybe = { "?" }
 argument_def = { "(" ~ ( ( ident_typed | ident )? ~ ( "," ~ ( ident_typed | ident ) )* ) ~ ")" }

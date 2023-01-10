@@ -49,14 +49,14 @@ fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::repeaters => program.add_program(ProgramKind::Repeaters),
-            Rule::import_expr => program.add_program(ProgramKind::Import(
-                build_ast_from_import_expr(block).unwrap(),
+            Rule::import_stmt => program.add_program(ProgramKind::Import(
+                build_ast_from_import_stmt(block).unwrap(),
             )),
-            Rule::ruleset_expr => program.add_program(ProgramKind::RuleSetExpr(
-                build_ast_from_ruleset_expr(block).unwrap(),
+            Rule::ruleset_stmt => program.add_program(ProgramKind::RuleSetExpr(
+                build_ast_from_ruleset_stmt(block).unwrap(),
             )),
-            Rule::rule_expr => program.add_program(ProgramKind::RuleExpr(
-                build_ast_from_rule_expr(block).unwrap(),
+            Rule::rule_stmt => program.add_program(ProgramKind::RuleExpr(
+                build_ast_from_rule_stmt(block).unwrap(),
             )),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
@@ -69,6 +69,24 @@ fn build_ast_from_stmt(pair: Pair<Rule>) -> IResult<Stmt> {
     match pair.as_rule() {
         Rule::let_stmt => Ok(Stmt::new(StmtKind::Let(
             build_ast_from_let_stmt(pair).unwrap(),
+        ))),
+        Rule::if_stmt => Ok(Stmt::new(StmtKind::If(
+            build_ast_from_if_stmt(pair).unwrap(),
+        ))),
+        Rule::for_stmt => Ok(Stmt::new(StmtKind::For(
+            build_ast_from_for_stmt(pair).unwrap(),
+        ))),
+        Rule::match_stmt => Ok(Stmt::new(StmtKind::Match(
+            build_ast_from_match_stmt(pair).unwrap(),
+        ))),
+        Rule::promote_stmt => Ok(Stmt::new(StmtKind::Promote(
+            build_ast_from_promote_stmt(pair).unwrap(),
+        ))),
+        Rule::send_stmt => Ok(Stmt::new(StmtKind::Send(
+            build_ast_from_send_stmt(pair).unwrap(),
+        ))),
+        Rule::set_stmt => Ok(Stmt::new(StmtKind::Set(
+            build_ast_from_set_stmt(pair).unwrap(),
         ))),
         Rule::expr => Ok(Stmt::new(StmtKind::Expr(
             build_ast_from_expr(pair.into_inner().next().unwrap()).unwrap(),
@@ -131,24 +149,6 @@ fn build_ast_from_ident(pair: Pair<Rule>) -> IResult<Ident> {
 // Parse expression <--> {If | Import | Lit | Identifier}
 fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
     match pair.as_rule() {
-        Rule::if_expr => Ok(Expr::new(ExprKind::If(
-            build_ast_from_if_expr(pair).unwrap(),
-        ))),
-        Rule::for_expr => Ok(Expr::new(ExprKind::For(
-            build_ast_from_for_expr(pair).unwrap(),
-        ))),
-        Rule::match_expr => Ok(Expr::new(ExprKind::Match(
-            build_ast_from_match_expr(pair).unwrap(),
-        ))),
-        Rule::promote_expr => Ok(Expr::new(ExprKind::Promote(
-            build_ast_from_promote_expr(pair).unwrap(),
-        ))),
-        Rule::send_expr => Ok(Expr::new(ExprKind::Send(
-            build_ast_from_send_expr(pair).unwrap(),
-        ))),
-        Rule::set_expr => Ok(Expr::new(ExprKind::Set(
-            build_ast_from_set_expr(pair).unwrap(),
-        ))),
         Rule::get_expr => Ok(Expr::new(ExprKind::Get(
             build_ast_from_get_expr(pair).unwrap(),
         ))),
@@ -180,7 +180,7 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
     }
 }
 
-fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
+fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
     let mut path_list: Vec<PathBuf> = vec![];
     let mut end_paths: Vec<&str> = vec![];
     // ::{a, b} expression must be single not two of them
@@ -214,34 +214,34 @@ fn build_ast_from_import_expr(pair: Pair<Rule>) -> IResult<Import> {
     Ok(Import::new(PathKind::from(path_list)))
 }
 
-fn build_ast_from_ruleset_expr(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
-    let mut ruleset_expr = RuleSetExpr::place_holder();
+fn build_ast_from_ruleset_stmt(pair: Pair<Rule>) -> IResult<RuleSetExpr> {
+    let mut ruleset_stmt = RuleSetExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => {
-                ruleset_expr.add_name(build_ast_from_ident(block).unwrap());
+                ruleset_stmt.add_name(build_ast_from_ident(block).unwrap());
             }
             Rule::stmt => {
-                ruleset_expr
+                ruleset_stmt
                     .add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
             }
             _ => unreachable!(),
         }
     }
-    Ok(ruleset_expr)
+    Ok(ruleset_stmt)
 }
 
-fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
-    let mut rule_expr = RuleExpr::place_holder();
+fn build_ast_from_rule_stmt(pair: Pair<Rule>) -> IResult<RuleExpr> {
+    let mut rule_stmt = RuleExpr::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => {
                 // rule_name
-                rule_expr.add_name(build_ast_from_ident(block).unwrap());
+                rule_stmt.add_name(build_ast_from_ident(block).unwrap());
             }
             Rule::repeater_ident => {
                 // TODO: Should this be vector?
-                rule_expr.add_repeater_ident(
+                rule_stmt.add_repeater_ident(
                     build_ast_from_ident(block.into_inner().next().unwrap()).unwrap(),
                 );
             }
@@ -249,23 +249,23 @@ fn build_ast_from_rule_expr(pair: Pair<Rule>) -> IResult<RuleExpr> {
                 for arg in block.into_inner() {
                     match arg.as_rule() {
                         Rule::ident_typed => {
-                            rule_expr.add_arg(build_ast_from_ident_typed(arg).unwrap())
+                            rule_stmt.add_arg(build_ast_from_ident_typed(arg).unwrap())
                         }
-                        Rule::ident => rule_expr.add_arg(build_ast_from_ident(arg).unwrap()),
+                        Rule::ident => rule_stmt.add_arg(build_ast_from_ident(arg).unwrap()),
                         _ => return Err(RuLaError::RuLaSyntaxError),
                     }
                 }
             }
-            Rule::ret_type_annotation => rule_expr.add_return_type_annotation(Some(
+            Rule::ret_type_annotation => rule_stmt.add_return_type_annotation(Some(
                 build_ast_from_return_type_annotation(block).unwrap(),
             )),
             Rule::rule_contents => {
-                rule_expr.add_rule_content(build_ast_from_rule_contents(block).unwrap())
+                rule_stmt.add_rule_content(build_ast_from_rule_contents(block).unwrap())
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(rule_expr)
+    Ok(rule_stmt)
 }
 
 fn build_ast_from_return_type_annotation(pair: Pair<Rule>) -> IResult<ReturnTypeAnnotation> {
@@ -358,24 +358,24 @@ fn build_ast_from_act_expr(pair: Pair<Rule>) -> IResult<ActExpr> {
 }
 
 // Parse If expr <--> {paren_expr | brace_stmt | else_if | else} semi endpoint
-fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
+fn build_ast_from_if_stmt(pair: Pair<Rule>) -> IResult<If> {
     // `pair` structure
-    // if_expr -> inner {paren_expr, block_expr}
-    let mut if_expr = If::place_holder(); // initialize if expr
+    // if_stmt -> inner {paren_expr, block_expr}
+    let mut if_stmt = If::place_holder(); // initialize if expr
     for expr in pair.into_inner() {
         match expr.as_rule() {
             // block statement
             Rule::if_block => {
-                if_expr
+                if_stmt
                     .add_block(build_ast_from_if_block(expr.into_inner().next().unwrap()).unwrap());
             }
             Rule::stmt => {
                 // nested expr (brace stmt -> stmt)
-                if_expr.add_stmt(build_ast_from_stmt(expr.into_inner().next().unwrap()).unwrap());
+                if_stmt.add_stmt(build_ast_from_stmt(expr.into_inner().next().unwrap()).unwrap());
             }
-            Rule::else_if_expr => {
+            Rule::else_if_stmt => {
                 // recursively apply
-                if_expr.add_elif(build_ast_from_if_expr(expr).unwrap());
+                if_stmt.add_elif(build_ast_from_if_stmt(expr).unwrap());
             }
             Rule::else_expr => {
                 let else_stmt = build_ast_from_stmt(
@@ -387,12 +387,12 @@ fn build_ast_from_if_expr(pair: Pair<Rule>) -> IResult<If> {
                         .unwrap(),
                 )
                 .unwrap();
-                if_expr.add_else(else_stmt);
+                if_stmt.add_else(else_stmt);
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(if_expr)
+    Ok(if_stmt)
 }
 
 fn build_ast_from_if_block(pair: Pair<Rule>) -> IResult<IfBlock> {
@@ -406,36 +406,36 @@ fn build_ast_from_if_block(pair: Pair<Rule>) -> IResult<IfBlock> {
     }
 }
 
-fn build_ast_from_for_expr(pair: Pair<Rule>) -> IResult<For> {
-    let mut for_expr = For::place_holder();
+fn build_ast_from_for_stmt(pair: Pair<Rule>) -> IResult<For> {
+    let mut for_stmt = For::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => {
-                for_expr.add_ident(build_ast_from_ident(block).unwrap());
+                for_stmt.add_ident(build_ast_from_ident(block).unwrap());
             }
             Rule::ident_list => {
                 // omitted (patterns)
                 // for identifier lists (ident, ident2, ...)
                 for ident in block.into_inner() {
                     // get ident
-                    for_expr.add_ident(build_ast_from_ident(ident).unwrap());
+                    for_stmt.add_ident(build_ast_from_ident(ident).unwrap());
                 }
             }
             Rule::series => {
-                for_expr.add_generator(ForGenerator::Series(
+                for_stmt.add_generator(ForGenerator::Series(
                     build_ast_from_series_expr(block).unwrap(),
                 ));
             }
-            Rule::expr => for_expr.add_generator(ForGenerator::Expr(
+            Rule::expr => for_stmt.add_generator(ForGenerator::Expr(
                 build_ast_from_expr(block.into_inner().next().unwrap()).unwrap(),
             )),
             Rule::stmt => {
-                for_expr.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
+                for_stmt.add_stmt(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap());
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(for_expr)
+    Ok(for_stmt)
 }
 
 fn build_ast_from_series_expr(pair: Pair<Rule>) -> IResult<Series> {
@@ -451,22 +451,22 @@ fn build_ast_from_series_expr(pair: Pair<Rule>) -> IResult<Series> {
     Ok(series_expr)
 }
 
-fn build_ast_from_match_expr(pair: Pair<Rule>) -> IResult<Match> {
-    let mut match_expr = Match::place_holder();
+fn build_ast_from_match_stmt(pair: Pair<Rule>) -> IResult<Match> {
+    let mut match_stmt = Match::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::expr => match_expr
+            Rule::expr => match_stmt
                 .add_expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
-            Rule::match_arm => match_expr.add_match_arm(build_ast_from_match_arm(block).unwrap()),
+            Rule::match_arm => match_stmt.add_match_arm(build_ast_from_match_arm(block).unwrap()),
             // Here this can only be finally:
             Rule::match_action => {
-                match_expr.add_finally(Some(build_ast_from_match_action(block).unwrap()))
+                match_stmt.add_finally(Some(build_ast_from_match_action(block).unwrap()))
             }
-            // Rule::ident => match_expr.
+            // Rule::ident => match_stmt.
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(match_expr)
+    Ok(match_stmt)
 }
 
 fn build_ast_from_match_arm(pair: Pair<Rule>) -> IResult<MatchArm> {
@@ -509,56 +509,56 @@ fn build_ast_from_match_action(pair: Pair<Rule>) -> IResult<MatchAction> {
     let mut match_action = MatchAction::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
-            Rule::expr => match_action
-                .add_actionable(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap()),
+            Rule::stmt => match_action
+                .add_actionable(build_ast_from_stmt(block.into_inner().next().unwrap()).unwrap()),
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
     Ok(match_action)
 }
 
-fn build_ast_from_promote_expr(pair: Pair<Rule>) -> IResult<Promote> {
-    let mut promote_expr = Promote::place_holder();
+fn build_ast_from_promote_stmt(pair: Pair<Rule>) -> IResult<Promote> {
+    let mut promote_stmt = Promote::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::comp_expr => {
-                promote_expr.add_target(Promotables::Comp(
+                promote_stmt.add_target(Promotables::Comp(
                     build_ast_from_comp_expr(block.into_inner().next().unwrap()).unwrap(),
                 ));
             }
             Rule::term_expr => {
-                promote_expr.add_target(Promotables::Term(
+                promote_stmt.add_target(Promotables::Term(
                     build_ast_from_term_expr(block.into_inner().next().unwrap()).unwrap(),
                 ));
             }
             Rule::vector => {
-                promote_expr.add_target(Promotables::RuLaVec(
+                promote_stmt.add_target(Promotables::RuLaVec(
                     build_ast_from_vector(block.into_inner().next().unwrap()).unwrap(),
                 ));
             }
             Rule::tuple => {
-                promote_expr.add_target(Promotables::RuLaTuple(
+                promote_stmt.add_target(Promotables::RuLaTuple(
                     build_ast_from_tuple(block.into_inner().next().unwrap()).unwrap(),
                 ));
             }
             Rule::variable_call_expr => {
-                promote_expr.add_target(Promotables::VariableCall(
+                promote_stmt.add_target(Promotables::VariableCall(
                     build_ast_from_variable_call_expr(block.into_inner().next().unwrap()).unwrap(),
                 ));
             }
             Rule::literal_expr => {
-                promote_expr.add_target(Promotables::Lit(
+                promote_stmt.add_target(Promotables::Lit(
                     build_ast_from_literals(block.into_inner().next().unwrap()).unwrap(),
                 ));
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(promote_expr)
+    Ok(promote_stmt)
 }
 
-fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
-    let mut send_expr = Send::place_holder();
+fn build_ast_from_send_stmt(pair: Pair<Rule>) -> IResult<Send> {
+    let mut send_stmt = Send::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::fn_call_expr => {
@@ -570,29 +570,29 @@ fn build_ast_from_send_expr(pair: Pair<Rule>) -> IResult<Send> {
                     "meas" => { /*ok */ }
                     _ => return Err(RuLaError::RuLaSyntaxError),
                 }
-                send_expr.add_fn_call(generated);
+                send_stmt.add_fn_call(generated);
             }
             Rule::expr => {
-                send_expr.add_expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap())
+                send_stmt.add_expr(build_ast_from_expr(block.into_inner().next().unwrap()).unwrap())
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
 
-    Ok(send_expr)
+    Ok(send_stmt)
 }
 
-fn build_ast_from_set_expr(pair: Pair<Rule>) -> IResult<Set> {
-    let mut set_expr = Set::place_holder();
+fn build_ast_from_set_stmt(pair: Pair<Rule>) -> IResult<Set> {
+    let mut set_stmt = Set::place_holder();
     let mut count = 0;
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::ident => {
                 if count == 0 {
-                    set_expr.set_value(build_ast_from_ident(block).unwrap());
+                    set_stmt.set_value(build_ast_from_ident(block).unwrap());
                     count += 1;
                 } else if count == 1 {
-                    set_expr.set_alias(Some(build_ast_from_ident(block).unwrap()))
+                    set_stmt.set_alias(Some(build_ast_from_ident(block).unwrap()))
                 } else {
                     panic!("Unknown error in set expression")
                 }
@@ -600,7 +600,7 @@ fn build_ast_from_set_expr(pair: Pair<Rule>) -> IResult<Set> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    Ok(set_expr)
+    Ok(set_stmt)
 }
 
 fn build_ast_from_get_expr(pair: Pair<Rule>) -> IResult<Get> {
@@ -945,7 +945,7 @@ fn build_ast_from_typedef_lit(pair: Pair<Rule>) -> IResult<TypeDef> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::qubit_type => match pair.as_str() {
-            "qubit" => return Ok(TypeDef::Qubit),
+            "Qubit" => return Ok(TypeDef::Qubit),
             _ => return Err(RuLaError::RuLaSyntaxError),
         },
         Rule::repeater_type => match pair.as_str() {
@@ -1015,38 +1015,16 @@ mod tests {
             );
             assert_eq!(let_ast_nodes, target_ast_nodes);
         }
-
-        #[test]
-        fn test_let_with_if_expr() {
-            let let_stmt = pair_generator("let hello: str = if(block){expression}", Rule::let_stmt);
-            let let_if_ast_nodes = build_ast_from_let_stmt(let_stmt).unwrap();
-            let target_ast_nodes = Let::new(
-                vec![Ident::new("hello", Some(TypeDef::Str))],
-                Expr::new(ExprKind::If(If::new(
-                    // (block)
-                    IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
-                    // {expression}
-                    vec![Stmt::new(StmtKind::Expr(Expr::new(ExprKind::Lit(
-                        Lit::new(LitKind::Ident(Ident::new("expression", None))),
-                    ))))],
-                    // elif ~
-                    vec![],
-                    // else ~
-                    vec![],
-                ))),
-            );
-            assert_eq!(target_ast_nodes, let_if_ast_nodes)
-        }
     }
 
     #[cfg(test)]
-    mod if_expr_tests {
+    mod if_stmt_tests {
         use super::*;
 
         #[test]
-        fn test_single_if_expr() {
-            let if_expr = pair_generator("if(block){expression}", Rule::if_expr);
-            let if_ast_nodes = build_ast_from_if_expr(if_expr).unwrap();
+        fn test_single_if_stmt() {
+            let if_stmt = pair_generator("if(block){expression}", Rule::if_stmt);
+            let if_ast_nodes = build_ast_from_if_stmt(if_stmt).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
                 IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
@@ -1064,8 +1042,8 @@ mod tests {
 
         #[test]
         fn test_if_else_expr() {
-            let if_else = pair_generator("if(block){expression}else{expression2}", Rule::if_expr);
-            let if_else_ast_nodes = build_ast_from_if_expr(if_else).unwrap();
+            let if_else = pair_generator("if(block){expression}else{expression2}", Rule::if_stmt);
+            let if_else_ast_nodes = build_ast_from_if_stmt(if_else).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
                 IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
@@ -1084,12 +1062,12 @@ mod tests {
         }
 
         #[test]
-        fn test_if_elif_expr() {
-            let if_elif_expr = pair_generator(
+        fn test_if_elif_stmt() {
+            let if_elif_stmt = pair_generator(
                 "if(block){expression} else if (block2){expression2}",
-                Rule::if_expr,
+                Rule::if_stmt,
             );
-            let if_elif_ast_nodes = build_ast_from_if_expr(if_elif_expr).unwrap();
+            let if_elif_ast_nodes = build_ast_from_if_stmt(if_elif_stmt).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
                 IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
@@ -1116,11 +1094,11 @@ mod tests {
 
         #[test]
         fn test_if_elif_else_expr() {
-            let if_elif_expr = pair_generator(
+            let if_elif_stmt = pair_generator(
                 "if(block){expression} else if (block2){expression2} else {expression3}",
-                Rule::if_expr,
+                Rule::if_stmt,
             );
-            let if_elif_ast_nodes = build_ast_from_if_expr(if_elif_expr).unwrap();
+            let if_elif_ast_nodes = build_ast_from_if_stmt(if_elif_stmt).unwrap();
             let target_ast_nodes = If::new(
                 // (block)
                 IfBlock::Lit(Lit::new(LitKind::Ident(Ident::new("block", None)))),
@@ -1150,14 +1128,14 @@ mod tests {
     }
 
     #[cfg(test)]
-    mod for_expr_test {
+    mod for_stmt_test {
         use super::*;
 
         #[test]
-        fn test_simple_for_expr() {
+        fn test_simple_for_stmt() {
             // divition is tricky a little
-            let for_expr = pair_generator("for i in range(){hello}", Rule::for_expr);
-            let for_asts = build_ast_from_for_expr(for_expr).unwrap();
+            let for_stmt = pair_generator("for i in range(){hello}", Rule::for_stmt);
+            let for_asts = build_ast_from_for_stmt(for_stmt).unwrap();
             let target_ast_nodes = For::new(
                 vec![Ident::new("i", None)],
                 ForGenerator::Expr(Expr::new(ExprKind::FnCall(FnCall::new(
@@ -1173,10 +1151,10 @@ mod tests {
         }
 
         #[test]
-        fn test_multi_arg_for_expr() {
+        fn test_multi_arg_for_stmt() {
             // divition is tricky a little
-            let for_expr = pair_generator("for (a, b, c) in generator{hello}", Rule::for_expr);
-            let for_asts = build_ast_from_for_expr(for_expr).unwrap();
+            let for_stmt = pair_generator("for (a, b, c) in generator{hello}", Rule::for_stmt);
+            let for_asts = build_ast_from_for_stmt(for_stmt).unwrap();
             let target_ast_nodes = For::new(
                 vec![
                     Ident::new("a", None),
@@ -1195,19 +1173,19 @@ mod tests {
     }
 
     #[cfg(test)]
-    mod test_match_expr {
+    mod test_match_stmt {
         use super::*;
 
         #[test]
         fn test_simple_match_no_otherwise() {
-            let match_expr = pair_generator(
+            let match_stmt = pair_generator(
                 "match test{
             true => {something()},
             false => {otherthing()},
         }",
-                Rule::match_expr,
+                Rule::match_stmt,
             );
-            let match_asts = build_ast_from_match_expr(match_expr).unwrap();
+            let match_asts = build_ast_from_match_stmt(match_stmt).unwrap();
             let target_ast_nodes = Match::new(
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                     "test", None,
@@ -1215,18 +1193,22 @@ mod tests {
                 vec![
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(true)))),
-                        MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
-                            Ident::new("something", None),
-                            false,
-                            vec![],
+                        MatchAction::new(vec![Stmt::new(StmtKind::Expr(Expr::new(
+                            ExprKind::FnCall(FnCall::new(
+                                Ident::new("something", None),
+                                false,
+                                vec![],
+                            )),
                         )))]),
                     ),
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(false)))),
-                        MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
-                            Ident::new("otherthing", None),
-                            false,
-                            vec![],
+                        MatchAction::new(vec![Stmt::new(StmtKind::Expr(Expr::new(
+                            ExprKind::FnCall(FnCall::new(
+                                Ident::new("otherthing", None),
+                                false,
+                                vec![],
+                            )),
                         )))]),
                     ),
                 ],
@@ -1237,15 +1219,15 @@ mod tests {
 
         #[test]
         fn test_simple_match_with_otherwise() {
-            let match_expr = pair_generator(
+            let match_stmt = pair_generator(
                 "match test{
             true => {something()},
             false => {otherthing()},
             otherwise => {final()}
         }",
-                Rule::match_expr,
+                Rule::match_stmt,
             );
-            let match_asts = build_ast_from_match_expr(match_expr).unwrap();
+            let match_asts = build_ast_from_match_stmt(match_stmt).unwrap();
             let target_ast_nodes = Match::new(
                 Expr::new(ExprKind::Lit(Lit::new(LitKind::Ident(Ident::new(
                     "test", None,
@@ -1253,23 +1235,31 @@ mod tests {
                 vec![
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(true)))),
-                        MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
-                            Ident::new("something", None),
-                            false,
-                            vec![],
+                        MatchAction::new(vec![Stmt::new(StmtKind::Expr(Expr::new(
+                            ExprKind::FnCall(FnCall::new(
+                                Ident::new("something", None),
+                                false,
+                                vec![],
+                            )),
                         )))]),
                     ),
                     MatchArm::new(
                         MatchCondition::new(Satisfiable::Lit(Lit::new(LitKind::BooleanLit(false)))),
-                        MatchAction::new(vec![Expr::new(ExprKind::FnCall(FnCall::new(
-                            Ident::new("otherthing", None),
-                            false,
-                            vec![],
+                        MatchAction::new(vec![Stmt::new(StmtKind::Expr(Expr::new(
+                            ExprKind::FnCall(FnCall::new(
+                                Ident::new("otherthing", None),
+                                false,
+                                vec![],
+                            )),
                         )))]),
                     ),
                 ],
-                Some(MatchAction::new(vec![Expr::new(ExprKind::FnCall(
-                    FnCall::new(Ident::new("final", None), false, vec![]),
+                Some(MatchAction::new(vec![Stmt::new(StmtKind::Expr(
+                    Expr::new(ExprKind::FnCall(FnCall::new(
+                        Ident::new("final", None),
+                        false,
+                        vec![],
+                    ))),
                 ))])),
             );
             assert_eq!(target_ast_nodes, match_asts);
@@ -1281,9 +1271,9 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_simple_promote_expr() {
-            let promote_expr = pair_generator("promote hello", Rule::promote_expr);
-            let return_asts = build_ast_from_promote_expr(promote_expr).unwrap();
+        fn test_simple_promote_stmt() {
+            let promote_stmt = pair_generator("promote hello", Rule::promote_stmt);
+            let return_asts = build_ast_from_promote_stmt(promote_stmt).unwrap();
             let target_ast_nodes = Promote::new(vec![Promotables::Lit(Lit::new(LitKind::Ident(
                 Ident::new("hello", None),
             )))]);
@@ -1352,7 +1342,7 @@ mod tests {
             let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Str));
             assert_eq!(target_ast_nodes, lit_asts);
 
-            let lit_expr = pair_generator("let number:qubit = val", Rule::let_stmt);
+            let lit_expr = pair_generator("let number:Qubit = val", Rule::let_stmt);
             let lit_asts = build_ast_from_let_stmt(lit_expr).unwrap();
             let target_ast_nodes = generate_type_lit_ast("number", Some(TypeDef::Qubit));
             assert_eq!(target_ast_nodes, lit_asts);
