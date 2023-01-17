@@ -39,8 +39,8 @@ pub enum RuLaValue {
     Int(i64),
     Float(f64),
     Boolean(bool),
-    RuLaResult(RuLaResult), // TODO
-                            // Vec(Box<Types>),
+    RuLaResult(RuLaResult),
+    RuLaVec(Vec<RuLaValue>),
 }
 
 impl RuLaValue {
@@ -141,7 +141,7 @@ impl Repeater {
             return self;
         } else if distance > 0 {
             let index = (distance - 1) as usize;
-            if index as usize > self.right_repeaters.len() {
+            if index >= self.right_repeaters.len() {
                 panic!(
                     "No more repeaters at responder side index: {}, num_right: {}",
                     (distance - 1),
@@ -151,7 +151,7 @@ impl Repeater {
             &*self.right_repeaters[index]
         } else {
             let index = (-distance - 1) as usize;
-            if index > self.left_repeaters.len() {
+            if index >= self.left_repeaters.len() {
                 panic!(
                     "No more repeaters at initiator side: index: {}, num_left: {}",
                     (-distance - 1),

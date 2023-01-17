@@ -34,9 +34,47 @@ pub fn bsm(rules: RuleVec, q1: &Qubit, q2: &Qubit) -> RuLaResult {
     result
 }
 
-pub fn x(rules: RuleVec) {}
+pub fn x(rules: RuleVec, q1: &Qubit) {
+    let mut circuit = QCirc::new();
+    circuit.add_qgate(QGate::new(
+        QubitIdentifier {
+            qubit_index: q1.index,
+        },
+        QGateType::X,
+    ));
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_action_clause(ActionClauses::QCirc(circuit.clone()));
+    }
+}
 
-pub fn z(rules: RuleVec) {}
+pub fn y(rules: RuleVec, q1: &Qubit) {
+    let mut circuit = QCirc::new();
+    circuit.add_qgate(QGate::new(
+        QubitIdentifier {
+            qubit_index: q1.index,
+        },
+        QGateType::Y,
+    ));
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_action_clause(ActionClauses::QCirc(circuit.clone()));
+    }
+}
+
+pub fn z(rules: RuleVec, q1: &Qubit) {
+    let mut circuit = QCirc::new();
+    circuit.add_qgate(QGate::new(
+        QubitIdentifier {
+            qubit_index: q1.index,
+        },
+        QGateType::Z,
+    ));
+    for rule in rules.borrow().iter() {
+        rule.borrow_mut()
+            .add_action_clause(ActionClauses::QCirc(circuit.clone()));
+    }
+}
 
 pub fn cx(rules: RuleVec, q1: &Qubit, q2: &Qubit) {
     let q1_identifier = QubitIdentifier {

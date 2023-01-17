@@ -12,6 +12,9 @@ pub fn res(
     partner_repeater: &Repeater,
     qubit_index: &u64,
 ) -> Qubit {
+    if num_res > &1{
+        todo!("Currently, this doesn't return mutliple qubit. FIXME");
+    }
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
             .add_condition_clause(ConditionClauses::Res(Res::new(

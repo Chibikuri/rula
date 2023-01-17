@@ -106,6 +106,12 @@ impl Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
     Let(Let),
+    If(If),
+    For(For),
+    Match(Match),
+    Promote(Promote),
+    Send(Send),
+    Set(Set),
     Expr(Expr),
     PlaceHolder, // For initialization use
 }
@@ -146,60 +152,6 @@ impl Let {
     pub fn add_expr(&mut self, expr: Expr) {
         self.expr = Box::new(expr);
     }
-}
-
-/**
- * Expression structure can take ExprKind
- *
- *  `expr`: ExprKind
-*/
-#[derive(Debug, Clone, PartialEq)]
-pub struct Expr {
-    pub kind: Box<ExprKind>,
-}
-
-impl Expr {
-    pub fn new(exp_kind: ExprKind) -> Expr {
-        Expr {
-            kind: Box::new(exp_kind),
-        }
-    }
-
-    pub fn place_holder() -> Expr {
-        Expr {
-            kind: Box::new(ExprKind::PlaceHolder),
-        }
-    }
-}
-
-/**
- * ExprKind can be
- * `Import` (import modules)
- * `If` (if expression)
- * `FnDef` (function definition)
- * `Lit` (literatures)
- * `Term` (number terms)
- * `PlaceHolder` This for initialization use. This should not be in the final AST
- * */
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExprKind {
-    If(If),
-    For(For),
-    Match(Match),
-    Promote(Promote),
-    //
-    Send(Send),
-    Set(Set),
-    Get(Get),
-    FnCall(FnCall),
-    RuleCall(RuleCall),
-    RuLaVec(RuLaVec),
-    RuLaTuple(RuLaTuple),
-    Comp(Comp),
-    Term(Term), // There could be better way. Leave this for now.
-    VariableCallExpr(VariableCallExpr),
-    Lit(Lit),
-    PlaceHolder, // for initializing reason, but maybe better way?
 }
 
 /**
@@ -302,7 +254,7 @@ impl RuleSetExpr {
     }
 }
 
-// rule_expr = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
+// rule_stmt = {^"rule" ~ angle_expr ~ arguments ~ brace_stmt}
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleExpr {
     pub name: Box<Ident>,
@@ -577,7 +529,7 @@ pub enum IfBlock {
     PlaceHolder,
 }
 
-// for_expr = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ expr ~ brace_stmt }
+// for_stmt = { ^"for" ~ "(" ~ pattern ~")"~ "in" ~ expr ~ brace_stmt }
 #[derive(Debug, Clone, PartialEq)]
 pub struct For {
     pub variables: Vec<Ident>,
@@ -737,11 +689,11 @@ pub enum Satisfiable {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchAction {
-    pub actionable: Vec<Expr>,
+    pub actionable: Vec<Stmt>,
 }
 
 impl MatchAction {
-    pub fn new(actionable: Vec<Expr>) -> Self {
+    pub fn new(actionable: Vec<Stmt>) -> Self {
         MatchAction {
             actionable: actionable,
         }
@@ -749,7 +701,7 @@ impl MatchAction {
     pub fn place_holder() -> Self {
         MatchAction { actionable: vec![] }
     }
-    pub fn add_actionable(&mut self, actionable: Expr) {
+    pub fn add_actionable(&mut self, actionable: Stmt) {
         self.actionable.push(actionable);
     }
 }
@@ -836,6 +788,53 @@ impl Set {
     pub fn set_alias(&mut self, alias: Option<Ident>) {
         self.alias = Box::new(alias);
     }
+}
+
+/**
+ * Expression structure can take ExprKind
+ *
+ *  `expr`: ExprKind
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct Expr {
+    pub kind: Box<ExprKind>,
+}
+
+impl Expr {
+    pub fn new(exp_kind: ExprKind) -> Expr {
+        Expr {
+            kind: Box::new(exp_kind),
+        }
+    }
+
+    pub fn place_holder() -> Expr {
+        Expr {
+            kind: Box::new(ExprKind::PlaceHolder),
+        }
+    }
+}
+
+/**
+ * ExprKind can be
+ * `Import` (import modules)
+ * `If` (if expression)
+ * `FnDef` (function definition)
+ * `Lit` (literatures)
+ * `Term` (number terms)
+ * `PlaceHolder` This for initialization use. This should not be in the final AST
+ * */
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprKind {
+    Get(Get),
+    FnCall(FnCall),
+    RuleCall(RuleCall),
+    RuLaVec(RuLaVec),
+    RuLaTuple(RuLaTuple),
+    Comp(Comp),
+    Term(Term), // There could be better way. Leave this for now.
+    VariableCallExpr(VariableCallExpr),
+    Lit(Lit),
+    PlaceHolder, // for initializing reason, but maybe better way?
 }
 
 #[derive(Debug, Clone, PartialEq)]
