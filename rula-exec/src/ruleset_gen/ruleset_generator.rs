@@ -688,9 +688,9 @@ pub(super) fn generate_expr(
 }
 
 // Generate if expression
-// if_stmt = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_stmt )* ~ else_expr? }
+// if_stmt = { ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" ~ ( else_if_stmt )* ~ else_stmt? }
 // else_if_stmt = { ^"else" ~ ^"if" ~ "(" ~ expr ~ ")" ~ "{" ~ (stmt)* ~ "}" }
-// else_expr = { ^"else" ~ "{" ~ (stmt)* ~ "}"}
+// else_stmt = { ^"else" ~ "{" ~ (stmt)* ~ "}"}
 pub(super) fn generate_if(
     if_stmt: &If,
     tracker: &ValueTracker,

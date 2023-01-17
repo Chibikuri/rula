@@ -377,7 +377,7 @@ fn build_ast_from_if_stmt(pair: Pair<Rule>) -> IResult<If> {
                 // recursively apply
                 if_stmt.add_elif(build_ast_from_if_stmt(expr).unwrap());
             }
-            Rule::else_expr => {
+            Rule::else_stmt => {
                 let else_stmt = build_ast_from_stmt(
                     expr.into_inner()
                         .next()
@@ -1041,7 +1041,7 @@ mod tests {
         }
 
         #[test]
-        fn test_if_else_expr() {
+        fn test_if_else_stmt() {
             let if_else = pair_generator("if(block){expression}else{expression2}", Rule::if_stmt);
             let if_else_ast_nodes = build_ast_from_if_stmt(if_else).unwrap();
             let target_ast_nodes = If::new(
@@ -1093,7 +1093,7 @@ mod tests {
         }
 
         #[test]
-        fn test_if_elif_else_expr() {
+        fn test_if_elif_else_stmt() {
             let if_elif_stmt = pair_generator(
                 "if(block){expression} else if (block2){expression2} else {expression3}",
                 Rule::if_stmt,
