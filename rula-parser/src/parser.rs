@@ -187,6 +187,9 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
     // e.g. not allowed ::{a, b}::{c, d}
     // This can be rejected by level of grammar
     let mut path = PathBuf::new();
+
+    let mut import_stmt = Import::place_holder();
+
     for inner_pair in pair.into_inner() {
         match inner_pair.as_rule() {
             Rule::ident => path.push(inner_pair.as_str()),
@@ -195,6 +198,9 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
                     end_paths.push(inner_inner_pair.as_str());
                 }
                 // Path must be completed once this is called.
+            }
+            Rule::rule_annotation => {
+                import_stmt.rule_import();
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
@@ -210,8 +216,8 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
             path_list.push(cloned_path);
         }
     }
-
-    Ok(Import::new(PathKind::from(path_list)))
+    import_stmt.add_path(PathKind::from(path_list));
+    Ok(import_stmt)
 }
 
 fn build_ast_from_ruleset_stmt(pair: Pair<Rule>) -> IResult<RuleSetExpr> {

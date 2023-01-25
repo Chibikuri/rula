@@ -14,7 +14,7 @@ mod import_tests {
         let ast_nodes = rula_parser::parse(import_stmt).unwrap();
         let expected_paths = vec![["hello"].iter().collect()];
         let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(PathKind::from(expected_paths)),
+            Import::new(PathKind::from(expected_paths), false),
         )]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
@@ -25,7 +25,7 @@ mod import_tests {
         let ast_nodes = rula_parser::parse(import_stmt).unwrap();
         let expected_paths = vec![["hello", "world"].iter().collect()];
         let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(PathKind::from(expected_paths)),
+            Import::new(PathKind::from(expected_paths), false),
         )]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
@@ -40,7 +40,20 @@ mod import_tests {
 
         let expected_paths = vec![expected_path_hello_world, expected_path_hello_there];
         let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(PathKind::from(expected_paths)),
+            Import::new(PathKind::from(expected_paths), false),
+        )]));
+        assert_eq!(ast_nodes, expected_ast_nodes);
+    }
+
+    #[test]
+    fn test_rule_import() {
+        let import_rule_stmt = "import (rule) swapping::swap";
+        let ast_nodes = rula_parser::parse(import_rule_stmt).unwrap();
+
+        let expected_path_rule = ["swapping", "swap"].iter().collect();
+
+        let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
+            Import::new(PathKind::from(vec![expected_path_rule]), true),
         )]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }

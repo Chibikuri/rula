@@ -162,13 +162,30 @@ impl Let {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Import {
     pub path: Box<PathKind>,
+    rule_import: bool,
 }
 
 impl Import {
-    pub fn new(path: PathKind) -> Import {
+    pub fn new(path: PathKind, rule_import: bool) -> Self {
         Import {
             path: Box::new(path),
+            rule_import: rule_import,
         }
+    }
+
+    pub fn place_holder() -> Self {
+        Import {
+            path: Box::new(PathKind::place_holder()),
+            rule_import: false,
+        }
+    }
+
+    pub fn add_path(&mut self, path: PathKind) {
+        self.path = Box::new(path);
+    }
+
+    pub fn rule_import(&mut self) {
+        self.rule_import = true;
     }
 }
 
@@ -189,6 +206,13 @@ impl PathKind {
     pub fn from(path_vec: Vec<PathBuf>) -> Self {
         PathKind {
             paths: path_vec,
+            index: 0,
+        }
+    }
+
+    pub fn place_holder() -> Self {
+        PathKind {
+            paths: vec![],
             index: 0,
         }
     }

@@ -3,7 +3,8 @@ rula = { SOI ~ COMMENT? ~ program ~ COMMENT? ~ EOI }
 program = { repeaters? ~ (import_stmt)* ~ (rule_stmt)* ~ ruleset_stmt? }
 
 // Import expression to get functions. (import test::func)
-import_stmt = { ^"import" ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
+import_stmt = { ^"import" ~ rule_annotation? ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
+rule_annotation = {"(rule)"}
 
 // Rule expression for each rule
 // Need return type annotation check when there is a promote function
