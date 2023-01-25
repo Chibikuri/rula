@@ -180,24 +180,37 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
     }
 }
 
+// Two possible function importing
+// import hello::world ... single import
+// import hello::{world, me} ... multiple import
+// Grammar for the import statement
+// import_stmt = { ^"import" ~ rule_annotation? ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
+// rule_annotation = {"(rule)"}
 fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
-    let mut path_list: Vec<PathBuf> = vec![];
-    let mut end_paths: Vec<&str> = vec![];
-    // ::{a, b} expression must be single not two of them
-    // e.g. not allowed ::{a, b}::{c, d}
-    // This can be rejected by level of grammar
-    let mut path = PathBuf::new();
-
+    // initialize import ast
     let mut import_stmt = Import::place_holder();
 
+    // Store all the possible path in the import statement
+    let mut path_list: Vec<PathBuf> = vec![PathBuf::new()];
+    // ::{a, b} expression must be single not two of them
+    // e.g. not allowed ::{a, b}::{c, d}
     for inner_pair in pair.into_inner() {
         match inner_pair.as_rule() {
-            Rule::ident => path.push(inner_pair.as_str()),
+            Rule::ident => {
+                // At this moment, the number of file path must be 1.
+                // push the file name to the first path
+                path_list[0].push(inner_pair.as_str());
+            }
             Rule::ident_list => {
+                // This must be the end of the import definition
+                let current_path = path_list[0].clone();
+                // flush the current path
+                path_list = vec![];
                 for inner_inner_pair in inner_pair.into_inner() {
-                    end_paths.push(inner_inner_pair.as_str());
+                    let mut final_path = current_path.clone();
+                    final_path.push(inner_inner_pair.as_str());
+                    path_list.push(final_path);
                 }
-                // Path must be completed once this is called.
             }
             Rule::rule_annotation => {
                 import_stmt.rule_import();
@@ -205,18 +218,7 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    // No end component such as `hello::{a, b}`
-    // then just add `hello` as a path
-    if end_paths.len() == 0 {
-        path_list.push(path)
-    } else {
-        for t_path in end_paths {
-            let mut cloned_path = path.clone();
-            cloned_path.push(t_path);
-            path_list.push(cloned_path);
-        }
-    }
-    import_stmt.add_path(PathKind::from(path_list));
+    import_stmt.set_path(path_list);
     Ok(import_stmt)
 }
 
