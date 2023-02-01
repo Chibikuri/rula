@@ -216,7 +216,7 @@ pub(super) fn generate_import(
     tracker: &ValueTracker,
 ) -> IResult<TokenStream> {
     // import must be out of scope
-    let scope = String::from("___*");
+    let _scope = String::from("___*");
 
     if !import_stmt.rule_import {
         // Convert a set of paths into a set of identifiers
@@ -255,7 +255,7 @@ pub(super) fn generate_import(
         // import rules
         // get the path
         for path in import_stmt.path.iter() {
-            // import
+            // 0. import the file
         }
         Ok(quote!())
     }

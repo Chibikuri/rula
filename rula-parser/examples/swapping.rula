@@ -1,0 +1,24 @@
+rule swapping<#rep>(distance: int){
+    let left_partner: Repeater = #rep.hop(-distance)
+    let right_partner: Repeater = #rep.hop(distance)
+    cond {
+        @q1: res(1, 0.8, left_partner, 0)  
+        @q2: res(1, 0.8, right_partner, 1)
+    } => act {
+        let result: Result = bsm(q1, q2)
+        match result {
+            "00" => {},
+            "01" => {update(q1, z()) -> left_partner},
+            "10" => {update(q2, x()) -> right_partner},
+            "11" => {update(q1, z()) -> left_partner,
+                     update(q2, x()) -> right_partner},
+            otherwise => {
+                // swapping faild
+                free(q1) -> left_partner,
+                free(q2) -> right_partner}
+        }
+        // swapping success
+        transfer(q1) -> left_partner
+        transfer(q2) -> right_partner
+    }
+}

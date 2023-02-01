@@ -159,18 +159,28 @@ impl Let {
  *
  *  `path`: Vec<PathBuf> path to some function and Rule
  *  `rule_import`: bool annotation for rule import
+ *  `imported_rules`: RuLa AST imported from other files
 */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Import {
     pub path: Vec<PathBuf>,
     pub rule_import: bool,
+    pub imported_rules: Vec<RuleExpr>,
+    pub rule_names: Vec<String>,
 }
 
 impl Import {
-    pub fn new(path: Vec<PathBuf>, rule_import: bool) -> Self {
+    pub fn new(
+        path: Vec<PathBuf>,
+        rule_import: bool,
+        rules: Vec<RuleExpr>,
+        rule_names: Vec<String>,
+    ) -> Self {
         Import {
             path: path,
             rule_import: rule_import,
+            imported_rules: rules,
+            rule_names: rule_names,
         }
     }
 
@@ -178,6 +188,8 @@ impl Import {
         Import {
             path: vec![],
             rule_import: false,
+            imported_rules: vec![],
+            rule_names: vec![],
         }
     }
 
@@ -187,6 +199,22 @@ impl Import {
 
     pub fn set_path(&mut self, paths: Vec<PathBuf>) {
         self.path = paths
+    }
+
+    pub fn add_rule(&mut self, rule: RuleExpr) {
+        self.imported_rules.push(rule);
+    }
+
+    pub fn set_rules(&mut self, rules: Vec<RuleExpr>) {
+        self.imported_rules = rules;
+    }
+
+    pub fn add_rule_name(&mut self, rule_name: String) {
+        self.rule_names.push(rule_name)
+    }
+
+    pub fn set_rule_names(&mut self, rule_names: Vec<String>) {
+        self.rule_names = rule_names;
     }
 
     pub fn rule_import(&mut self) {

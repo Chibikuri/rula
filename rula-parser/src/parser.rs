@@ -2,11 +2,13 @@ pub mod ast;
 pub mod error;
 mod util;
 
-use crate::Rule;
+use std::env;
+
+use crate::{parse, Rule};
 // RuLa
 use ast::*;
 use error::RuLaError;
-use std::path::PathBuf;
+use std::{fs::File, io::Read, path::PathBuf};
 
 // use once_cell::sync::Lazy;
 use pest::iterators::Pair;
@@ -192,6 +194,7 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
 
     // Store all the possible path in the import statement
     let mut path_list: Vec<PathBuf> = vec![PathBuf::new()];
+    // All the imported Rules are stored here
     // ::{a, b} expression must be single not two of them
     // e.g. not allowed ::{a, b}::{c, d}
     for inner_pair in pair.into_inner() {
@@ -214,12 +217,87 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
             }
             Rule::rule_annotation => {
                 import_stmt.rule_import();
+                // parse Rule
             }
             _ => return Err(RuLaError::RuLaSyntaxError),
         }
     }
-    import_stmt.set_path(path_list);
+
+    import_stmt.set_path(path_list.clone());
+    if import_stmt.rule_import {
+        // if this import statement improt the rules parse it and store in the vector
+        rule_importing(&mut import_stmt, path_list).unwrap()
+    }
     Ok(import_stmt)
+}
+
+fn rule_importing(import_stmt: &mut Import, path_vec: Vec<PathBuf>) -> IResult<()> {
+    // read path and generate RuLa AST
+    for path in path_vec.iter() {
+        // read the file
+        let mut file_contents = String::new();
+        let mut file_name = path
+            .parent()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        file_name.push_str(".rula");
+        println!("file_name: {}, {:#?}", file_name, env::current_dir().unwrap());
+        match File::open(&file_name) {
+            Ok(mut file_content) => {
+                file_content
+                    .read_to_string(&mut file_contents)
+                    .expect("Failed to read the file");
+            }
+            Err(err) => {
+                panic!(
+                    "Failed to open file at {:#?}, {}",
+                    file_name,
+                    err
+                );
+            }
+        };
+
+        // get filename
+        // The last file name must be the same as the rule nam
+        let rule_name = path.file_name().unwrap().to_str().unwrap();
+        // parse file contents
+        let ast = parse(&file_contents).unwrap();
+        // extract rule with rule name
+
+        let extracted_rule = extract_rule(ast, rule_name).unwrap();
+        import_stmt.add_rule_name(String::from(rule_name));
+        import_stmt.add_rule(extracted_rule);
+    }
+    Ok(())
+}
+
+fn extract_rule(ast: AstNode, rule_name: &str) -> IResult<RuleExpr> {
+    match ast {
+        AstNode::RuLa(rula) => {
+            match &*rula.rula {
+                RuLaKind::Program(programs) => {
+                    let mut target_rule = RuleExpr::place_holder();
+                    for program in programs.programs.iter() {
+                        match program {
+                            ProgramKind::RuleExpr(rule) => {
+                                // Check rule name
+                                if &*rule.name.name == rule_name {
+                                    target_rule = rule.clone();
+                                    break;
+                                }
+                            }
+                            _ => return Err(RuLaError::RuLaSyntaxError),
+                        }
+                    }
+                    Ok(target_rule)
+                }
+                _ => return Err(RuLaError::RuLaSyntaxError),
+            }
+        }
+        AstNode::PlaceHolder => return Err(RuLaError::RuLaSyntaxError),
+    }
 }
 
 fn build_ast_from_ruleset_stmt(pair: Pair<Rule>) -> IResult<RuleSetExpr> {

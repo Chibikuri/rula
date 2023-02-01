@@ -91,7 +91,7 @@ mod tests {
             // (original) import test::hollow;
             // (generated) use test::hollow;
 
-            let target_ast = Import::new(vec![PathBuf::from("test/hollow")], false);
+            let target_ast = Import::new(vec![PathBuf::from("test/hollow")], false, vec![], vec![]);
 
             let generated_import = generate_import(&target_ast, &mock_tracker())
                 .unwrap()
