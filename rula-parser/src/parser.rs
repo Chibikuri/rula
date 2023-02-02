@@ -236,14 +236,13 @@ fn rule_importing(import_stmt: &mut Import, path_vec: Vec<PathBuf>) -> IResult<(
     for path in path_vec.iter() {
         // read the file
         let mut file_contents = String::new();
-        let mut file_name = path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+        let mut file_name = path.parent().unwrap().to_str().unwrap().to_string();
         file_name.push_str(".rula");
-        println!("file_name: {}, {:#?}", file_name, env::current_dir().unwrap());
+        println!(
+            "file_name: {}, {:#?}",
+            file_name,
+            env::current_dir().unwrap()
+        );
         match File::open(&file_name) {
             Ok(mut file_content) => {
                 file_content
@@ -251,11 +250,7 @@ fn rule_importing(import_stmt: &mut Import, path_vec: Vec<PathBuf>) -> IResult<(
                     .expect("Failed to read the file");
             }
             Err(err) => {
-                panic!(
-                    "Failed to open file at {:#?}, {}",
-                    file_name,
-                    err
-                );
+                panic!("Failed to open file at {:#?}, {}", file_name, err);
             }
         };
 

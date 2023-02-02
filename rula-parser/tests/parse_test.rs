@@ -1,6 +1,7 @@
 extern crate rula_parser;
 
 use rula_parser::parser::ast::*;
+use std::path::PathBuf;
 
 fn build_program_ast(program: Program) -> AstNode {
     AstNode::RuLa(RuLa::new(RuLaKind::Program(program)))
@@ -52,23 +53,65 @@ mod import_tests {
 
         // let expected_path_rule = ["swapping", "swap"].iter().collect();
 
-        let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(vec![], true, vec![], vec!["swap".to_string()]),
-        )]));
+        let expected_ast_nodes =
+            build_program_ast(Program::new(vec![ProgramKind::Import(Import::new(
+                vec![PathBuf::from("examples/swapping/swapping")],
+                true,
+                vec![RuleExpr::new(
+                    Ident::new("swapping", None),
+                    Ident::new("rep", None),
+                    vec![],
+                    None,
+                    RuleContentExpr::new(
+                        vec![],
+                        CondExpr::new(None, vec![]),
+                        ActExpr::new(None, vec![]),
+                        vec![],
+                    ),
+                )],
+                vec!["swapping".to_string()],
+            ))]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
 
     #[test]
     fn test_multiple_rule_import() {
-        let import_rule_stmt =
-            "import (rule) examples::pur::{parity_check, local_operation}";
+        let import_rule_stmt = "import (rule) examples::pur::{parity_check, local_operation}";
         let ast_nodes = rula_parser::parse(import_rule_stmt).unwrap();
 
         let expected_ast_nodes =
             build_program_ast(Program::new(vec![ProgramKind::Import(Import::new(
-                vec![],
+                vec![
+                    PathBuf::from("examples/pur/parity_check"),
+                    PathBuf::from("examples/pur/local_operation"),
+                ],
                 true,
-                vec![],
+                vec![
+                    RuleExpr::new(
+                        Ident::new("parity_check", None),
+                        Ident::new("rep", None),
+                        vec![],
+                        None,
+                        RuleContentExpr::new(
+                            vec![],
+                            CondExpr::new(None, vec![]),
+                            ActExpr::new(None, vec![]),
+                            vec![],
+                        ),
+                    ),
+                    RuleExpr::new(
+                        Ident::new("local_operation", None),
+                        Ident::new("rep", None),
+                        vec![],
+                        None,
+                        RuleContentExpr::new(
+                            vec![],
+                            CondExpr::new(None, vec![]),
+                            ActExpr::new(None, vec![]),
+                            vec![],
+                        ),
+                    ),
+                ],
                 vec!["parity_check".to_string(), "local_operation".to_string()],
             ))]));
         assert_eq!(ast_nodes, expected_ast_nodes);
