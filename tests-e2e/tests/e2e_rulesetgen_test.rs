@@ -83,7 +83,7 @@ mod generate_swapping_ruleset {
             .read_to_string(&mut contents)
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
-        let ast = rula_parser::parse(&contents).unwrap();
+        let ast = rula_parser::parse(&contents, &PathBuf::from("/")).unwrap();
 
         // 2. generate ruleset (provide ruleset flag)
         let tokens = rula_exec::ruleset_gen::ruleset_generator::generate(
@@ -110,14 +110,14 @@ mod purification_ruleset {
 
     #[test]
     fn test_purification_rule_gen() {
-        let mut rula_program =
-            File::open("../examples/v2/purification.rula").expect("target file not found");
+        let file_path = "../examples/v2/purification.rula";
+        let mut rula_program = File::open(file_path).expect("target file not found");
         let mut contents = String::new();
         rula_program
             .read_to_string(&mut contents)
             .expect("Something went wrong reading the file");
         // 1. parse and generate ast
-        let mut ast = rula_parser::parse(&contents).unwrap();
+        let ast = rula_parser::parse(&contents, &PathBuf::from(file_path)).unwrap();
 
         // 2. generate ruleset (provide ruleset flag)
         let tokens = rula_exec::ruleset_gen::ruleset_generator::generate(
@@ -127,9 +127,41 @@ mod purification_ruleset {
         .unwrap();
 
         // 2.1 target ruleset
-        let target = RuleSet::new("purification");
+        // let target = RuleSet::new("purification");
 
         generate_token_stream_file(tokens, "generator_purification.rs");
+        assert_eq!(1, 1);
+    }
+}
+
+#[cfg(test)]
+mod rule_importing_test {
+    use super::*;
+
+    #[test]
+    fn test_rule_importing() {
+        let mut rula_program =
+            File::open("../examples/v2/swapping_pur.rula").expect("target file not found");
+        let mut contents = String::new();
+
+        rula_program
+            .read_to_string(&mut contents)
+            .expect("Something went wrong reading the file");
+
+        let ast = rula_parser::parse(
+            &contents,
+            &PathBuf::from("../examples/v2/swapping_pur.rula"),
+        )
+        .unwrap();
+
+        let tokens = rula_exec::ruleset_gen::ruleset_generator::generate(
+            &ast,
+            PathBuf::from("../examples/v2/config.json"),
+        )
+        .unwrap();
+
+        // let target = RuleSet::new()
+        generate_token_stream_file(tokens, "generator_swapping_purification.rs");
         assert_eq!(1, 1);
     }
 }

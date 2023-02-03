@@ -28,7 +28,7 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let mut rula_program = File::open(args.rula_program).expect("No such file");
+    let mut rula_program = File::open(&args.rula_program).expect("No such file");
     let mut contents = String::new();
     rula_program
         .read_to_string(&mut contents)
@@ -40,7 +40,7 @@ fn main() {
     };
     println!("config{:#?}", config);
     // parse rula program
-    let mut ast = rula_parser::parse(&contents).unwrap();
+    let mut ast = rula_parser::parse(&contents, &args.rula_program).unwrap();
     // let _generated =
     //     rula_exec::codegen::generator::generate(&mut ast, args.ruleset, config).unwrap();
     if args.ruleset {

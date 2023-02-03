@@ -255,10 +255,15 @@ pub(super) fn generate_import(
         // import rules
         // Get the rules
         let mut generated_rules = vec![];
+        let mut generated_import = vec![];
+        for imported in import_stmt.local_importing.iter() {
+            generated_import.push(generate_import(imported, tracker).unwrap());
+        }
         for rule in import_stmt.imported_rules.iter() {
             generated_rules.push(generate_rule_stmt(rule, tracker).unwrap());
         }
         Ok(quote!(
+            #(#generated_import)*
             #(#generated_rules)*
         ))
     }
