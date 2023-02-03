@@ -12,10 +12,10 @@ mod import_tests {
     #[test]
     fn test_single_import() {
         let import_stmt = "import hello";
-        let ast_nodes = rula_parser::parse(import_stmt).unwrap();
+        let ast_nodes = rula_parser::parse(import_stmt, &PathBuf::from("/")).unwrap();
         let expected_paths = vec![["hello"].iter().collect()];
         let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(expected_paths, false, vec![], vec![]),
+            Import::new(expected_paths, false, vec![], vec![], vec![]),
         )]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
@@ -23,10 +23,10 @@ mod import_tests {
     #[test]
     fn test_nested_import() {
         let import_stmt = "import hello::world";
-        let ast_nodes = rula_parser::parse(import_stmt).unwrap();
+        let ast_nodes = rula_parser::parse(import_stmt, &PathBuf::from("/")).unwrap();
         let expected_paths = vec![["hello", "world"].iter().collect()];
         let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(expected_paths, false, vec![], vec![]),
+            Import::new(expected_paths, false, vec![], vec![], vec![]),
         )]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
@@ -34,28 +34,28 @@ mod import_tests {
     #[test]
     fn test_multiple_import() {
         let import_stmt = "import hello::{world, there}";
-        let ast_nodes = rula_parser::parse(import_stmt).unwrap();
+        let ast_nodes = rula_parser::parse(import_stmt, &PathBuf::from("/")).unwrap();
 
         let expected_path_hello_world = ["hello", "world"].iter().collect();
         let expected_path_hello_there = ["hello", "there"].iter().collect();
 
         let expected_paths = vec![expected_path_hello_world, expected_path_hello_there];
         let expected_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::Import(
-            Import::new(expected_paths, false, vec![], vec![]),
+            Import::new(expected_paths, false, vec![], vec![], vec![]),
         )]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
 
     #[test]
     fn test_rule_import() {
-        let import_rule_stmt = "import (rule) examples::swapping::swapping";
-        let ast_nodes = rula_parser::parse(import_rule_stmt).unwrap();
+        let import_rule_stmt = "import (rule) swapping::swapping";
+        let ast_nodes = rula_parser::parse(import_rule_stmt, &PathBuf::from("./tests/")).unwrap();
 
         // let expected_path_rule = ["swapping", "swap"].iter().collect();
 
         let expected_ast_nodes =
             build_program_ast(Program::new(vec![ProgramKind::Import(Import::new(
-                vec![PathBuf::from("examples/swapping/swapping")],
+                vec![PathBuf::from("swapping/swapping")],
                 true,
                 vec![RuleExpr::new(
                     Ident::new("swapping", None),
@@ -70,20 +70,21 @@ mod import_tests {
                     ),
                 )],
                 vec!["swapping".to_string()],
+                vec![],
             ))]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
 
     #[test]
     fn test_multiple_rule_import() {
-        let import_rule_stmt = "import (rule) examples::pur::{parity_check, local_operation}";
-        let ast_nodes = rula_parser::parse(import_rule_stmt).unwrap();
+        let import_rule_stmt = "import (rule) pur::{parity_check, local_operation}";
+        let ast_nodes = rula_parser::parse(import_rule_stmt, &PathBuf::from("./tests/")).unwrap();
 
         let expected_ast_nodes =
             build_program_ast(Program::new(vec![ProgramKind::Import(Import::new(
                 vec![
-                    PathBuf::from("examples/pur/parity_check"),
-                    PathBuf::from("examples/pur/local_operation"),
+                    PathBuf::from("pur/parity_check"),
+                    PathBuf::from("pur/local_operation"),
                 ],
                 true,
                 vec![
@@ -113,6 +114,7 @@ mod import_tests {
                     ),
                 ],
                 vec!["parity_check".to_string(), "local_operation".to_string()],
+                vec![],
             ))]));
         assert_eq!(ast_nodes, expected_ast_nodes);
     }
@@ -122,7 +124,7 @@ mod import_tests {
         // Error test
         // imcompelete path
         let import_stmt = "import hello::;";
-        let error_ast_nodes = rula_parser::parse(import_stmt);
+        let error_ast_nodes = rula_parser::parse(import_stmt, &PathBuf::from("/"));
         assert!(error_ast_nodes.is_err());
     }
 
@@ -130,7 +132,7 @@ mod import_tests {
     fn test_import_syntax_error_imcomplete_path_multiple() {
         // imcomplete error
         let import_stmt = "import hello::{world, };";
-        let error_ast_nodes = rula_parser::parse(import_stmt);
+        let error_ast_nodes = rula_parser::parse(import_stmt, &PathBuf::from("/"));
         assert!(error_ast_nodes.is_err());
     }
 }
@@ -141,7 +143,7 @@ mod comment_tests {
     #[rustfmt::skip]
     fn test_implicit_parse_comment() {
         let comment = "// this is a comment \n";
-        let empty_ast_nodes = rula_parser::parse(comment).unwrap();
+        let empty_ast_nodes = rula_parser::parse(comment, &PathBuf::from("/")).unwrap();
         let target_ast_nodes = 
             AstNode::RuLa(
                 RuLa::new(
@@ -155,7 +157,7 @@ mod comment_tests {
     #[rustfmt::skip]
     fn test_parse_long_comment() {
         let comment = "/* this is a comment */";
-        let empty_ast_nodes = rula_parser::parse(comment).unwrap();
+        let empty_ast_nodes = rula_parser::parse(comment, &PathBuf::from("/")).unwrap();
         let target_ast_nodes =
             AstNode::RuLa(
                 RuLa::new(
@@ -169,7 +171,7 @@ mod comment_tests {
     #[rustfmt::skip]
     fn test_parse_long_comment_with_new_line() {
         let comment = "/* this is a comment\n hello world\n */";
-        let empty_ast_nodes = rula_parser::parse(comment).unwrap();
+        let empty_ast_nodes = rula_parser::parse(comment, &PathBuf::from("/")).unwrap();
         let target_ast_nodes = 
             AstNode::RuLa(
                 RuLa::new(
@@ -188,7 +190,7 @@ mod test_ruleset_stmt {
         let ruleset_stmt = "ruleset entanglement_swapping{
             stmts
         }";
-        let ruleset_stmt_asts = rula_parser::parse(ruleset_stmt).unwrap();
+        let ruleset_stmt_asts = rula_parser::parse(ruleset_stmt, &PathBuf::from("/")).unwrap();
 
         let target_ast_nodes = build_program_ast(Program::new(vec![ProgramKind::RuleSetExpr(
             RuleSetExpr::new(
@@ -208,7 +210,7 @@ mod test_rule_stmt {
     #[test]
     fn test_simple_rule_stmt() {
         let rule_stmt = "rule hello<#rep>(q2: Qubit, q3: Qubit) :-> Qubit? {cond{} => act{}}";
-        let rule_stmt_asts = rula_parser::parse(rule_stmt).unwrap();
+        let rule_stmt_asts = rula_parser::parse(rule_stmt, &PathBuf::from("/")).unwrap();
         let target_ast_nodes =
             build_program_ast(Program::new(vec![ProgramKind::RuleExpr(RuleExpr::new(
                 Ident::new("hello", None),

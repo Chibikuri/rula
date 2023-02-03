@@ -167,6 +167,9 @@ pub struct Import {
     pub rule_import: bool,
     pub imported_rules: Vec<RuleExpr>,
     pub rule_names: Vec<String>,
+    // import statement defined in the other files.
+    // TODO rule import cannot be nested to avoid circular reference.
+    pub local_importing: Vec<Import>,
 }
 
 impl Import {
@@ -175,12 +178,14 @@ impl Import {
         rule_import: bool,
         rules: Vec<RuleExpr>,
         rule_names: Vec<String>,
+        local_importing: Vec<Import>,
     ) -> Self {
         Import {
             path: path,
             rule_import: rule_import,
             imported_rules: rules,
             rule_names: rule_names,
+            local_importing: local_importing,
         }
     }
 
@@ -190,6 +195,7 @@ impl Import {
             rule_import: false,
             imported_rules: vec![],
             rule_names: vec![],
+            local_importing: vec![],
         }
     }
 
@@ -219,6 +225,14 @@ impl Import {
 
     pub fn rule_import(&mut self) {
         self.rule_import = true;
+    }
+
+    pub fn set_local_import(&mut self, local_import: Vec<Import>) {
+        self.local_importing = local_import;
+    }
+
+    pub fn add_local_import(&mut self, import: Import) {
+        self.local_importing.push(import);
     }
 }
 

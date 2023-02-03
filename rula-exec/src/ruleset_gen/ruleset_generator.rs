@@ -253,11 +253,14 @@ pub(super) fn generate_import(
         ))
     } else {
         // import rules
-        // get the path
-        for path in import_stmt.path.iter() {
-            // 0. import the file
+        // Get the rules
+        let mut generated_rules = vec![];
+        for rule in import_stmt.imported_rules.iter() {
+            generated_rules.push(generate_rule_stmt(rule, tracker).unwrap());
         }
-        Ok(quote!())
+        Ok(quote!(
+            #(#generated_rules)*
+        ))
     }
 }
 

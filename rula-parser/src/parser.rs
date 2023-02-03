@@ -28,7 +28,7 @@ pub type IResult<T> = std::result::Result<T, RuLaError>;
 /**
  * parse rula system and if it matches program, going to `build_ast_from_program`.
 */
-pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
+pub fn build_ast_from_rula(pair: Pair<Rule>, file_path: &PathBuf) -> IResult<RuLa> {
     match pair.as_rule() {
         Rule::program => {
             if pair.as_str() == "" {
@@ -36,7 +36,7 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
                 return Ok(RuLa::ignore());
             } else {
                 return Ok(RuLa::new(RuLaKind::Program(
-                    build_ast_from_program(pair).unwrap(),
+                    build_ast_from_program(pair, file_path).unwrap(),
                 )));
             }
         }
@@ -46,13 +46,13 @@ pub fn build_ast_from_rula(pair: Pair<Rule>) -> IResult<RuLa> {
 }
 
 // Parse program <-> statement
-fn build_ast_from_program(pair: Pair<Rule>) -> IResult<Program> {
+fn build_ast_from_program(pair: Pair<Rule>, file_path: &PathBuf) -> IResult<Program> {
     let mut program = Program::place_holder();
     for block in pair.into_inner() {
         match block.as_rule() {
             Rule::repeaters => program.add_program(ProgramKind::Repeaters),
             Rule::import_stmt => program.add_program(ProgramKind::Import(
-                build_ast_from_import_stmt(block).unwrap(),
+                build_ast_from_import_stmt(block, file_path).unwrap(),
             )),
             Rule::ruleset_stmt => program.add_program(ProgramKind::RuleSetExpr(
                 build_ast_from_ruleset_stmt(block).unwrap(),
@@ -188,7 +188,7 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> IResult<Expr> {
 // Grammar for the import statement
 // import_stmt = { ^"import" ~ rule_annotation? ~ ident ~ ( "::" ~ ident )* ~ ( "::" ~ "{" ~ ident_list ~ "}")?  ~ !"::" }
 // rule_annotation = {"(rule)"}
-fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
+fn build_ast_from_import_stmt(pair: Pair<Rule>, file_path: &PathBuf) -> IResult<Import> {
     // initialize import ast
     let mut import_stmt = Import::place_holder();
 
@@ -226,31 +226,33 @@ fn build_ast_from_import_stmt(pair: Pair<Rule>) -> IResult<Import> {
     import_stmt.set_path(path_list.clone());
     if import_stmt.rule_import {
         // if this import statement improt the rules parse it and store in the vector
-        rule_importing(&mut import_stmt, path_list).unwrap()
+        rule_importing(&mut import_stmt, path_list, file_path).unwrap()
     }
     Ok(import_stmt)
 }
 
-fn rule_importing(import_stmt: &mut Import, path_vec: Vec<PathBuf>) -> IResult<()> {
+fn rule_importing(
+    import_stmt: &mut Import,
+    path_vec: Vec<PathBuf>,
+    file_path: &PathBuf,
+) -> IResult<()> {
     // read path and generate RuLa AST
     for path in path_vec.iter() {
         // read the file
         let mut file_contents = String::new();
         let mut file_name = path.parent().unwrap().to_str().unwrap().to_string();
         file_name.push_str(".rula");
-        println!(
-            "file_name: {}, {:#?}",
-            file_name,
-            env::current_dir().unwrap()
-        );
-        match File::open(&file_name) {
+        // Get the current path and attach the file name at the end.
+        let mut parent_file = file_path.parent().unwrap().to_path_buf();
+        parent_file.push(&file_name);
+        match File::open(&parent_file) {
             Ok(mut file_content) => {
                 file_content
                     .read_to_string(&mut file_contents)
                     .expect("Failed to read the file");
             }
             Err(err) => {
-                panic!("Failed to open file at {:#?}, {}", file_name, err);
+                panic!("Failed to open file at {:#?}, {}", parent_file, err);
             }
         };
 
@@ -258,17 +260,24 @@ fn rule_importing(import_stmt: &mut Import, path_vec: Vec<PathBuf>) -> IResult<(
         // The last file name must be the same as the rule nam
         let rule_name = path.file_name().unwrap().to_str().unwrap();
         // parse file contents
-        let ast = parse(&file_contents).unwrap();
-        // extract rule with rule name
+        let ast = parse(&file_contents, &PathBuf::from("/")).unwrap();
 
-        let extracted_rule = extract_rule(ast, rule_name).unwrap();
+        let mut local_import_stmt = vec![];
+
+        // extract rule with rule name
+        let extracted_rule = extract_rule(ast, rule_name, &mut local_import_stmt).unwrap();
         import_stmt.add_rule_name(String::from(rule_name));
         import_stmt.add_rule(extracted_rule);
+        import_stmt.set_local_import(local_import_stmt);
     }
     Ok(())
 }
 
-fn extract_rule(ast: AstNode, rule_name: &str) -> IResult<RuleExpr> {
+fn extract_rule(
+    ast: AstNode,
+    rule_name: &str,
+    local_import_stmt: &mut Vec<Import>,
+) -> IResult<RuleExpr> {
     match ast {
         AstNode::RuLa(rula) => {
             match &*rula.rula {
@@ -276,6 +285,12 @@ fn extract_rule(ast: AstNode, rule_name: &str) -> IResult<RuleExpr> {
                     let mut target_rule = RuleExpr::place_holder();
                     for program in programs.programs.iter() {
                         match program {
+                            // Assume all importing is done before rule definition
+                            ProgramKind::Import(importing) => {
+                                if !importing.rule_import {
+                                    local_import_stmt.push(importing.clone());
+                                }
+                            }
                             ProgramKind::RuleExpr(rule) => {
                                 // Check rule name
                                 if &*rule.name.name == rule_name {
@@ -283,15 +298,15 @@ fn extract_rule(ast: AstNode, rule_name: &str) -> IResult<RuleExpr> {
                                     break;
                                 }
                             }
-                            _ => return Err(RuLaError::RuLaSyntaxError),
+                            _ => {}
                         }
                     }
                     Ok(target_rule)
                 }
-                _ => return Err(RuLaError::RuLaSyntaxError),
+                _ => return panic!("Program Kind?"),
             }
         }
-        AstNode::PlaceHolder => return Err(RuLaError::RuLaSyntaxError),
+        AstNode::PlaceHolder => panic!("AST does not contain RuLa AST node"),
     }
 }
 
