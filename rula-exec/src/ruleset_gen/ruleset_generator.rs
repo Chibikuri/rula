@@ -216,38 +216,57 @@ pub(super) fn generate_import(
     tracker: &ValueTracker,
 ) -> IResult<TokenStream> {
     // import must be out of scope
-    let scope = String::from("___*");
+    let _scope = String::from("___*");
 
-    // Convert a set of paths into a set of identifiers
-    let path = import_stmt.path.convert_to_ident();
+    if !import_stmt.rule_import {
+        // Convert a set of paths into a set of identifiers
+        // let path = import_stmt.path.convert_to_ident();
 
-    // Vector to store all paths
-    // e.g. [hello::world, good::evening::Yall]
-    let mut paths = vec![];
-    for path_ident in path.iter() {
-        let mut single_path = vec![];
-        let quoted_path = if path_ident.name.contains("/") {
-            let splitted = path_ident.name.split("/");
-            for sp in splitted.into_iter() {
-                let top_path = if sp == "std" { "rula_std" } else { sp };
-                let new_ident = Ident::new(top_path, None);
-                let path_fragment = generate_ident(&new_ident, tracker, &scope).unwrap();
-                single_path.push(path_fragment)
+        // loop all the paths
+        let mut paths: Vec<TokenStream> = vec![];
+        for path in import_stmt.path.iter() {
+            let mut single_path: Vec<TokenStream> = vec![];
+            // path could be 1. `test` or `test::func`
+            for path_fragment in path.iter() {
+                if path_fragment.to_str().expect("Failed to convert string") == "std" {
+                    let ident = format_ident!("rula_std");
+                    single_path.push(quote!(#ident));
+                } else {
+                    let string_fragment = path_fragment.to_str().expect("Failed to convert string");
+                    let ident = format_ident!("{}", string_fragment);
+                    single_path.push(quote!(#ident));
+                }
             }
-            let path_head = &single_path[0];
-            let path_left = &single_path[1..];
-            quote!(
-                #path_head #(::#path_left)*
-            )
-        } else {
-            let path_ident = generate_ident(path_ident, tracker, &scope).unwrap();
-            quote!(#path_ident)
-        };
-        paths.push(quoted_path);
+            if single_path.len() == 1 {
+                let path_head = &single_path[0];
+                paths.push(quote!(#path_head));
+            } else {
+                let path_head = &single_path[0];
+                let remain_path = &single_path[1..];
+                paths.push(quote!(
+                    #path_head #(::#remain_path)*
+                ))
+            }
+        }
+        Ok(quote!(
+            #(use #paths; )*
+        ))
+    } else {
+        // import rules
+        // Get the rules
+        let mut generated_rules = vec![];
+        let mut generated_import = vec![];
+        for imported in import_stmt.local_importing.iter() {
+            generated_import.push(generate_import(imported, tracker).unwrap());
+        }
+        for rule in import_stmt.imported_rules.iter() {
+            generated_rules.push(generate_rule_stmt(rule, tracker).unwrap());
+        }
+        Ok(quote!(
+            #(#generated_import)*
+            #(#generated_rules)*
+        ))
     }
-    Ok(quote!(
-        #(use #paths; )*
-    ))
 }
 
 // Generate ruleset expression

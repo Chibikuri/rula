@@ -1,0 +1,11 @@
+rule local_operation<#rep>(){
+    cond {
+    } => act {
+    }
+}
+
+rule parity_check<#rep>(){
+    cond {
+    } => act {
+    }
+}

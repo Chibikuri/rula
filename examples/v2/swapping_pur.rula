@@ -1,0 +1,48 @@
+#repeaters: vec[Repeater]
+
+import std::operation::{z, x, bsm}
+import (rule) purification::{local_operation, parity_check}
+
+rule swapping<#rep>(distance: int){
+    let left_partner: Repeater = #rep.hop(-distance)
+    let right_partner: Repeater = #rep.hop(distance)
+    cond {
+        @q1: res(1, 0.8, left_partner, 0)  
+        @q2: res(1, 0.8, right_partner, 1)
+    } => act {
+        let result: Result = bsm(q1, q2)
+        match result {
+            "00" => {},
+            "01" => {update(q1, z()) -> left_partner},
+            "10" => {update(q2, x()) -> right_partner},
+            "11" => {update(q1, z()) -> left_partner,
+                     update(q2, x()) -> right_partner},
+            otherwise => {
+                // swapping faild
+                free(q1) -> left_partner,
+                free(q2) -> right_partner}
+        }
+        // swapping success
+        transfer(q1) -> left_partner
+        transfer(q2) -> right_partner
+    }
+}
+
+ruleset swapping_purification{
+    // initial purification
+    for i in 0..#repeaters.len() - 1{
+        let promoted_qubit: Qubit = local_operation<#repeaters(i)>(1)
+        let promoted1: Qubit = parity_check<#repeaters(i)>(1, promoted_qubit)
+        let promoted_qubit2: Qubit = local_operation<#repeaters(i+1)>(-1)
+        let promoted2: Qubit = parity_check<#repeaters(i+1)>(-1, promoted_qubit2)
+    }
+
+    // From distance 1 to half
+    for d in 1..(#repeaters.len()/2){
+        for i in 1..#repeaters.len()-1{
+            if (i % (2 * d) == d){
+                swapping<#repeaters(i)>(d)
+            }
+        }
+    }
+}
