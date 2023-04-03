@@ -9,6 +9,7 @@ description = "Bootstrap of rula compiler"
 [dependencies]
 clap = { version = "4.0.10", features = ["derive"] }
 toml = "0.5.9"
+proc-macro2 = "1.0"
 # serde = "1.0"
 rula_parser = {path="../rula-parser"}
 rula-exec = {path="../rula-exec"}
