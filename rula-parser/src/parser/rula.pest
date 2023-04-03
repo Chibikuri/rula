@@ -101,7 +101,7 @@ caret = { "^" }
 // Comparison (no chain comparison allowed)
 comp_expr = { comparable ~ comp_op ~ comparable }
 comparable = { get_expr | term_expr | variable_call_expr | fn_call_expr |  literal_expr }
-comp_op = { "<" | ">" | "=<" | ">=" | "==" | "!=" }
+comp_op = { "<" | ">" | "<=" | ">=" | "==" | "!=" }
 
 
 variable_call_expr = { callable ~ "." ~ callable ~ ("." ~ callable)*}
