@@ -2,24 +2,24 @@
     "repeaters": [
         {
             "name" : "#1",
-            "index": 0
+            "address": 0
 
         },
         {
             "name": "#2",
-            "index": 1
+            "address": 1
         },
         {
             "name": "#3",
-            "index": 2
+            "address": 2
         },
         {
             "name": "#4",
-            "index": 3
+            "address": 3
         },
         {
             "name": "#5",
-            "index": 4
+            "address": 4
         }
     ]
 }

@@ -2,6 +2,7 @@ use super::condition::*;
 use super::ruleset::Rule;
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::ruleset_gen::ruleset::AddressKind;
 
 // Possible Type values in RuLa
 #[derive(Debug, Clone, PartialEq)]
@@ -112,8 +113,13 @@ pub type RuleVec = Rc<RefCell<Vec<RefCell<Rule>>>>;
 // Repeater type
 #[derive(Debug, Clone, PartialEq)]
 pub struct Repeater {
+    // A readable name of this repeater
     pub name: String,
+    // An index of this repeater. 
+    // This is just for internal use to identify which repeater is which.
     pub index: u64,
+    // A public address exposed to outer world
+    pub address: AddressKind,
     // repeater chains
     // (initiators) left_repeaters < -- > self (0) < -- > right_repeaters (responder)
     pub left_repeaters: Vec<Box<Repeater>>,
@@ -125,13 +131,18 @@ impl Repeater {
         Repeater {
             name: name.to_string(),
             index: 0,
+            address: AddressKind::IntegerKind(0),
             left_repeaters: vec![],
             right_repeaters: vec![],
         }
     }
 
-    pub fn update_index(&mut self, index: u64) {
-        self.index = index;
+    pub fn update_index(&mut self, new_index: u64){
+        self.index = new_index
+    }
+
+    pub fn update_address(&mut self, address: AddressKind){
+        self.address = address
     }
 
     // TODO: remove rulevec arg
@@ -174,7 +185,7 @@ impl Repeater {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
     pub result: RuLaResult,
-    pub source: u64,
+    pub source: AddressKind,
 }
 
 impl Message {
@@ -182,11 +193,11 @@ impl Message {
         let result = RuLaResult::new();
         Message {
             result: result,
-            source: 0,
+            source: AddressKind::IntegerKind(0),
         }
     }
-    pub fn update_source(&mut self, partner_index: u64) {
-        self.source = partner_index;
+    pub fn update_source(&mut self, partner_address: AddressKind) {
+        self.source = partner_address;
     }
 }
 

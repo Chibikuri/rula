@@ -25,7 +25,7 @@ pub struct RuleSet {
     /// Unique identifier for thie RuleSet. (This could be kept in private)
     pub id: u128,
     /// Owner address can only be solved after the all network interface options are collected
-    pub owner_addr: Option<AddressKind>,
+    pub owner_addr: AddressKind,
     /// Default rule to be applied
     // pub default_rule: Option<Rule<T>>,
     /// List of rules stored in this RuleSet
@@ -50,11 +50,11 @@ pub enum AddressKind {
 pub type PartnerAddr = AddressKind;
 
 impl RuleSet {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &str, owner_addr: AddressKind) -> Self {
         RuleSet {
             name: name.to_string(),
             id: generate_id(),
-            owner_addr: None,
+            owner_addr: owner_addr,
             // default_rule: None,
             stages: vec![],
             num_rules: 0,
@@ -65,7 +65,7 @@ impl RuleSet {
         self.name = name.to_string();
     }
 
-    pub fn update_owner_addr(&mut self, owner_addr: Option<AddressKind>) {
+    pub fn update_owner_addr(&mut self, owner_addr: AddressKind) {
         self.owner_addr = owner_addr;
     }
 
@@ -218,7 +218,7 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_new() {
-        let ruleset = RuleSet::new("test");
+        let ruleset = RuleSet::new("test", AddressKind::IntegerKind(0));
         assert_eq!(ruleset.name, String::from("test"));
         assert_eq!(ruleset.id.to_string(), "1234567890");
         assert_eq!(ruleset.stages.len(), 0);
@@ -226,7 +226,7 @@ pub mod tests {
 
     #[test]
     fn test_ruleset_add_rule() {
-        let mut ruleset = RuleSet::new("test");
+        let mut ruleset = RuleSet::new("test", AddressKind::IntegerKind(0));
         let rule = Rule::new("rule1");
         let rule2 = Rule::new("rule2");
         let mut stage = Stage::new();

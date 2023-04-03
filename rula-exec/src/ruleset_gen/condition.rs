@@ -1,5 +1,6 @@
 use super::ruleset::{PartnerAddr, ProtocolMessages};
 use serde::{Deserialize, Serialize};
+use crate::ruleset_gen::ruleset::AddressKind;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Condition {
@@ -123,13 +124,13 @@ impl Res {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Recv {
-    pub partner_index: u64,
+    pub partner_address: AddressKind,
 }
 
 impl Recv {
-    pub fn new(partner_index: u64) -> Self {
+    pub fn new(partner_address: AddressKind) -> Self {
         Recv {
-            partner_index: partner_index,
+            partner_address: partner_address,
         }
     }
 }
