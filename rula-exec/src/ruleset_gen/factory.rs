@@ -22,7 +22,7 @@ pub fn generate_factory() -> TokenStream {
         pub fn from(repeaters: Vec<Repeater>) -> Self {
             let mut rulesets = vec![];
             for i in 0..repeaters.len(){
-                rulesets.push(RefCell::new(RuleSet::new("empty_ruleset")))
+                rulesets.push(RefCell::new(RuleSet::new("empty_ruleset", repeaters[i].address.clone())))
             }
             RuleSetFactory {
                 repeaters: RepeaterList::from(repeaters),

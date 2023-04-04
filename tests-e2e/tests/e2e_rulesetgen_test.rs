@@ -93,7 +93,7 @@ mod generate_swapping_ruleset {
         .unwrap();
 
         // 2.1 target ruleset
-        let mut target_ruleset = RuleSet::new("entanglement_swapping");
+        let mut target_ruleset = RuleSet::new("entanglement_swapping", AddressKind::IntegerKind(0));
         let mut stage = Stage::new();
         let rule1 = Rule::new("swapping");
         stage.add_rule(rule1);

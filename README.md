@@ -9,8 +9,10 @@ RuLa is designed to translate higher-level discription of RuleSet into lower-lev
 
 For more details on the design decisions and system architectures, please refer to [my master thesis](https://aqua.sfc.wide.ad.jp/publications/cocori_mthesis.pdf)
 ## Usage
-RuLa requires Rust compiler ([rustc](https://www.rust-lang.org/tools/install)) that is grater than or equal version 1.63.0. For convenience, Rust package manager [cargo](https://doc.rust-lang.org/cargo/) is also recommended to install to compile RuLa program.
+RuLa requires Rust compiler ([rustc](https://www.rust-lang.org/tools/install)) that is grater than or equal version 1.63.0. For convenience, Rust package manager [cargo](https://doc.rust-lang.org/cargo/) is also recommened to install
 
+## Testing and Validation
+Test is done through `cargo test` command and that command run all the tests prepared for each component.
 
 [^ruleset]:[Matsuo, Takaaki, Clément Durand, and Rodney Van Meter. "Quantum link bootstrapping using a RuleSet-based communication protocol." Physical Review A 100.5 (2019): 052320.](https://journals.aps.org/pra/abstract/10.1103/PhysRevA.100.052320) 
 

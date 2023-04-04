@@ -19,7 +19,7 @@ pub fn res(
         rule.borrow_mut()
             .add_condition_clause(ConditionClauses::Res(Res::new(
                 num_res.clone(),
-                PartnerAddr::IntegerKind(partner_repeater.index),
+                partner_repeater.address.clone(),
                 Some(req_fidelity.clone()),
             )))
     }
@@ -54,7 +54,7 @@ pub fn set_timer(rules: RuleVec) {
 pub fn send(rules: RuleVec, partner_repeater: &Repeater, proto_message_type: ProtoMessageType) {
     // 1. Create send instruction
     let proto_message_identifier = ProtoMessageIdentifier {
-        partner_addr: PartnerAddr::IntegerKind(partner_repeater.index),
+        partner_addr: partner_repeater.address.clone(),
     };
     let protocol_message = generate_protocol_message(proto_message_type, proto_message_identifier);
     for rule in rules.borrow().iter() {
@@ -68,7 +68,7 @@ pub fn wait(
     swapping_repeater: &Repeater,
     proto_message_type: ProtoMessageType,
 ) {
-    let identifier = ProtoMessageIdentifier::new(AddressKind::IntegerKind(swapping_repeater.index));
+    let identifier = ProtoMessageIdentifier::new(swapping_repeater.address.clone());
     let proto_message = generate_protocol_message(proto_message_type, identifier);
     let condition_clause = ConditionClauses::Wait(proto_message.clone());
     let action_clause = ActionClauses::Wait(proto_message.clone());
@@ -82,10 +82,10 @@ pub fn wait(
 pub fn recv(rules: RuleVec, source_repeater: &Repeater) -> Message {
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
-            .add_condition_clause(ConditionClauses::Recv(Recv::new(source_repeater.index)));
+            .add_condition_clause(ConditionClauses::Recv(Recv::new(source_repeater.address.clone())));
     }
     let mut new_message = Message::place_holder();
-    new_message.update_source(source_repeater.index);
+    new_message.update_source(source_repeater.address.clone());
     new_message
 }
 
