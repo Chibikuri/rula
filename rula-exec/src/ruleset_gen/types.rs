@@ -1,8 +1,8 @@
 use super::condition::*;
 use super::ruleset::Rule;
+use crate::ruleset_gen::ruleset::AddressKind;
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::ruleset_gen::ruleset::AddressKind;
 
 // Possible Type values in RuLa
 #[derive(Debug, Clone, PartialEq)]
@@ -115,7 +115,7 @@ pub type RuleVec = Rc<RefCell<Vec<RefCell<Rule>>>>;
 pub struct Repeater {
     // A readable name of this repeater
     pub name: String,
-    // An index of this repeater. 
+    // An index of this repeater.
     // This is just for internal use to identify which repeater is which.
     pub index: u64,
     // A public address exposed to outer world
@@ -137,11 +137,11 @@ impl Repeater {
         }
     }
 
-    pub fn update_index(&mut self, new_index: u64){
+    pub fn update_index(&mut self, new_index: u64) {
         self.index = new_index
     }
 
-    pub fn update_address(&mut self, address: AddressKind){
+    pub fn update_address(&mut self, address: AddressKind) {
         self.address = address
     }
 

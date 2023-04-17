@@ -21,6 +21,9 @@ struct Args {
     /// RuLa configuration
     config: PathBuf,
 
+    /// Output format of the RuleSet
+    output_format: Option<String>,
+
     /// Output directory path
     output_dir_path: Option<PathBuf>,
 

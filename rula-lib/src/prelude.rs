@@ -82,7 +82,9 @@ pub fn wait(
 pub fn recv(rules: RuleVec, source_repeater: &Repeater) -> Message {
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
-            .add_condition_clause(ConditionClauses::Recv(Recv::new(source_repeater.address.clone())));
+            .add_condition_clause(ConditionClauses::Recv(Recv::new(
+                source_repeater.address.clone(),
+            )));
     }
     let mut new_message = Message::place_holder();
     new_message.update_source(source_repeater.address.clone());

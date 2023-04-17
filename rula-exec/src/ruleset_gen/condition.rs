@@ -1,6 +1,6 @@
 use super::ruleset::{PartnerAddr, ProtocolMessages};
-use serde::{Deserialize, Serialize};
 use crate::ruleset_gen::ruleset::AddressKind;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Condition {

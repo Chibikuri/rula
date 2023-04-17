@@ -7,7 +7,6 @@ extern crate pest_derive;
 #[grammar = "parser/rula.pest"]
 pub struct RuLaParser;
 
-use once_cell::sync::OnceCell;
 use std::path::PathBuf;
 
 use parser::ast::AstNode;
@@ -15,7 +14,6 @@ use parser::error::RuLaError;
 use parser::IResult;
 use pest::Parser;
 
-use std::fs;
 
 use crate::parser::build_ast_from_rula;
 
