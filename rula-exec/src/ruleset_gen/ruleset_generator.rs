@@ -1101,8 +1101,8 @@ pub(super) fn generate_rep_call_arg(
         RepeaterCallArg::Term(term) => {
             generate_term_expr(term, tracker, scope, in_ruledef).unwrap()
         }
-        RepeaterCallArg::Ident(ident) => (generate_ident(ident, tracker, scope).unwrap()),
-        RepeaterCallArg::IntegerLit(int_lit) => (generate_int_lit(int_lit).unwrap()),
+        RepeaterCallArg::Ident(ident) => generate_ident(ident, tracker, scope).unwrap(),
+        RepeaterCallArg::IntegerLit(int_lit) => generate_int_lit(int_lit).unwrap(),
         RepeaterCallArg::PlaceHolder => return Err(RuleSetGenError::InitializationError),
     };
     Ok((quote!(__factory.borrow().repeaters.at(#arg)), quote!(#arg)))

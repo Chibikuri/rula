@@ -11,6 +11,7 @@ pub mod ruleset_gen {
     pub mod condition;
     pub mod conf_parser;
     pub mod factory;
+    pub mod generator;
     pub mod ruleset;
     pub mod ruleset_generator;
     pub mod tracker;

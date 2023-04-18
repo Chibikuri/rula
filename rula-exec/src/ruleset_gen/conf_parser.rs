@@ -77,7 +77,7 @@ mod tests {
     fn test_repeater_resolve() {
         // #1 < -- > #2 < -- > #3 < -- > #4 < -- > #5
         let config_path = PathBuf::from("../examples/v2/config.json");
-        let tracker = RefCell::new(Tracker::new());
+        let _tracker = RefCell::new(Tracker::new());
         let repeater_list = parse_config(&config_path).unwrap();
         assert_eq!(repeater_list.len(), 5);
 

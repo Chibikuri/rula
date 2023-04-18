@@ -109,7 +109,6 @@ mod tests {
 
     #[cfg(test)]
     mod term_expr_tests {
-        use super::*;
 
         #[test]
         fn simple_term_expr() {

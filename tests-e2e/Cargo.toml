@@ -10,7 +10,7 @@ edition = "2021"
 
 [dependencies]
 rula = {path = "../rula"}
-rula_parser = { path = "../rula-parser" }
+rula-parser = { path = "../rula-parser" }
 rula-exec = {path="../rula-exec"}
 rula-lib = {path="../rula-lib"}
 

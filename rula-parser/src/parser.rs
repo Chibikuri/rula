@@ -2,8 +2,6 @@ pub mod ast;
 pub mod error;
 mod util;
 
-use std::env;
-
 use crate::{parse, Rule};
 // RuLa
 use ast::*;
@@ -303,7 +301,7 @@ fn extract_rule(
                     }
                     Ok(target_rule)
                 }
-                _ => return panic!("Program Kind?"),
+                _ => unreachable!(),
             }
         }
         AstNode::PlaceHolder => panic!("AST does not contain RuLa AST node"),

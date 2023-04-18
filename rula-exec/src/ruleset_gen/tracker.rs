@@ -1,13 +1,6 @@
-use serde_json::Value;
-
-use super::ruleset::{RuleSet, Stage};
-use super::ruleset_generator::{Scope, ValueTracker};
-use super::types::{Repeater, RuLaValue, Types};
-use std::cell::RefCell;
+use super::types::Types;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 
-type NodeNumber = usize;
 type RuleName = String;
 
 // Track all global state in generation

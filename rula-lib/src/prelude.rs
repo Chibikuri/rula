@@ -2,8 +2,6 @@ use rula_exec::ruleset_gen::action::*;
 use rula_exec::ruleset_gen::condition::*;
 use rula_exec::ruleset_gen::ruleset::*;
 use rula_exec::ruleset_gen::types::*;
-use std::cell::RefCell;
-use std::collections::HashSet;
 
 pub fn res(
     rules: RuleVec,
@@ -35,7 +33,7 @@ pub fn free(rules: RuleVec, qubit: &Qubit) {
     }
 }
 
-pub fn check_timer(rules: RuleVec, timer_id: String) {
+pub fn check_timer(rules: RuleVec, _timer_id: String) {
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
             .add_condition_clause(ConditionClauses::Timer(10.0));
@@ -43,11 +41,11 @@ pub fn check_timer(rules: RuleVec, timer_id: String) {
     todo!("Need fix");
 }
 
-pub fn cmp(rules: RuleVec) {
+pub fn cmp(_rules: RuleVec) {
     todo!("Add!")
 }
 
-pub fn set_timer(rules: RuleVec) {
+pub fn set_timer(_rules: RuleVec) {
     todo!("Add timer");
 }
 

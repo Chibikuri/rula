@@ -1,5 +1,5 @@
 [package]
-name = "rula_parser"
+name = "rula-parser"
 version = "0.1.0"
 edition = "2021"
 description = "A parser for RuLa programming language"

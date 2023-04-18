@@ -14,7 +14,6 @@ use parser::error::RuLaError;
 use parser::IResult;
 use pest::Parser;
 
-
 use crate::parser::build_ast_from_rula;
 
 // Interface function to parse rula code

@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum RegId{
+pub enum RegId {
     Reg0, // Register 0
     Reg1,
     Reg2,
@@ -8,8 +8,8 @@ pub enum RegId{
 }
 
 #[derive(Debug)]
-pub struct Label{
-    val: String
+pub struct Label {
+    _val: String,
 }
 
 #[derive(Debug)]
@@ -22,22 +22,22 @@ pub enum ReturnCode {
 }
 
 #[derive(Debug)]
-pub struct MemoryKey{
-    key: String
+pub struct MemoryKey {
+    _key: String,
 }
 
 #[derive(Debug)]
-pub struct QNodeAddr{
-    val: i64
+pub struct QNodeAddr {
+    _val: i64,
 }
 
 #[derive(Debug, Hash)]
-pub struct QubitId{
-    val: i64
+pub struct QubitId {
+    _val: i64,
 }
 
 #[derive(Debug)]
-pub enum Basis{
+pub enum Basis {
     Z,
     Y,
     X,

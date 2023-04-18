@@ -66,14 +66,11 @@ macro_rules! inst {
                 "test".to_string()
             }
         }
-    };  
+    };
 }
-
 
 // this function is to see the contents of inst! macro
 #[allow(dead_code)]
 fn expand() {
     inst!(TestInstruction, READ test: String, WRITE test2: String);
 }
-
-

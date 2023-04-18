@@ -45,7 +45,7 @@ pub enum RuLaValue {
 }
 
 impl RuLaValue {
-    pub fn wrap<T>(val: &T) -> Self {
+    pub fn wrap<T>(_val: &T) -> Self {
         match std::any::type_name::<T>() {
             // "Repeater" => {RuLaValue::Repeater(val as Repeater)}
             _ => todo!(),
