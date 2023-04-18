@@ -65,10 +65,11 @@ pub fn generate(ast_tree: &AstNode, config_path: PathBuf) -> IResult<TokenStream
                 use std::cell::RefCell;
                 use std::fs::File;
                 use std::io::Write;
-                use itertools::Itertools;
                 use rula_std::prelude::*;
                 use std::collections::HashMap;
                 #[allow(unused)]
+                #[allow(non_camel_case_types)]
+                #[allow(non_snake_case)]
                 mod rula{
                     use super::*;
 

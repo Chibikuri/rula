@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 // Helper functions for creating Rules
-pub(crate) fn create_rule(
+pub(crate) fn _create_rule(
     name: &str,
     id: u32,
     shared_tag: u32,
