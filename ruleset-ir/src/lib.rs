@@ -1,9 +1,10 @@
 #[allow(dead_code)]
+#[allow(non_camel_case_types)]
 pub mod instructions;
-// pub mod ir_trait;
 
-// use crate::ir_trait::IR;
-// use crate::ir_trait::RSIR;
+pub mod types;
+
+// will be removed
 pub type IR = String;
 
 // All the ruleset instructions needs to implement this trait RuleSet IR (RSIR).
@@ -12,47 +13,67 @@ pub trait RSIR {
     fn gen_ir() -> IR;
 }
 
-
 #[macro_export]
 macro_rules! inst {
-    ($inst_name: ident, $($args: ident: $typedef: ty),* ) => {
-            #[derive(Debug)]
-            struct $inst_name{
-                $(
-                    $args: $typedef,
-                )*
-            }
+    // with annotation
+    ($inst_name: ident, $($mode: ident $args: ident: $typedef: ty),* ) => {
+        #[derive(Debug)]
+        struct $inst_name {
+            $(
+                $args: $typedef,
+            )*
+        }
 
-            impl $inst_name{
-                #[allow(dead_code)]
-                pub fn new($($args: $typedef),*) -> Self{
-                    $inst_name{
-                        $(
-                            $args: $args,
-                        )*
-                    }
-                }
-            }
-
-            impl RSIR for $inst_name{
-                fn gen_ir() -> IR {
-                    "test".to_string()
+        impl $inst_name {
+            #[allow(dead_code)]
+            pub fn new($($args: $typedef),*) -> Self {
+                $inst_name {
+                    $(
+                        $args: $args,
+                    )*
                 }
             }
         }
+
+        impl RSIR for $inst_name {
+            fn gen_ir() -> IR {
+                "test".to_string()
+            }
+        }
+    };
+    // without annotation (need refactor)
+    ($inst_name: ident, $($args: ident: $typedef: ty),* ) => {
+        #[derive(Debug)]
+        struct $inst_name {
+            $(
+                $args: $typedef,
+            )*
+        }
+
+        impl $inst_name {
+            #[allow(dead_code)]
+            pub fn new($($args: $typedef),*) -> Self {
+                $inst_name {
+                    $(
+                        $args: $args,
+                    )*
+                }
+            }
+        }
+
+        impl RSIR for $inst_name {
+            fn gen_ir() -> IR {
+                "test".to_string()
+            }
+        }
+    };  
 }
+
 
 // this function is to see the contents of inst! macro
 #[allow(dead_code)]
 fn expand() {
-    inst!(TestInstruction, test: String, test2: String);
+    inst!(TestInstruction, READ test: String, WRITE test2: String);
 }
 
-#[cfg(test)]
-mod macro_test {
-    use super::*;
-    #[test]
-    fn macro_expansion() {
-        inst!(TestInstruction, test: String);
-    }
-}
+
