@@ -1,6 +1,6 @@
 use crate::inst;
 use crate::types::*;
-use crate::IR;
+use crate::RuleSetIR;
 use crate::RSIR;
 
 // These inst!uctions are expanded to the structures
@@ -90,3 +90,4 @@ inst!(DELETE_MESSAGE, READ sequence_number: RegId); // delete all messages with 
 inst!(SEND_LINK_TOMOGRAPHY_RESULT, READ partner_addr: QNodeAddr, READ reg0: RegId, READ mem_key: MemoryKey, READ val: i64, READ time: Time); // partner addr, current count reg_id, outcome key, max_count, start_time
 inst!(SEND_PURIFICATION_RESULT, READ partner_addr: QNodeAddr, READ reg0: RegId /* measurement_result encoded in int */, READ reg1: RegId /* sequence_number */, READ pur_type: PurType);
 inst!(SEND_SWAPPING_RESULT, READ partner_addr: QNodeAddr /* receipient */, READ reg0: RegId /* pauli_op */, READ new_partner_addr: QNodeAddr /* new partner*/, READ sequence_number: RegId /* sequence_number */);
+inst!(NOP, READ nop: Option<Nop>);

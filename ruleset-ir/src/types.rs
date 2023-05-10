@@ -51,3 +51,6 @@ pub struct Time;
 
 #[derive(Debug)]
 pub struct PurType;
+
+#[derive(Debug)]
+pub struct Nop;

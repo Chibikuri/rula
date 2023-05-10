@@ -4,13 +4,13 @@ pub mod instructions;
 
 pub mod types;
 
-// will be removed
-pub type IR = String;
+#[derive(Debug)]
+pub struct RuleSetIR;
 
 // All the ruleset instructions needs to implement this trait RuleSet IR (RSIR).
 // This trait implements `gen_ir` that returns a text format instruction for RuleSet
 pub trait RSIR {
-    fn gen_ir() -> IR;
+    fn gen_ir() -> RuleSetIR;
 }
 
 #[macro_export]
@@ -36,8 +36,8 @@ macro_rules! inst {
         }
 
         impl RSIR for $inst_name {
-            fn gen_ir() -> IR {
-                "test".to_string()
+            fn gen_ir() -> RuleSetIR {
+                RuleSetIR{}
             }
         }
     };
@@ -62,8 +62,8 @@ macro_rules! inst {
         }
 
         impl RSIR for $inst_name {
-            fn gen_ir() -> IR {
-                "test".to_string()
+            fn gen_ir() -> RuleSetIR {
+                RuleSetIR{}
             }
         }
     };

@@ -11,16 +11,21 @@ pub mod ruleset_gen {
     pub mod condition;
     pub mod conf_parser;
     pub mod factory;
-    pub mod generator;
     pub mod ruleset;
+    // ruleset_generator generates RuleSet in json format
     pub mod ruleset_generator;
+    // generator generateds
+    pub mod generator;
+    pub mod symbol_table;
     pub mod tracker;
     pub mod types;
 
     mod test_ruleset_generator;
 
+    use error::InternalError;
     use error::RuleSetGenError;
     type IResult<T> = std::result::Result<T, RuleSetGenError>;
+    type InternalResult<T> = std::result::Result<T, InternalError>;
 }
 
 #[cfg(test)]

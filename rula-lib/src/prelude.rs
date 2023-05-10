@@ -24,6 +24,8 @@ pub fn res(
     Qubit::new(qubit_index.clone())
 }
 
+pub fn __res__() {}
+
 pub fn free(rules: RuleVec, qubit: &Qubit) {
     for rule in rules.borrow().iter() {
         rule.borrow_mut()
