@@ -14,4 +14,5 @@ pub enum RuleSetGenError {
 #[derive(Debug)]
 pub enum InternalError {
     ParentScopeNotFoundError,
+    ParentScopeDroppedError,
 }
