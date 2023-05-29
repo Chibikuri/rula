@@ -75,24 +75,48 @@ impl Scope {
         }
     }
 
-    pub fn climb_parents(&self) {}
-
     pub fn add_symbol(&mut self, symbol_name: &str, symbol_info: SymbolInfo) {
         self.symbols.insert(symbol_name.to_string(), symbol_info);
     }
 
-    pub fn get_symbol_info(&self, symbol_name: &str) -> &SymbolInfo {
-        self.symbols
-            .get(symbol_name)
-            .unwrap_or_else(|| panic!("Faild to get a symbol {}", symbol_name))
+    pub fn get_symbol_info(&self, symbol_name: &str) -> Option<SymbolInfo> {
+        // found in the current scope
+        match self.symbols.get(symbol_name) {
+            Some(symbol_info) => Some(symbol_info.clone()),
+            None => {
+                // get parent node
+                match self.ref_parent().unwrap() {
+                    Some(parent_node) => {
+                        let symbol = parent_node
+                            .borrow()
+                            .get_symbol_info(symbol_name)
+                            .expect("Failed to find the symbol")
+                            .clone();
+                        return Some(symbol);
+                    }
+                    None => {
+                        // No more parent here
+                        return None;
+                    }
+                }
+            }
+        }
     }
 }
 
 // For one symbol
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SymbolInfo {
     // Data type used in RuLa
     pub data_type: Types,
+}
+
+impl SymbolInfo {
+    pub fn new() -> Self {
+        SymbolInfo {
+            data_type: Types::Unknown,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -117,5 +141,27 @@ mod tests {
             }
         };
         assert_eq!(parent_ref.borrow().scope_name, String::from("__@parent"));
+    }
+
+    #[test]
+    fn test_scope_tree_look_up() {
+        // climb up to root to find a value
+        // root scope
+        let root = Rc::new(RefCell::new(Scope::new("__@root")));
+        root.borrow_mut()
+            .add_symbol("root_symbol", SymbolInfo::new());
+        // child scope
+        let child = Rc::new(RefCell::new(Scope::new("__@child")));
+        // grandchild
+        let grand_child = Rc::new(RefCell::new(Scope::new("__@grand_child")));
+
+        grand_child.borrow_mut().set_parent(Rc::downgrade(&child));
+        child.borrow_mut().set_parent(Rc::downgrade(&root));
+
+        let root_symbol = child
+            .borrow_mut()
+            .get_symbol_info("root_symbol")
+            .expect("Failed to get symbol");
+        assert_eq!(root_symbol.data_type, Types::Unknown);
     }
 }

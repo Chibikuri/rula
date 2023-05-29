@@ -15,4 +15,5 @@ pub enum RuleSetGenError {
 pub enum InternalError {
     ParentScopeNotFoundError,
     ParentScopeDroppedError,
+    NoSymbolFoundError,
 }
