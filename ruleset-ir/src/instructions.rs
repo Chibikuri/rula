@@ -1,6 +1,5 @@
 use crate::inst;
 use crate::types::*;
-use crate::RuleSetIR;
 use crate::RSIR;
 
 // These inst!uctions are expanded to the structures

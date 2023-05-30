@@ -85,6 +85,7 @@ impl Scope {
             Some(symbol_info) => Some(symbol_info.clone()),
             None => {
                 // get parent node
+                // FIXME: Don't wanna clone
                 match self.ref_parent().unwrap() {
                     Some(parent_node) => {
                         let symbol = parent_node
