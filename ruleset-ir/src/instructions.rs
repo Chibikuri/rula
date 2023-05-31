@@ -1,5 +1,6 @@
 use crate::inst;
 use crate::types::*;
+use crate::InstructionInfo;
 use crate::RSIR;
 
 // These inst!uctions are expanded to the structures

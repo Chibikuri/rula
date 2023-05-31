@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
 pub mod instructions;
@@ -5,6 +7,7 @@ pub mod instructions;
 pub mod types;
 
 // A structure that stores a set of instructions defined in instructions
+#[derive(Debug)]
 pub struct RuleSetIR {
     instructions: Vec<Box<dyn RSIR>>,
 }
@@ -39,8 +42,23 @@ impl RuleSetIR {
 // All the ruleset instructions needs to implement this trait RuleSet IR (RSIR).
 // This trait implements `gen_ir` that returns a text format instruction for RuleSet
 pub trait RSIR {
+    fn info(&self) -> InstructionInfo;
     fn export(&self) -> String;
     fn import(&self, ir: String);
+}
+
+impl Debug for dyn RSIR {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let instruction_info = self.info();
+        f.debug_struct("InstructionInfo")
+            .field("instruction name", &instruction_info.name)
+            .finish()
+    }
+}
+
+// For debugging (Add arguments and useful information later)
+pub struct InstructionInfo {
+    name: String,
 }
 
 #[macro_export]
@@ -49,6 +67,7 @@ macro_rules! inst {
     ($inst_name: ident, $($mode: ident $args: ident: $typedef: ty),* ) => {
         #[derive(Debug)]
         pub struct $inst_name {
+            instruction_name: String,
             $(
                 $args: $typedef,
             )*
@@ -58,6 +77,7 @@ macro_rules! inst {
             #[allow(dead_code)]
             pub fn new($($args: $typedef),*) -> Self {
                 $inst_name {
+                    instruction_name: stringify!($inst_name).to_string(),
                     $(
                         $args: $args,
                     )*
@@ -66,6 +86,12 @@ macro_rules! inst {
         }
 
         impl RSIR for $inst_name {
+            fn info(&self) -> InstructionInfo{
+                InstructionInfo{
+                    name: self.instruction_name.clone()
+                }
+            }
+
             fn export(&self) -> String{
                 String::from("")
             }
@@ -80,6 +106,7 @@ macro_rules! inst {
     ($inst_name: ident, $($args: ident: $typedef: ty),* ) => {
         #[derive(Debug)]
         pub struct $inst_name {
+            instruction_name: String,
             $(
                 $args: $typedef,
             )*
@@ -89,6 +116,7 @@ macro_rules! inst {
             #[allow(dead_code)]
             pub fn new($($args: $typedef),*) -> Self {
                 $inst_name {
+                    instruction_name: stringify!($inst_name).to_string(),
                     $(
                         $args: $args,
                     )*
@@ -97,6 +125,12 @@ macro_rules! inst {
         }
 
         impl RSIR for $inst_name {
+            fn info(&self) -> InstructionInfo{
+                InstructionInfo{
+                    name: self.instruction_name.clone()
+                }
+            }
+
             fn export(&self) -> String{
                 String::from("")
             }
@@ -141,5 +175,6 @@ mod tests {
         parent_ir.merge(&mut child_ir);
 
         assert_eq!(parent_ir.instructions.len(), 4);
+        println!("{:#?}", parent_ir.instructions);
     }
 }
