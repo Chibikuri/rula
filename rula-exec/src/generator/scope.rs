@@ -1,26 +1,12 @@
 use std::collections::HashMap;
 
-use super::InternalResult;
-use super::{error::InternalError, types::Types};
+use super::IResult;
+use super::error::CompileError;
+use super::symbol_table::SymbolInfo;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 type SymbolName = String;
-
-#[derive(Debug)]
-pub struct SymbolTable {
-    // scope hierarchy that can be climbed up to global scope
-    pub scope_tree: Box<Scope>,
-}
-
-impl SymbolTable {
-    pub fn new() -> Self {
-        SymbolTable {
-            // default scope name "__@" will be replaced by global scope "__@global"
-            scope_tree: Box::new(Scope::new("__@")),
-        }
-    }
-}
 
 // Scope Tree Node can only have one parent and could have multiple children
 #[derive(Debug)]
@@ -46,12 +32,23 @@ impl Scope {
         }
     }
 
-    pub fn add_child(&self, child: Rc<RefCell<Scope>>) -> InternalResult<()> {
+    pub fn set_root(&mut self) {
+        match &self.parent {
+            Some(_parent) => {
+                panic!("A scope that has parent scope cannot be a root scope")
+            }
+            None => {
+                self.root = true;
+            }
+        }
+    }
+
+    pub fn add_child(&self, child: Rc<RefCell<Scope>>) -> IResult<()> {
         // If there is no parent scope found, return error
         match &child.borrow_mut().parent {
             // Parent information must be set before added
             Some(_parent) => { /*found parent scope */ }
-            None => return Err(InternalError::ParentScopeNotFoundError),
+            None => return Err(CompileError::ParentScopeNotFoundError),
         }
         self.children.borrow_mut().push(child);
         Ok(())
@@ -61,13 +58,13 @@ impl Scope {
         self.parent = Some(parent);
     }
 
-    pub fn ref_parent(&self) -> InternalResult<Option<Rc<RefCell<Scope>>>> {
+    pub fn ref_parent(&self) -> IResult<Option<Rc<RefCell<Scope>>>> {
         match &self.parent {
             Some(parent_ref) => {
                 // check if the parent is still alive
                 match parent_ref.upgrade() {
                     Some(parent) => Ok(Some(parent)),
-                    None => Err(InternalError::ParentScopeDroppedError),
+                    None => Err(CompileError::ParentScopeDroppedError),
                 }
             }
             // Root node
@@ -102,67 +99,5 @@ impl Scope {
                 }
             }
         }
-    }
-}
-
-// For one symbol
-#[derive(Debug, Clone)]
-pub struct SymbolInfo {
-    // Data type used in RuLa
-    pub data_type: Types,
-}
-
-impl SymbolInfo {
-    pub fn new() -> Self {
-        SymbolInfo {
-            data_type: Types::Unknown,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn test_scope_tree_creation() {
-        // parent scope
-        let parent = Rc::new(RefCell::new(Scope::new("__@parent")));
-        // child scope
-        let child = Rc::new(RefCell::new(Scope::new("__@child")));
-        // register parent scope
-        child.borrow_mut().set_parent(Rc::downgrade(&parent));
-
-        // Check if it's possible to refer to the parent from child
-        let parent_ref = match child.borrow().ref_parent().unwrap() {
-            Some(paref) => paref,
-            None => {
-                panic!("No parents found");
-            }
-        };
-        assert_eq!(parent_ref.borrow().scope_name, String::from("__@parent"));
-    }
-
-    #[test]
-    fn test_scope_tree_look_up() {
-        // climb up to root to find a value
-        // root scope
-        let root = Rc::new(RefCell::new(Scope::new("__@root")));
-        root.borrow_mut()
-            .add_symbol("root_symbol", SymbolInfo::new());
-        // child scope
-        let child = Rc::new(RefCell::new(Scope::new("__@child")));
-        // grandchild
-        let grand_child = Rc::new(RefCell::new(Scope::new("__@grand_child")));
-
-        grand_child.borrow_mut().set_parent(Rc::downgrade(&child));
-        child.borrow_mut().set_parent(Rc::downgrade(&root));
-
-        let root_symbol = child
-            .borrow_mut()
-            .get_symbol_info("root_symbol")
-            .expect("Failed to get symbol");
-        assert_eq!(root_symbol.data_type, Types::Unknown);
     }
 }

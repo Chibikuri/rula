@@ -1,4 +1,4 @@
-use super::symbol_table::Scope;
+use super::scope::Scope;
 use super::{symbol_table::SymbolTable, IResult};
 use rula_parser::parser::ast::*;
 use ruleset_ir::instructions::*;
@@ -7,20 +7,21 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 // Create symbol table to track new symbols
-type RefSymbolTable = RefCell<SymbolTable>;
+// type RefSymbolTable = RefCell<SymbolTable>;
+type RcRefCellScope = Rc<RefCell<Scope>>;
 
 // Convert RuLa expressions into RuleSet IR
 pub fn generate_ir(ast_tree: &AstNode) -> IResult<RuleSetIR> {
     // create symbol table to track new symbols
-    let symbol_table = RefCell::new(SymbolTable::new());
+    // let symbol_table = RefCell::new(SymbolTable::new());
     // Prepare a root global scope
     let global_scope = Rc::new(RefCell::new(Scope::new("__@global")));
-    global_scope.borrow_mut().root = true;
+    global_scope.borrow_mut().set_root();
 
     // Generate ir segment
     let mut ir_segment = RuleSetIR::new();
     let mut generated_ir = match ast_tree {
-        AstNode::RuLa(rula) => generate_rula_ir(rula, &symbol_table).unwrap(),
+        AstNode::RuLa(rula) => generate_rula_ir(rula, &global_scope).unwrap(),
         AstNode::PlaceHolder => todo!(),
     };
 
@@ -28,12 +29,12 @@ pub fn generate_ir(ast_tree: &AstNode) -> IResult<RuleSetIR> {
     Ok(ir_segment)
 }
 
-fn generate_rula_ir(rula: &RuLa, symbol_table: &RefSymbolTable) -> IResult<RuleSetIR> {
-    // In rula ast level, there is no scope introduction. It's still global scope
+fn generate_rula_ir(rula: &RuLa, parent_scope: &RcRefCellScope) -> IResult<RuleSetIR> {
+    // At this level, new scope is not introduced.
     // Ir segment for rula_ir
     let mut rula_ir_segment = RuleSetIR::new();
     let mut generated_ir = match &*rula.rula {
-        RuLaKind::Program(program) => generate_program_ir(program, symbol_table).unwrap(),
+        RuLaKind::Program(program) => generate_program_ir(program, &parent_scope).unwrap(),
         RuLaKind::Ignore => {
             let mut ignorant_ir = RuleSetIR::new();
             ignorant_ir.add_instruction(Box::new(NOP::new(None)));
@@ -45,16 +46,16 @@ fn generate_rula_ir(rula: &RuLa, symbol_table: &RefSymbolTable) -> IResult<RuleS
     Ok(rula_ir_segment)
 }
 
-fn generate_program_ir(program: &Program, symbol_table: &RefSymbolTable) -> IResult<RuleSetIR> {
+fn generate_program_ir(program: &Program, parent_scope: &RcRefCellScope) -> IResult<RuleSetIR> {
     // For program level ir, prepare segment ir for all the program asts
     let mut program_ir_segment = RuleSetIR::new();
     for prog in program.programs.iter() {
         let mut generated_ir = match prog {
-            ProgramKind::Import(import) => generate_import_ir(import, symbol_table).unwrap(),
+            ProgramKind::Import(import) => generate_import_ir(import, parent_scope).unwrap(),
             ProgramKind::RuleSetExpr(ruleset) => {
-                generate_ruleset_expr_ir(ruleset, symbol_table).unwrap()
+                generate_ruleset_expr_ir(ruleset, parent_scope).unwrap()
             }
-            ProgramKind::RuleExpr(rule) => generate_rule_expr_ir(rule, symbol_table).unwrap(),
+            ProgramKind::RuleExpr(rule) => generate_rule_expr_ir(rule, parent_scope).unwrap(),
             ProgramKind::Repeaters => {
                 todo!()
             }
@@ -62,23 +63,41 @@ fn generate_program_ir(program: &Program, symbol_table: &RefSymbolTable) -> IRes
 
         program_ir_segment.merge(&mut generated_ir)
     }
-    Ok(RuleSetIR::new())
+    Ok(program_ir_segment)
 }
 
-fn generate_import_ir(import: &Import, symbol_table: &RefSymbolTable) -> IResult<RuleSetIR> {
+fn generate_import_ir(import: &Import, parent_scope: &RcRefCellScope) -> IResult<RuleSetIR> {
+
+
     Ok(RuleSetIR::new())
 }
 
 fn generate_ruleset_expr_ir(
     ruleset_expr: &RuleSetExpr,
-    symbol_table: &RefSymbolTable,
+    parent_scope: &RcRefCellScope,
 ) -> IResult<RuleSetIR> {
+    let ruleset_name = &*ruleset_expr.name.name;
+    
+    // Introduce a new scope for ruleset clause
+    let ruleset_scope_name = String::from("__@ruleset_") + ruleset_name;
+    let ruleset_scope = Rc::new(RefCell::new(Scope::new(&ruleset_scope_name)));
+    ruleset_scope.borrow_mut().set_parent(Rc::downgrade(&parent_scope));
+
+    // 
     Ok(RuleSetIR::new())
 }
 
 fn generate_rule_expr_ir(
     rule_expr: &RuleExpr,
-    symbol_table: &RefSymbolTable,
+    parent_scope: &RcRefCellScope,
 ) -> IResult<RuleSetIR> {
+    let rule_name = &*rule_expr.name.name;
+
+    // Introduce a new scope for rule clause
+    let rule_scope_name = String::from("__@rule_") + rule_name;
+    let rule_scope = Rc::new(RefCell::new(Scope::new(&rule_scope_name)));
+    rule_scope.borrow_mut().set_parent(Rc::downgrade(&parent_scope));
+
+
     Ok(RuleSetIR::new())
 }

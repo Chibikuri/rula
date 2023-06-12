@@ -152,8 +152,8 @@ fn expand() {
 #[cfg(test)]
 mod tests {
     use crate::{
-        instructions::{ADD, BITWISE_AND, SET},
-        types::RegId,
+        instructions::{ADD, BITWISE_AND, RET, SET},
+        types::{RegId, ReturnCode},
         RuleSetIR,
     };
 
@@ -174,6 +174,33 @@ mod tests {
 
         parent_ir.merge(&mut child_ir);
 
+        assert_eq!(parent_ir.instructions.len(), 4);
+        println!("{:#?}", parent_ir.instructions);
+    }
+
+    #[test]
+    fn test_merging_multiple_ruleset_ir() {
+        let mut parent_ir = RuleSetIR::new();
+        // RET instruction
+        let ret_inst = RET::new(ReturnCode::Nothing);
+        parent_ir.add_instruction(Box::new(ret_inst));
+
+        let mut child_ir1 = RuleSetIR::new();
+        child_ir1.add_instruction(Box::new(ADD::new(RegId::Reg0, RegId::Reg1, 1)));
+
+        let mut child_ir2 = RuleSetIR::new();
+        child_ir2.add_instruction(Box::new(ADD::new(RegId::Reg0, RegId::Reg1, 1)));
+
+        let mut child_ir3 = RuleSetIR::new();
+        child_ir3.add_instruction(Box::new(ADD::new(RegId::Reg1, RegId::Reg2, 1)));
+
+        let ruleset_irs = vec![child_ir1, child_ir2, child_ir3];
+
+        for mut ir in ruleset_irs.into_iter() {
+            parent_ir.merge(&mut ir);
+        }
+
+        // The number of instrucitons must be 4 ()
         assert_eq!(parent_ir.instructions.len(), 4);
         println!("{:#?}", parent_ir.instructions);
     }
