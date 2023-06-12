@@ -1,4 +1,4 @@
-use super::{ruleset::ProtocolMessages, types::RuLaResult};
+use super::ruleset::ProtocolMessages;
 use core::time::Duration;
 use serde::{Deserialize, Serialize};
 

@@ -2,7 +2,21 @@
 extern crate quote;
 extern crate syn;
 
+pub mod generator{
+    pub mod generator;
+    pub mod symbol_table;
+    pub mod scope;
+    pub mod types;
+
+    #[cfg(not(tarpaulin_include))]
+    mod error;
+
+    use error::CompileError;
+    type IResult<T> = std::result::Result<T, CompileError>;
+}
+
 // Generator of ruleset
+#[deprecated]
 pub mod ruleset_gen {
     #[cfg(not(tarpaulin_include))]
     mod error;
@@ -12,14 +26,17 @@ pub mod ruleset_gen {
     pub mod conf_parser;
     pub mod factory;
     pub mod ruleset;
+    // ruleset_generator generates RuleSet in json format
     pub mod ruleset_generator;
     pub mod tracker;
     pub mod types;
 
     mod test_ruleset_generator;
 
+    use error::InternalError;
     use error::RuleSetGenError;
     type IResult<T> = std::result::Result<T, RuleSetGenError>;
+    type InternalResult<T> = std::result::Result<T, InternalError>;
 }
 
 #[cfg(test)]

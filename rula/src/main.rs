@@ -1,9 +1,9 @@
 use proc_macro2::TokenStream;
+use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Command;
-use std::{env, fs};
 
 use clap::Parser;
 
@@ -20,6 +20,9 @@ struct Args {
 
     /// RuLa configuration
     config: PathBuf,
+
+    /// Output format of the RuleSet
+    output_format: Option<String>,
 
     /// Output directory path
     output_dir_path: Option<PathBuf>,

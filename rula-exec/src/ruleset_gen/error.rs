@@ -10,3 +10,10 @@ pub enum RuleSetGenError {
     ArgumentNumberError,
     NeedIdentifierTypeAnnotationError,
 }
+
+#[derive(Debug)]
+pub enum InternalError {
+    ParentScopeNotFoundError,
+    ParentScopeDroppedError,
+    NoSymbolFoundError,
+}

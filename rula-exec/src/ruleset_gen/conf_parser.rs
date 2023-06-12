@@ -1,6 +1,6 @@
-use crate::ruleset_gen::ruleset::AddressKind;
 use super::types::Repeater;
 use super::IResult;
+use crate::ruleset_gen::ruleset::AddressKind;
 
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,7 @@ pub fn parse_config(file_path: &PathBuf) -> IResult<Vec<Repeater>> {
     // Initiator (#1) < --- > Responder (#fin)
     // 1. Generate all repeaters
     let mut repeaters = vec![];
-    for (index, content) in config.repeaters.iter().enumerate(){
+    for (index, content) in config.repeaters.iter().enumerate() {
         let mut repeater = Repeater::new(&content.name);
         repeater.update_index(index as u64);
         repeater.update_address(content.address.clone());
@@ -60,8 +60,8 @@ fn deserialize_config(file_path: &PathBuf) -> IResult<RepeaterConfigs> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
     use crate::ruleset_gen::tracker::Tracker;
+    use std::cell::RefCell;
 
     #[test]
     fn test_parse_config() {
@@ -77,7 +77,7 @@ mod tests {
     fn test_repeater_resolve() {
         // #1 < -- > #2 < -- > #3 < -- > #4 < -- > #5
         let config_path = PathBuf::from("../examples/v2/config.json");
-        let tracker = RefCell::new(Tracker::new());
+        let _tracker = RefCell::new(Tracker::new());
         let repeater_list = parse_config(&config_path).unwrap();
         assert_eq!(repeater_list.len(), 5);
 
